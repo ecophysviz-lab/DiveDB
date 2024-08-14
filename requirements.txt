@@ -1,0 +1,7 @@
+black
+django
+flake8
+importlib-metadata==4.8.3
+load_dotenv
+pytest
+pytest-django
