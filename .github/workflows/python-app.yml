@@ -16,6 +16,25 @@ jobs:
 
     env:
       DJANGO_SECRET_KEY: "mock-secret-key"
+      POSTGRES_DB: "divedb"
+      POSTGRES_USER: "divedbuser"
+      POSTGRES_PASSWORD: "divedbpassword"
+      POSTGRES_PORT: 5432
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_DB: divedb
+          POSTGRES_USER: divedbuser
+          POSTGRES_PASSWORD: divedbpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
