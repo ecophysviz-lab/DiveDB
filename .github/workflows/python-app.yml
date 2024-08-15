@@ -4,8 +4,7 @@
 name: Python application
 
 on:
-  pull_request:
-    branches: [ "main", "staging" ]
+  pull_request
 
 permissions:
   contents: read
