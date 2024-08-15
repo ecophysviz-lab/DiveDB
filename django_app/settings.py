@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv()
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 if SECRET_KEY == "":
-    raise ValueError("SECRET_KEY is not set")
+    raise ValueError("DJANGO_SECRET_KEY is not set")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
