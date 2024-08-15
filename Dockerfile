@@ -20,7 +20,7 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Run any available migrations
-RUN python manage.py migrate
+# RUN python manage.py migrate
 
 # Run the Django application
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

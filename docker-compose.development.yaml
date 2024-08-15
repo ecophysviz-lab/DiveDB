@@ -10,5 +10,6 @@ services:
       - "8000:8000"
     environment:
       - DJANGO_SETTINGS_MODULE=django_app.settings
+      - POSTGRES_HOST=host.docker.internal
     env_file:
       - .env

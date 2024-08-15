@@ -12,25 +12,48 @@ To start local development, follow these steps:
    cd divedb
    ```
 
-2. **Build and start the Docker containers using docker-compose:**
+1. **Create the local PostgreSQL database and user:**
    ```sh
-   docker-compose -f docker-compose.development.yaml up --build -d
+   psql -U postgres -c "CREATE DATABASE divedb;"
+   psql -U postgres -c "CREATE USER divedbuser WITH PASSWORD 'divedbpassword';"
+   psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE divedb TO divedbuser;"
    ```
 
-3. **Run migrations:**
+1. **Set up the environment variables:**
+   Copy the `.env.example` file to `.env` and update the values as needed:
    ```sh
-   docker-compose -f docker-compose.development.yaml exec web python manage.py migrate
+   cp .env.example .env
+   ```
+   Make sure to set the `DJANGO_SECRET_KEY` to a secure value.
+
+1. **Start the application:**
+   ```sh
+   # Spin up Docker
+   docker compose -f docker-compose.development.yaml up --build -d
+   # or run natively
+   python manage.py runserver
    ```
 
-4. **Create a superuser:**
+1. **Run migrations:**
    ```sh
-   docker-compose -f docker-compose.development.yaml exec web python manage.py createsuperuser
+   # Run in Docker
+   docker compose -f docker-compose.development.yaml exec web python manage.py migrate
+   # or run natively
+   python manage.py migrate
    ```
 
-5. **Access the application:**
+1. **Create a superuser:**
+   ```sh
+   # Run in Docker
+   docker compose -f docker-compose.development.yaml exec web python manage.py createsuperuser
+   # or run natively
+   python manage.py createsuperuser
+   ```
+
+1. **Access the application:**
    Open your web browser and go to `http://localhost:8000`.
 
-6. **Install pre-commit hooks:**
+1. **Install pre-commit hooks:**
    ```sh
    pre-commit install
    ```
@@ -39,27 +62,27 @@ To start local development, follow these steps:
 
 - **To stop the containers:**
   ```sh
-  docker-compose -f docker-compose.development.yaml down
+  docker compose -f docker-compose.development.yaml down
   ```
 
 - **To rebuild the Docker image:**
   ```sh
-  docker-compose -f docker-compose.development.yaml build
+  docker compose -f docker-compose.development.yaml build
   ```
 
 - **To access the Django shell:**
   ```sh
-  docker-compose -f docker-compose.development.yaml exec web python manage.py shell
+  docker compose -f docker-compose.development.yaml exec web python manage.py shell
   ```
 
 - **To enter the Docker container with bash:**
   ```sh
-  docker-compose -f docker-compose.development.yaml exec web bash
+  docker compose -f docker-compose.development.yaml exec web bash
   ```
 
 - **To run tests:**
   ```sh
-  docker-compose -f docker-compose.development.yaml exec web pytest
+  docker compose -f docker-compose.development.yaml exec web pytest
   <!-- OR -->
   pip install -r requirements.txt
   pytest
