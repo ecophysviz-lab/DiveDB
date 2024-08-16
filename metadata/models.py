@@ -26,13 +26,13 @@ class Loggers(models.Model):
     """
 
     wiki = models.OneToOneField(LoggersWiki, on_delete=models.CASCADE)
-    icon_url = models.TextField(null=True, blank=True)
-    serial_no = models.TextField(null=True, blank=True)
-    manufacturer = models.TextField(null=True, blank=True)
-    type = models.TextField(null=True, blank=True)
-    type_name = models.TextField(null=True, blank=True)
+    icon_url = models.URLField(null=True, blank=True)
+    serial_no = models.CharField(null=True, blank=True)
+    manufacturer = models.CharField(null=True, blank=True)
+    type = models.CharField(null=True, blank=True)
+    type_name = models.CharField(null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
-    owner = models.TextField(null=True, blank=True)
+    owner = models.CharField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Logger"
@@ -44,10 +44,10 @@ class Animals(models.Model):
     Animals is a model that represents an animal in a diving project.
     """
 
-    id = models.TextField(primary_key=True)
-    project_id = models.TextField()
-    common_name = models.TextField()
-    scientific_name = models.TextField()
+    id = models.CharField(primary_key=True)
+    project_id = models.CharField()
+    common_name = models.CharField()
+    scientific_name = models.CharField()
 
     class Meta:
         verbose_name = "Animal"
@@ -59,12 +59,20 @@ class Deployments(models.Model):
     Deployments is a model that represents a boat trip to collect data.
     """
 
-    id = models.TextField(primary_key=True)
+    TIMEZONE_CHOICES = [
+        ("UTC", "UTC"),
+        ("US/Pacific", "US/Pacific"),
+        ("US/Mountain", "US/Mountain"),
+        ("US/Central", "US/Central"),
+        ("US/Eastern", "US/Eastern"),
+    ]
+
+    id = models.CharField(primary_key=True)
     rec_date = models.DateField()
-    animal = models.TextField()
+    animal = models.CharField()
     start_time = models.DateTimeField(null=True, blank=True)
     start_time_precision = models.TextField(null=True, blank=True)
-    timezone = models.TextField()
+    timezone = models.CharField(max_length=32, choices=TIMEZONE_CHOICES)
     notes = models.TextField(null=True, blank=True)
 
     class Meta:
@@ -90,13 +98,19 @@ class Recordings(models.Model):
     Recordings is a model that represents a recording of data from a logger.
     """
 
-    id = models.TextField(primary_key=True)
+    PRECISION_CHOICES = [
+        ("precise", "Precise"),
+        ("approximate", "Approximate"),
+    ]
+    id = models.CharField(primary_key=True)
     animal_deployment = models.ForeignKey(AnimalDeployments, on_delete=models.CASCADE)
     logger = models.ForeignKey(Loggers, on_delete=models.CASCADE)
     start_time = models.DateTimeField()
     actual_start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
-    start_time_precision = models.TextField(null=True, blank=True)
+    start_time_precision = models.CharField(
+        null=True, blank=True, choices=PRECISION_CHOICES
+    )
 
     class Meta:
         verbose_name = "Recording"
@@ -112,11 +126,11 @@ class Files(models.Model):
         ("media", "Media"),
         ("data", "Data"),
     ]
-    extension = models.TextField()
+    extension = models.CharField()
     type = models.CharField(max_length=5, choices=FILE_TYPE_CHOICES)
     config_metadata = models.JSONField(null=True, blank=True)
-    delta_path = models.TextField(null=True, blank=True)
-    file_path = models.TextField(null=True, blank=True)
+    delta_path = models.CharField(null=True, blank=True)
+    file_path = models.CharField(null=True, blank=True)
     recording = models.ForeignKey(Recordings, on_delete=models.CASCADE)
 
     class Meta:
