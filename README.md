@@ -12,6 +12,12 @@ To start local development, follow these steps:
    cd divedb
    ```
 
+1. **Install pre-commit hooks:**
+   ```sh
+   pip install pre-commit
+   pre-commit install
+   ```
+
 1. **Create the local PostgreSQL database and user:**
    ```sh
    psql -U postgres -c "CREATE DATABASE divedb;"
@@ -29,7 +35,7 @@ To start local development, follow these steps:
 1. **Start the application:**
    ```sh
    # Spin up Docker
-   docker compose -f docker-compose.development.yaml up --build -d
+   make up
    # or run natively
    python manage.py runserver
    ```
@@ -37,7 +43,7 @@ To start local development, follow these steps:
 1. **Run migrations:**
    ```sh
    # Run in Docker
-   docker compose -f docker-compose.development.yaml exec web python manage.py migrate
+   make migrate
    # or run natively
    python manage.py migrate
    ```
@@ -45,7 +51,7 @@ To start local development, follow these steps:
 1. **Create a superuser:**
    ```sh
    # Run in Docker
-   docker compose -f docker-compose.development.yaml exec web python manage.py createsuperuser
+   make createsuperuser
    # or run natively
    python manage.py createsuperuser
    ```
@@ -53,37 +59,33 @@ To start local development, follow these steps:
 1. **Access the application:**
    Open your web browser and go to `http://localhost:8000`.
 
-1. **Install pre-commit hooks:**
-   ```sh
-   pre-commit install
-   ```
-
 ## Additional Commands
 
 - **To stop the containers:**
   ```sh
-  docker compose -f docker-compose.development.yaml down
+  make down
   ```
 
 - **To rebuild the Docker image:**
   ```sh
-  docker compose -f docker-compose.development.yaml build
+  make build
   ```
 
-- **To access the Django shell:**
+- **To access the Django shell in Docker:**
   ```sh
-  docker compose -f docker-compose.development.yaml exec web python manage.py shell
+  make shell
   ```
 
-- **To enter the Docker container with bash:**
+- **To enter the Docker container with bash in Docker:**
   ```sh
-  docker compose -f docker-compose.development.yaml exec web bash
+  make bash
   ```
 
 - **To run tests:**
   ```sh
-  docker compose -f docker-compose.development.yaml exec web pytest
-  <!-- OR -->
+  # Run in Docker
+  make test
+  # or run natively
   pip install -r requirements.txt
   pytest
   ```
