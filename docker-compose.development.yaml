@@ -13,6 +13,8 @@ services:
       - POSTGRES_HOST=postgres
     env_file:
       - .env
+    depends_on:
+      - postgres
 
   postgres:
     image: postgres:16
@@ -22,7 +24,4 @@ services:
       - POSTGRES_PASSWORD=divedbpassword
       - POSTGRES_PORT=5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
+      - ${POSTGRES_LOCAL_DATA_MOUNT}:/var/lib/postgresql/data
