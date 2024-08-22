@@ -6,11 +6,14 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
+      - ${HOST_DELTA_LAKE_PATH}:/data/delta-lake
+      - ${HOST_FILE_STORAGE_PATH}:/data/files
     ports:
       - "8000:8000"
     environment:
-      - DJANGO_SETTINGS_MODULE=django_app.settings
       - POSTGRES_HOST=postgres
+      - HOST_DELTA_LAKE_PATH=/data/
+      - HOST_FILE_STORAGE_PATH=/data/
     env_file:
       - .env
     depends_on:
@@ -25,3 +28,5 @@ services:
       - POSTGRES_PORT=5432
     volumes:
       - ${POSTGRES_LOCAL_DATA_MOUNT}:/var/lib/postgresql/data
+    env_file:
+      - .env 
