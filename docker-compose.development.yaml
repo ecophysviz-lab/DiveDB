@@ -6,14 +6,10 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
-      - ${HOST_DELTA_LAKE_PATH}:/data/delta-lake
-      - ${HOST_FILE_STORAGE_PATH}:/data/files
+      - ${HOST_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
+      - ${HOST_FILE_STORAGE_PATH}:${CONTAINER_FILE_STORAGE_PATH}
     ports:
       - "8000:8000"
-    environment:
-      - POSTGRES_HOST=postgres
-      - HOST_DELTA_LAKE_PATH=/data/
-      - HOST_FILE_STORAGE_PATH=/data/
     env_file:
       - .env
     depends_on:
@@ -21,12 +17,28 @@ services:
 
   postgres:
     image: postgres:16
-    environment:
-      - POSTGRES_DB=divedb
-      - POSTGRES_USER=divedbuser
-      - POSTGRES_PASSWORD=divedbpassword
-      - POSTGRES_PORT=5432
     volumes:
       - ${POSTGRES_LOCAL_DATA_MOUNT}:/var/lib/postgresql/data
     env_file:
       - .env 
+  
+  prefect:
+    build:
+      context: ./prefect
+    ports:
+      - "4200:4200"
+    env_file:
+      - .env
+    volumes:
+      - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
+
+  jupyter:
+    build:
+      context: ./jupyter
+    ports:
+      - "8888:8888"
+    env_file:
+      - .env
+    volumes:
+      - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
+      - ./services:/app/services
