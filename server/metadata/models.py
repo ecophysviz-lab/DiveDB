@@ -4,6 +4,7 @@ This module contains the models for the metadata app.
 
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
+from datetime import datetime
 
 
 class LoggersWiki(models.Model):
@@ -105,7 +106,7 @@ class Recordings(models.Model):
         ("precise", "Precise"),
         ("approximate", "Approximate"),
     ]
-    id = models.CharField(primary_key=True)
+    id = models.CharField(primary_key=True, editable=False)
     animal_deployment = models.ForeignKey(AnimalDeployments, on_delete=models.CASCADE)
     logger = models.ForeignKey(Loggers, on_delete=models.CASCADE)
     start_time = models.DateTimeField()
@@ -118,6 +119,17 @@ class Recordings(models.Model):
     class Meta:
         verbose_name = "Recording"
         verbose_name_plural = "Recordings"
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            animal_id = self.animal_deployment.animal.id
+            logger_id = self.logger.id
+            # Ensure start_time is a datetime object
+            if isinstance(self.start_time, str):
+                self.start_time = datetime.fromisoformat(self.start_time)
+            start_time_str = self.start_time.strftime("%Y%m%d")
+            self.id = f"{start_time_str}_{animal_id}_{logger_id}"
+        super().save(*args, **kwargs)
 
 
 class Files(models.Model):

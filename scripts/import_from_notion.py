@@ -9,6 +9,13 @@ from asgiref.sync import sync_to_async
 from datetime import datetime
 
 import logging
+
+# Add the parent directory to the system path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.django_app.settings")
+django.setup()
+
 from server.metadata.models import (
     Deployments,
     Loggers,
@@ -16,12 +23,6 @@ from server.metadata.models import (
     Recordings,
     AnimalDeployments,
 )
-
-# Add the parent directory to the system path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.django_app.settings")
-django.setup()
 
 
 async def main():
