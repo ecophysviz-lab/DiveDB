@@ -5,6 +5,7 @@ duckdb
 flake8
 importlib-metadata==4.8.3
 load_dotenv
+notion_client
 pre-commit
 psycopg2-binary
 pyarrow

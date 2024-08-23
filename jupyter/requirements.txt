@@ -20,3 +20,4 @@ prefect
 prefect-dask
 
 polars
+hvplot

@@ -25,8 +25,11 @@ class Loggers(models.Model):
     Loggers is a model that represents a logger attached to diving vertebrates.
     """
 
-    wiki = models.OneToOneField(LoggersWiki, on_delete=models.CASCADE)
-    icon_url = models.URLField(null=True, blank=True)
+    id = models.CharField(primary_key=True)
+    wiki = models.OneToOneField(
+        LoggersWiki, null=True, blank=True, on_delete=models.CASCADE
+    )
+    icon_url = models.URLField(max_length=1000, null=True, blank=True)
     serial_no = models.CharField(null=True, blank=True)
     manufacturer = models.CharField(null=True, blank=True)
     type = models.CharField(null=True, blank=True)
