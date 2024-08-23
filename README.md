@@ -56,6 +56,14 @@ To start local development, follow these steps:
    python manage.py createsuperuser
    ```
 
+1. **Import data from Notion:**
+   ```sh
+   # Run in Docker
+   make import_from_notion
+   # or run natively
+   python scripts/import_from_notion.py
+   ```
+
 1. **Access the application:**
    Open your web browser and go to `http://localhost:8000`.
 

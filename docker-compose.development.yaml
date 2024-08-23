@@ -20,7 +20,9 @@ services:
     volumes:
       - ${POSTGRES_LOCAL_DATA_MOUNT}:/var/lib/postgresql/data
     env_file:
-      - .env 
+      - .env
+    ports:
+      - "5432:5432"
   
   prefect:
     build:
@@ -42,3 +44,6 @@ services:
     volumes:
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
       - ./services:/app/services
+      - ./server:/app/server
+    depends_on:
+      - postgres
