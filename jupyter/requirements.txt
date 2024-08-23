@@ -18,3 +18,5 @@ netCDF4
 
 prefect
 prefect-dask
+
+polars
