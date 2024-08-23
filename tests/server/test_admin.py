@@ -1,11 +1,15 @@
 import pytest
 from django.urls import reverse
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 
 
 @pytest.mark.django_db
 def test_admin_page(client):
     """Test that the admin page is accessible to the superuser."""
+    # Get the user model
+    # pylint: disable=invalid-name
+    User = get_user_model()
+
     # Create a superuser
     User.objects.create_superuser("admin", "admin@example.com", "password")
 

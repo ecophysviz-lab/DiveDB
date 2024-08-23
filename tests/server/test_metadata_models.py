@@ -1,6 +1,6 @@
 import pytest
 from django.utils import timezone
-from metadata.models import (
+from server.metadata.models import (
     LoggersWiki,
     Loggers,
     Animals,
