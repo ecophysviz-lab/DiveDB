@@ -39,6 +39,7 @@ class Duck_Lake:
             name=name,
             description=description,
         )
+
         
     def write_parquet_to_delta(
         self,
@@ -56,8 +57,6 @@ class Duck_Lake:
                     **kwargs
                 )
                 logging.info(f"Streamed row group {i} from {parquet_file} to Delta Lake")
-        
-    
 
     @staticmethod
     def get_schema():
