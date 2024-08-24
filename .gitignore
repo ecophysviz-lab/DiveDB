@@ -166,3 +166,4 @@ cython_debug/
 
 pg_data
 data
+.DS_Store

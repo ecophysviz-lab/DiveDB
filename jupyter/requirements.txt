@@ -21,3 +21,6 @@ prefect-dask
 
 polars
 hvplot
+
+python-swiftclient 
+python-keystoneclient
