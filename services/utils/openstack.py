@@ -20,10 +20,16 @@ class SwiftClient:
     client = swiftclient.Connection(session=sess)
 
     def get_containers(self):
-        return self.client.get_account[1]
+        return self.client.get_account()[1]
     
-    def list_objects(self, container_name: str):
-        return self.client.get_container(container_name)[1]
+    def list_objects(self, container_name: str, regex = None):
+        import re
+
+        all_objects = self.client.get_container(container_name)[1]
+        if not regex:
+            return all_objects
+        filtered_objects = [obj for obj in all_objects if re.match(regex, obj['name'])]
+        return filtered_objects
     
     def get_object_binary(self, container_name: str, object_name: str):
         return self.client.get_object(container_name, object_name)[1]
@@ -32,5 +38,14 @@ class SwiftClient:
         obj = self.get_object_binary(**kwargs)
         with open(output, 'wb') as f:
             f.write(obj)
+            
+    def put_object_to_swift(self, container_name:str, object_name:str, contents: str):
+        # Untested while waiting on JKB to make a dev bucket
+        with open(contents, 'rb') as file_data:
+            self.client.put_object(
+                container_name, 
+                object_name,
+                contents=file_data
+            )
     
     
