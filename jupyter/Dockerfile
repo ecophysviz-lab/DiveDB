@@ -3,7 +3,7 @@ FROM python:3.12
 WORKDIR /app
 
 COPY ./requirements.txt /app/requirements.txt
-RUN pip3 install -r requirements.txt --break-system-packages
+RUN pip3 install -r requirements.txt
 
 COPY . /app
 COPY ./jupyter_notebook_config.py /root/.jupyter/jupyter_notebook_config.py

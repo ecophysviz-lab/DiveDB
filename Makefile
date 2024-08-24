@@ -9,6 +9,9 @@ down:
 build:
 	docker compose -f docker-compose.development.yaml build
 
+makemigrations:
+	docker compose -f docker-compose.development.yaml exec web python manage.py makemigrations
+
 migrate:
 	docker compose -f docker-compose.development.yaml exec web python manage.py migrate
 
@@ -23,3 +26,6 @@ bash:
 
 test:
 	docker compose -f docker-compose.development.yaml exec web pytest
+
+importmetadata:
+	docker compose -f docker-compose.development.yaml exec web python scripts/import_from_notion.py
