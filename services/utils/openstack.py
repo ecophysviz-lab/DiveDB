@@ -3,7 +3,7 @@ from swiftclient import client as swiftclient
 import os
 
 OPENSTACK_AUTH_URL = os.environ["OPENSTACK_AUTH_URL"]
-OPANSTACK_APPLICATION_CREDENTIAL_ID = os.environ["OPANSTACK_APPLICATION_CREDENTIAL_ID"]
+OPENSTACK_APPLICATION_CREDENTIAL_ID = os.environ["OPENSTACK_APPLICATION_CREDENTIAL_ID"]
 OPENSTACK_APPLICATION_CREDENTIAL_SECRET = os.environ[
     "OPENSTACK_APPLICATION_CREDENTIAL_SECRET"
 ]
@@ -12,7 +12,7 @@ class SwiftClient:
     loader = loading.get_plugin_loader("v3applicationcredential")
     auth = loader.load_from_options(
         auth_url=OPENSTACK_AUTH_URL,
-        application_credential_id=OPANSTACK_APPLICATION_CREDENTIAL_ID,
+        application_credential_id=OPENSTACK_APPLICATION_CREDENTIAL_ID,
         application_credential_secret=OPENSTACK_APPLICATION_CREDENTIAL_SECRET,
     )
 
