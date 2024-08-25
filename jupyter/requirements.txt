@@ -11,6 +11,8 @@ load_dotenv
 matplotlib
 mne
 netCDF4
+
+notion_client
 numpy
 pandas
 

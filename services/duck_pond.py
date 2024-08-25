@@ -11,7 +11,7 @@ import pyarrow as pa
 from deltalake import DeltaTable, write_deltalake
 
 
-class Duck_Lake:
+class DuckPond:
     """Delta Lake Manager"""
 
     delta_path: str = os.getenv("CONTAINER_DELTA_LAKE_PATH")
@@ -43,7 +43,7 @@ class Duck_Lake:
             description=description,
         )
 
-    def write_parquet_to_delta(self, parquet_files: List[str], **kwargs):
+    def write_parquet(self, parquet_files: List[str], **kwargs):
         """Write data to our delta lake"""
         for parquet_path in parquet_files:
             parquet_file = pa.parquet.ParquetFile(parquet_path)
@@ -54,11 +54,6 @@ class Duck_Lake:
                 logging.info(
                     f"Streamed row group {i} from {parquet_file} to Delta Lake"
                 )
-
-    @staticmethod
-    def get_schema():
-        """Get the schema of our delta lake"""
-        return Duck_Lake.delta_table.schema()
 
     def close_connection(self):
         """Close the connection to our delta lake"""

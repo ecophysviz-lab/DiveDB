@@ -1,8 +1,11 @@
 import logging
 import os
+from time import sleep
 from datetime import datetime
 from enum import Enum
 from typing import List
+import pandas as pd
+from IPython.display import clear_output
 
 import django
 from notion_client import Client
@@ -31,21 +34,39 @@ class ModelNames(Enum):
     RECORDING = "recording"
 
 
+ModelLookupKeys = {
+    ModelNames.ANIMAL: "project_id",
+    ModelNames.DEPLOYMENT: "ID",
+    ModelNames.LOGGER: "LoggerID",
+    ModelNames.RECORDING: "ID",
+}
+
+NotionLookupKeys = {
+    ModelNames.ANIMAL: "ProjectID",
+    ModelNames.DEPLOYMENT: "ID",
+    ModelNames.LOGGER: "LoggerID",
+    ModelNames.RECORDING: "ID",
+}
+
+
 class MetadataManager:
-    notion = Client(auth=os.getenv("NOTION_API_KEY"), log_level="ERROR")
-    model_names = ModelNames
-    databases = {
-        model_names.DEPLOYMENT: os.getenv("DEPLOYMENTS_DB_ID"),
-        model_names.RECORDING: os.getenv("RECORDINGS_DB_ID"),
-        model_names.LOGGER: os.getenv("LOGGERS_DB_ID"),
-        model_names.ANIMAL: os.getenv("ANIMALS_DB_ID"),
-    }
-    models = {
-        model_names.DEPLOYMENT: Deployments,
-        model_names.RECORDING: Recordings,
-        model_names.LOGGER: Loggers,
-        model_names.ANIMAL: Animals,
-    }
+    def __init__(self):
+        self.models = {
+            ModelNames.ANIMAL: Animals,
+            ModelNames.DEPLOYMENT: Deployments,
+            ModelNames.LOGGER: Loggers,
+            ModelNames.RECORDING: Recordings,
+        }
+        self.databases = {
+            ModelNames.DEPLOYMENT: os.getenv("DEPLOYMENTS_DB_ID"),
+            ModelNames.RECORDING: os.getenv("RECORDINGS_DB_ID"),
+            ModelNames.LOGGER: os.getenv("LOGGERS_DB_ID"),
+            ModelNames.ANIMAL: os.getenv("ANIMALS_DB_ID"),
+        }
+        self.notion = Client(auth=os.getenv("NOTION_API_KEY"), log_level="ERROR")
+        self.csv_data = None
+        self.csv_metadata_map = None
+        self.model_names = ModelNames
 
     def delete_all_records(self, model_name):
         all_records = self.models[model_name].objects.all()
@@ -329,3 +350,99 @@ class MetadataManager:
             self.create_deployment_records(converted_data)
         elif model_name == ModelNames.RECORDING:
             self.create_recording_records(converted_data)
+
+    def get_metadata_from_csv(self, model_name: ModelNames):
+        notion_data = self.notion.databases.query(self.databases[model_name]).get(
+            "results"
+        )
+        notion_records = self.convert_notion_to_model(notion_data, model_name)
+        metadata_lookup = (
+            self.csv_metadata_map.get(model_name.value, "name")
+            if self.csv_metadata_map
+            else "name"
+        )
+        first_column_header = self.csv_data.columns[0]
+        print(first_column_header)
+        if metadata_lookup not in self.csv_data[first_column_header].values:
+            print(f"The {metadata_lookup} header does not exist in the first column.")
+        else:
+            name_index = self.csv_data[
+                self.csv_data[first_column_header] == metadata_lookup
+            ].index[0]
+            names = self.csv_data.iloc[
+                name_index, 1:
+            ]  # Assuming names are in the same row
+        print(
+            f"Pick from the following {model_name.value}s in the Metadata CSV or enter nothing to look up a new {model_name.value} in DiveDB: "
+        )
+        print(names)
+        sleep(2)
+        metadata_name = input(f"Metadata CSV {model_name.value.capitalize()} Name: ")
+        if metadata_name == "":
+            items = self.models[model_name].objects.all()
+            clear_output(wait=True)
+            print(
+                f"Pick from the following {model_name.value}s in DiveDB or enter nothing to look a new {model_name.value} in Notion: "
+            )
+            for item in items:
+                print(item.id)
+            sleep(2)
+            dive_db_name = input(f"DiveDB {model_name.value.capitalize()} Name: ")
+            if dive_db_name == "":
+                clear_output(wait=True)
+                print(
+                    f"Pick from the following {model_name.value}s in Notion or enter nothing to cancel: "
+                )
+                for notion_record in notion_records:
+                    print(notion_record["id"])
+                sleep(2)
+                notion_name = input(f"Notion {model_name.value.capitalize()} Name: ")
+                if notion_name == "":
+                    raise ValueError("No Notion record selected.")
+                else:
+                    for notion_record in notion_records:
+                        if notion_record["id"] == notion_name:
+                            new_item = self.models[model_name].objects.create(
+                                **notion_record
+                            )
+                            return new_item
+                    raise ValueError("No valid Notion record selected.")
+            else:
+                return self.models[model_name].objects.get(id=dive_db_name)
+        else:
+            for notion_record in notion_records:
+                if notion_record[ModelLookupKeys[model_name]] == metadata_name:
+                    if (
+                        self.models[model_name]
+                        .objects.filter(**{ModelLookupKeys[model_name]: metadata_name})
+                        .exists()
+                    ):
+                        return self.models[model_name].objects.get(
+                            id=notion_record["id"]
+                        )
+                    else:
+                        return self.models[model_name].objects.create(**notion_record)
+            raise ValueError("No valid Notion record selected.")
+
+    def get_animal_from_csv(self):
+        return self.get_metadata_from_csv(ModelNames.ANIMAL)
+
+    def get_deployment_from_csv(self):
+        return self.get_metadata_from_csv(ModelNames.DEPLOYMENT)
+
+    def get_logger_from_csv(self):
+        return self.get_metadata_from_csv(ModelNames.LOGGER)
+
+    def get_recording_from_csv(self):
+        return self.get_metadata_from_csv(ModelNames.RECORDING)
+
+    def get_metadata_models(
+        self, csv_metadata_path: str, csv_metadata_map: dict = None
+    ):
+        self.csv_data = pd.read_csv(csv_metadata_path, header=None)
+        self.csv_metadata_map = csv_metadata_map
+        animal = self.get_animal_from_csv()
+        deployment = self.get_deployment_from_csv()
+        logger = self.get_logger_from_csv()
+        recording = self.get_recording_from_csv()
+        return animal, deployment, logger, recording
