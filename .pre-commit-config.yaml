@@ -10,7 +10,7 @@ repos:
         - id: flake8
           additional_dependencies: [flake8-typing-imports==1.10.0]
           args: ["--config=.flake8"]
-          exclude: jupyter/jupyter_notebook_config.py
+          exclude: jupyter/*.py
     - repo: https://github.com/psf/black
       rev: 23.1.0
       hooks:
