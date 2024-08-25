@@ -1,14 +1,15 @@
 import pytest
 from django.utils import timezone
+
 from server.metadata.models import (
-    LoggersWiki,
-    Loggers,
+    AnimalDeployments,
     Animals,
     Deployments,
-    AnimalDeployments,
-    Recordings,
     Files,
+    Loggers,
+    LoggersWiki,
     MediaUpdates,
+    Recordings,
 )
 
 

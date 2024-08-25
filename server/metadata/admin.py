@@ -1,13 +1,14 @@
 from django.contrib import admin
+
 from .models import (
-    Loggers,
-    LoggersWiki,
+    AnimalDeployments,
     Animals,
     Deployments,
-    AnimalDeployments,
-    Recordings,
     Files,
+    Loggers,
+    LoggersWiki,
     MediaUpdates,
+    Recordings,
 )
 
 admin.site.register(Loggers)

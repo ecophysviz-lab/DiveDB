@@ -2,8 +2,10 @@
 This module contains the models for the metadata app.
 """
 
-from django.db import models
+from datetime import datetime
+
 from django.contrib.postgres.fields import ArrayField
+from django.db import models
 
 
 class LoggersWiki(models.Model):
@@ -25,8 +27,11 @@ class Loggers(models.Model):
     Loggers is a model that represents a logger attached to diving vertebrates.
     """
 
-    wiki = models.OneToOneField(LoggersWiki, on_delete=models.CASCADE)
-    icon_url = models.URLField(null=True, blank=True)
+    id = models.CharField(primary_key=True)
+    wiki = models.OneToOneField(
+        LoggersWiki, null=True, blank=True, on_delete=models.CASCADE
+    )
+    icon_url = models.URLField(max_length=1000, null=True, blank=True)
     serial_no = models.CharField(null=True, blank=True)
     manufacturer = models.CharField(null=True, blank=True)
     type = models.CharField(null=True, blank=True)
@@ -102,7 +107,7 @@ class Recordings(models.Model):
         ("precise", "Precise"),
         ("approximate", "Approximate"),
     ]
-    id = models.CharField(primary_key=True)
+    id = models.CharField(primary_key=True, editable=False)
     animal_deployment = models.ForeignKey(AnimalDeployments, on_delete=models.CASCADE)
     logger = models.ForeignKey(Loggers, on_delete=models.CASCADE)
     start_time = models.DateTimeField()
@@ -115,6 +120,17 @@ class Recordings(models.Model):
     class Meta:
         verbose_name = "Recording"
         verbose_name_plural = "Recordings"
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            animal_id = self.animal_deployment.animal.id
+            logger_id = self.logger.id
+            # Ensure start_time is a datetime object
+            if isinstance(self.start_time, str):
+                self.start_time = datetime.fromisoformat(self.start_time)
+            start_time_str = self.start_time.strftime("%Y%m%d")
+            self.id = f"{start_time_str}_{animal_id}_{logger_id}"
+        super().save(*args, **kwargs)
 
 
 class Files(models.Model):

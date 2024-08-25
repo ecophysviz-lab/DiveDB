@@ -1,28 +1,23 @@
 """
 Delta Lake Manager
 """
+
+import logging
 import os
+from typing import List
+
 import duckdb
-import pyarrow
+import pyarrow as pa
 from deltalake import DeltaTable, write_deltalake
 
 
 class Duck_Lake:
     """Delta Lake Manager"""
 
-    predefined_schemas = {
-        "schema1": pyarrow.schema(
-            [("id", pyarrow.int32()), ("name", pyarrow.string())]
-        ),
-        "schema2": pyarrow.schema(
-            [("timestamp", pyarrow.timestamp("s")), ("value", pyarrow.float64())]
-        ),
-    }
+    delta_path: str = os.getenv("CONTAINER_DELTA_LAKE_PATH")
+    delta_lake: DeltaTable | None = None
 
-    def __init__(self):
-        self.delta_path = os.getenv("HOST_DELTA_LAKE_PATH")
-        self.delta_table = DeltaTable(self.delta_path)
-        self.conn = duckdb.connect()
+    conn = duckdb.connect()
 
     def read_from_delta(self, query: str):
         """Read data from our delta lake"""
@@ -30,19 +25,15 @@ class Duck_Lake:
 
     def write_to_delta(
         self,
-        data,
-        schema_name: str,
+        data: pa.table,
+        schema: pa.schema,
         mode: str,
         partition_by: list[str],
         name: str,
         description: str,
     ):
         """Write data to our delta lake"""
-        if schema_name not in self.predefined_schemas:
-            raise ValueError(f"Schema {schema_name} is not predefined.")
-
-        schema = self.predefined_schemas[schema_name]
-        write_deltalake(
+        self.delta_lake = write_deltalake(
             table_or_uri=self.delta_path,
             data=data,
             schema=schema,
@@ -52,9 +43,22 @@ class Duck_Lake:
             description=description,
         )
 
-    def get_schema(self):
+    def write_parquet_to_delta(self, parquet_files: List[str], **kwargs):
+        """Write data to our delta lake"""
+        for parquet_path in parquet_files:
+            parquet_file = pa.parquet.ParquetFile(parquet_path)
+            logging.info(parquet_file.num_row_groups)
+            for i in range(parquet_file.num_row_groups):
+                row_group = parquet_file.read_row_group(i)
+                self.write_to_delta(data=row_group, **kwargs)
+                logging.info(
+                    f"Streamed row group {i} from {parquet_file} to Delta Lake"
+                )
+
+    @staticmethod
+    def get_schema():
         """Get the schema of our delta lake"""
-        return self.delta_table.schema()
+        return Duck_Lake.delta_table.schema()
 
     def close_connection(self):
         """Close the connection to our delta lake"""
