@@ -1,5 +1,6 @@
-import time
 import logging
+import time
+
 
 class TimingContext:
     def __init__(self, name):
@@ -12,4 +13,4 @@ class TimingContext:
     def __exit__(self, exc_type, exc_value, traceback):
         end_time = time.time()
         elapsed_time = end_time - self.start_time
-        logging.info(f"Finished {self.name} in {elapsed_time:.2f} seconds.")
+        logging.info(f"Finished {self.name} in {elapsed_time: .2f} seconds.")

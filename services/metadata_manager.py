@@ -1,20 +1,21 @@
-import os
-from notion_client import Client
-from datetime import datetime
 import logging
-import django
+import os
+from datetime import datetime
 from enum import Enum
 from typing import List
+
+import django
+from notion_client import Client
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.django_app.settings")
 django.setup()
 
 from server.metadata.models import (  # noqa: E402
+    AnimalDeployments,
+    Animals,
     Deployments,
     Loggers,
-    Animals,
     Recordings,
-    AnimalDeployments,
 )
 
 if os.environ.get("DJANGO_ALLOW_ASYNC_UNSAFE", "false") != "true":
@@ -58,40 +59,52 @@ class MetadataManager:
                 converted_data.append(
                     {
                         "id": properties["LoggerID"]["title"][0]["plain_text"],
-                        "serial_no": properties["SerialNo"]["rich_text"][0][
-                            "plain_text"
-                        ]
-                        if properties["SerialNo"]["rich_text"]
-                        else None,
-                        "manufacturer": properties["Manufacturer"]["select"]["name"]
-                        if properties["Manufacturer"]["select"]
-                        else None,
-                        "type": properties["Type"]["select"]["name"]
-                        if properties["Type"]["select"]
-                        else None,
-                        "type_name": properties["TypeName"]["select"]["name"]
-                        if properties["TypeName"]["select"]
-                        else None,
-                        "notes": properties["Notes"]["rich_text"][0]["plain_text"]
-                        if properties["Notes"]["rich_text"]
-                        else None,
-                        "owner": properties["Owner"]["rich_text"][0]["plain_text"]
-                        if properties["Owner"]["rich_text"]
-                        else None,
-                        "icon_url": properties["Icon"]["files"][0]["file"]["url"]
-                        if properties["Icon"]["files"]
-                        else None,
+                        "serial_no": (
+                            properties["SerialNo"]["rich_text"][0]["plain_text"]
+                            if properties["SerialNo"]["rich_text"]
+                            else None
+                        ),
+                        "manufacturer": (
+                            properties["Manufacturer"]["select"]["name"]
+                            if properties["Manufacturer"]["select"]
+                            else None
+                        ),
+                        "type": (
+                            properties["Type"]["select"]["name"]
+                            if properties["Type"]["select"]
+                            else None
+                        ),
+                        "type_name": (
+                            properties["TypeName"]["select"]["name"]
+                            if properties["TypeName"]["select"]
+                            else None
+                        ),
+                        "notes": (
+                            properties["Notes"]["rich_text"][0]["plain_text"]
+                            if properties["Notes"]["rich_text"]
+                            else None
+                        ),
+                        "owner": (
+                            properties["Owner"]["rich_text"][0]["plain_text"]
+                            if properties["Owner"]["rich_text"]
+                            else None
+                        ),
+                        "icon_url": (
+                            properties["Icon"]["files"][0]["file"]["url"]
+                            if properties["Icon"]["files"]
+                            else None
+                        ),
                     }
                 )
             elif model_name == self.model_names.ANIMAL:
                 converted_data.append(
                     {
                         "id": properties["AnimalID"]["title"][0]["plain_text"],
-                        "project_id": properties["ProjectID"]["rich_text"][0][
-                            "plain_text"
-                        ]
-                        if properties["ProjectID"]["rich_text"]
-                        else None,
+                        "project_id": (
+                            properties["ProjectID"]["rich_text"][0]["plain_text"]
+                            if properties["ProjectID"]["rich_text"]
+                            else None
+                        ),
                         "common_name": properties["CommonName"]["select"]["name"],
                         "scientific_name": properties["ScientificName"]["select"][
                             "name"
@@ -114,15 +127,17 @@ class MetadataManager:
                         "rec_date": properties["Rec Date"]["date"]["start"],
                         "animal": properties["Animal"]["select"]["name"],
                         "start_time": start_time,
-                        "start_time_precision": properties["Start Time Precision"][
-                            "select"
-                        ]["name"]
-                        if properties["Start Time Precision"]["select"]
-                        else None,
+                        "start_time_precision": (
+                            properties["Start Time Precision"]["select"]["name"]
+                            if properties["Start Time Precision"]["select"]
+                            else None
+                        ),
                         "timezone": properties["Time Zone"]["select"]["name"],
-                        "notes": properties["Notes"]["rich_text"][0]["plain_text"]
-                        if properties["Notes"]["rich_text"]
-                        else None,
+                        "notes": (
+                            properties["Notes"]["rich_text"][0]["plain_text"]
+                            if properties["Notes"]["rich_text"]
+                            else None
+                        ),
                     }
                 )
             elif model_name == self.model_names.RECORDING:
@@ -163,17 +178,21 @@ class MetadataManager:
                         "start_time": start_time,
                         "actual_start_time": actual_start_time,
                         "end_time": end_time,
-                        "start_time_precision": properties["Start Time Precision"][
-                            "select"
-                        ]["name"]
-                        if properties["Start Time Precision"]["select"]
-                        else None,
-                        "deployment_id": properties["Deployment"]["relation"][0]["id"]
-                        if properties["Deployment"]["relation"]
-                        else None,
-                        "logger_id": properties["LL-Loggers"]["relation"][0]["id"]
-                        if properties["LL-Loggers"]["relation"]
-                        else None,
+                        "start_time_precision": (
+                            properties["Start Time Precision"]["select"]["name"]
+                            if properties["Start Time Precision"]["select"]
+                            else None
+                        ),
+                        "deployment_id": (
+                            properties["Deployment"]["relation"][0]["id"]
+                            if properties["Deployment"]["relation"]
+                            else None
+                        ),
+                        "logger_id": (
+                            properties["LL-Loggers"]["relation"][0]["id"]
+                            if properties["LL-Loggers"]["relation"]
+                            else None
+                        ),
                     }
                 )
         return converted_data

@@ -2,9 +2,10 @@
 This module contains the models for the metadata app.
 """
 
-from django.db import models
-from django.contrib.postgres.fields import ArrayField
 from datetime import datetime
+
+from django.contrib.postgres.fields import ArrayField
+from django.db import models
 
 
 class LoggersWiki(models.Model):
