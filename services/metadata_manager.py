@@ -459,16 +459,16 @@ class MetadataManager:
     ):
         self.csv_data = pd.read_csv(csv_metadata_path, header=None)
         self.csv_metadata_map = csv_metadata_map
-        # animal = self.get_animal_from_csv()
-        # deployment = self.get_deployment_from_csv()
-        # logger = self.get_logger_from_csv()
-        # recording = self.get_recording_from_csv()
+        animal = self.get_animal_from_csv()
+        deployment = self.get_deployment_from_csv()
+        logger = self.get_logger_from_csv()
+        recording = self.get_recording_from_csv()
 
-        # Find a random animal and deployment and logger
-        animal = Animals.objects.order_by("?").first()
-        deployment = Deployments.objects.order_by("?").first()
-        logger = Loggers.objects.order_by("?").first()
-        recording = Recordings.objects.order_by("?").first()
+        # For dev mode: Find a random animal and deployment and logger
+        # animal = Animals.objects.order_by("?").first()
+        # deployment = Deployments.objects.order_by("?").first()
+        # logger = Loggers.objects.order_by("?").first()
+        # recording = Recordings.objects.order_by("?").first()
 
         # Create a new animal deployment (if one doesn't exist)
         AnimalDeployments.objects.get_or_create(animal=animal, deployment=deployment)

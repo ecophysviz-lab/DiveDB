@@ -27,3 +27,4 @@ python-keystoneclient
 
 python-swiftclient 
 seaborn
+tqdm
