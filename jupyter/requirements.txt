@@ -3,6 +3,7 @@ dask
 deltalake
 django
 duckdb
+edfio
 flake8
 hvplot
 importlib-metadata==4.8.3

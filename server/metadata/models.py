@@ -73,6 +73,7 @@ class Deployments(models.Model):
     ]
 
     id = models.CharField(primary_key=True)
+    deployment_name = models.CharField()
     rec_date = models.DateField()
     animal = models.CharField()
     start_time = models.DateTimeField(null=True, blank=True)
@@ -108,6 +109,7 @@ class Recordings(models.Model):
         ("approximate", "Approximate"),
     ]
     id = models.CharField(primary_key=True, editable=False)
+    name = models.CharField()
     animal_deployment = models.ForeignKey(AnimalDeployments, on_delete=models.CASCADE)
     logger = models.ForeignKey(Loggers, on_delete=models.CASCADE)
     start_time = models.DateTimeField()
@@ -148,6 +150,7 @@ class Files(models.Model):
     delta_path = models.CharField(null=True, blank=True)
     file_path = models.CharField(null=True, blank=True)
     recording = models.ForeignKey(Recordings, on_delete=models.CASCADE)
+    metadata = models.JSONField(null=True, blank=True)
 
     class Meta:
         verbose_name = "File"

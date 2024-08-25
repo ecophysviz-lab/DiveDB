@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 import pandas as pd
-from IPython.display import clear_output
+import sys
 
 import django
 from notion_client import Client
@@ -36,16 +36,16 @@ class ModelNames(Enum):
 
 ModelLookupKeys = {
     ModelNames.ANIMAL: "project_id",
-    ModelNames.DEPLOYMENT: "ID",
-    ModelNames.LOGGER: "LoggerID",
-    ModelNames.RECORDING: "ID",
+    ModelNames.DEPLOYMENT: "deployment_name",
+    ModelNames.LOGGER: "id",
+    ModelNames.RECORDING: "name",
 }
 
 NotionLookupKeys = {
     ModelNames.ANIMAL: "ProjectID",
-    ModelNames.DEPLOYMENT: "ID",
+    ModelNames.DEPLOYMENT: "Deployment Name",
     ModelNames.LOGGER: "LoggerID",
-    ModelNames.RECORDING: "ID",
+    ModelNames.RECORDING: "Recording Name",
 }
 
 
@@ -145,6 +145,9 @@ class MetadataManager:
                 converted_data.append(
                     {
                         "id": properties["ID"]["unique_id"]["number"],
+                        "deployment_name": properties["Deployment Name"]["title"][0][
+                            "plain_text"
+                        ],
                         "rec_date": properties["Rec Date"]["date"]["start"],
                         "animal": properties["Animal"]["select"]["name"],
                         "start_time": start_time,
@@ -196,6 +199,7 @@ class MetadataManager:
                 converted_data.append(
                     {
                         "id": properties["ID"]["unique_id"]["number"],
+                        "name": properties["Recording Name"]["title"][0]["plain_text"],
                         "start_time": start_time,
                         "actual_start_time": actual_start_time,
                         "end_time": end_time,
@@ -352,6 +356,8 @@ class MetadataManager:
             self.create_recording_records(converted_data)
 
     def get_metadata_from_csv(self, model_name: ModelNames):
+        from IPython.display import clear_output
+
         notion_data = self.notion.databases.query(self.databases[model_name]).get(
             "results"
         )
@@ -362,7 +368,6 @@ class MetadataManager:
             else "name"
         )
         first_column_header = self.csv_data.columns[0]
-        print(first_column_header)
         if metadata_lookup not in self.csv_data[first_column_header].values:
             print(f"The {metadata_lookup} header does not exist in the first column.")
         else:
@@ -372,11 +377,13 @@ class MetadataManager:
             names = self.csv_data.iloc[
                 name_index, 1:
             ]  # Assuming names are in the same row
+        clear_output(wait=True)
         print(
             f"Pick from the following {model_name.value}s in the Metadata CSV or enter nothing to look up a new {model_name.value} in DiveDB: "
         )
-        print(names)
-        sleep(2)
+        for name in names:
+            print(name)
+        sleep(1)
         metadata_name = input(f"Metadata CSV {model_name.value.capitalize()} Name: ")
         if metadata_name == "":
             items = self.models[model_name].objects.all()
@@ -385,8 +392,8 @@ class MetadataManager:
                 f"Pick from the following {model_name.value}s in DiveDB or enter nothing to look a new {model_name.value} in Notion: "
             )
             for item in items:
-                print(item.id)
-            sleep(2)
+                print(getattr(item, ModelLookupKeys[model_name]))
+            sleep(1)
             dive_db_name = input(f"DiveDB {model_name.value.capitalize()} Name: ")
             if dive_db_name == "":
                 clear_output(wait=True)
@@ -394,21 +401,28 @@ class MetadataManager:
                     f"Pick from the following {model_name.value}s in Notion or enter nothing to cancel: "
                 )
                 for notion_record in notion_records:
-                    print(notion_record["id"])
-                sleep(2)
+                    print(notion_record[ModelLookupKeys[model_name]])
+                sleep(1)
                 notion_name = input(f"Notion {model_name.value.capitalize()} Name: ")
                 if notion_name == "":
-                    raise ValueError("No Notion record selected.")
+                    logging.info("No Notion record selected.")
+                    sleep(1)
+                    sys.exit()
                 else:
                     for notion_record in notion_records:
                         if notion_record["id"] == notion_name:
                             new_item = self.models[model_name].objects.create(
                                 **notion_record
                             )
+                            clear_output(wait=True)
                             return new_item
-                    raise ValueError("No valid Notion record selected.")
+                    logging.info("No valid Notion record selected (%s)", metadata_name)
+                    sleep(1)
+                    sys.exit()
             else:
-                return self.models[model_name].objects.get(id=dive_db_name)
+                return self.models[model_name].objects.get(
+                    **{ModelLookupKeys[model_name]: dive_db_name}
+                )
         else:
             for notion_record in notion_records:
                 if notion_record[ModelLookupKeys[model_name]] == metadata_name:
@@ -417,12 +431,16 @@ class MetadataManager:
                         .objects.filter(**{ModelLookupKeys[model_name]: metadata_name})
                         .exists()
                     ):
+                        clear_output(wait=True)
                         return self.models[model_name].objects.get(
-                            id=notion_record["id"]
+                            **{ModelLookupKeys[model_name]: metadata_name}
                         )
                     else:
+                        clear_output(wait=True)
                         return self.models[model_name].objects.create(**notion_record)
-            raise ValueError("No valid Notion record selected.")
+            logging.info("No valid Notion record selected (%s)", metadata_name)
+            sleep(1)
+            sys.exit()
 
     def get_animal_from_csv(self):
         return self.get_metadata_from_csv(ModelNames.ANIMAL)
@@ -441,8 +459,23 @@ class MetadataManager:
     ):
         self.csv_data = pd.read_csv(csv_metadata_path, header=None)
         self.csv_metadata_map = csv_metadata_map
-        animal = self.get_animal_from_csv()
-        deployment = self.get_deployment_from_csv()
-        logger = self.get_logger_from_csv()
-        recording = self.get_recording_from_csv()
-        return animal, deployment, logger, recording
+        # animal = self.get_animal_from_csv()
+        # deployment = self.get_deployment_from_csv()
+        # logger = self.get_logger_from_csv()
+        # recording = self.get_recording_from_csv()
+
+        # Find a random animal and deployment and logger
+        animal = Animals.objects.order_by("?").first()
+        deployment = Deployments.objects.order_by("?").first()
+        logger = Loggers.objects.order_by("?").first()
+        recording = Recordings.objects.order_by("?").first()
+
+        # Create a new animal deployment (if one doesn't exist)
+        AnimalDeployments.objects.get_or_create(animal=animal, deployment=deployment)
+
+        return {
+            "animal": animal,
+            "deployment": deployment,
+            "logger": logger,
+            "recording": recording,
+        }
