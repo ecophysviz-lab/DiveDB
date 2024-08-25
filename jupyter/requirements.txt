@@ -1,3 +1,6 @@
+
+# pyologger
+antropy
 black
 dask
 deltalake
@@ -5,11 +8,14 @@ django
 duckdb
 edfio
 flake8
+heartpy
 hvplot
 importlib-metadata==4.8.3
 jupyter
 load_dotenv
 matplotlib
+matplotlib
+mne
 mne
 netCDF4
 
@@ -27,4 +33,7 @@ python-keystoneclient
 
 python-swiftclient 
 seaborn
+sleepecg
 tqdm
+wfdb
+yasa

@@ -103,7 +103,27 @@ class DataUploader:
         signals: list[str] = "all",
         batch_size: int = 20000000,  # The slower the batch size, the slower and the more memory efficient. 20M stays comfortably under 8GB of RAM.
     ):
-        """Upload EDF data"""
+        """
+        Uploads EDF data to the database and DuckPond.
+
+        Parameters:
+        edf_file_paths (list[str]): List of paths to EDF files.
+        csv_metadata_path (str): Path to the CSV file containing metadata.
+        csv_metadata_map (dict, optional): Mapping for CSV metadata. Defaults to None.
+        signals (list[str], optional): List of signals to process. Defaults to "all".
+        batch_size (int, optional): Size of data batches for processing. Defaults to 20,000,000.
+
+        Workflow:
+        1. Retrieves metadata models from the CSV file.
+        2. Calculates the total number of signals to process.
+        3. Initializes a progress bar for signal processing.
+        4. For each EDF file:
+        - Reads the EDF file and its signals.
+        - Processes each signal in batches.
+        - Creates and uploads data batches to DuckPond.
+        - Updates the progress bar.
+        5. Prints a completion message.
+        """
 
         metadata_manager = MetadataManager()
         metadata_models = metadata_manager.get_metadata_models(
@@ -203,4 +223,3 @@ class DataUploader:
                     pbar.update(1)
 
         print("Upload complete.")
-        return metadata_models
