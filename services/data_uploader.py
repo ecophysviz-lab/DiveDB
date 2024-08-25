@@ -101,7 +101,7 @@ class DataUploader:
         csv_metadata_path: str,
         csv_metadata_map: dict = None,
         signals: list[str] = "all",
-        batch_size: int = 20000000,  # The slower the batch size, the slower and the more memory efficient. 20M stays comfortably under 8GB of RAM.
+        batch_size: int = 10000000,  # The smaller the batch size, the slower and the more memory efficient. 10M stays comfortably under 8GB of RAM.
     ):
         """
         Uploads EDF data to the database and DuckPond.
@@ -164,14 +164,14 @@ class DataUploader:
                             [metadata_models["animal"].id] * length, type=pa.string()
                         )
                         deployment_array = pa.array(
-                            [metadata_models["deployment"].id] * length,
+                            [metadata_models["deployment"].deployment_name] * length,
                             type=pa.string(),
                         )
                         logger_array = pa.array(
                             [metadata_models["logger"].id] * length, type=pa.string()
                         )
                         recording_array = pa.array(
-                            [metadata_models["recording"].id] * length, type=pa.string()
+                            [metadata_models["recording"].name] * length, type=pa.string()
                         )
 
                         # Create PyArrow table with repeated and direct data columns

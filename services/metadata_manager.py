@@ -435,6 +435,7 @@ class MetadataManager:
                     sleep(1)
                     sys.exit()
             else:
+                clear_output(wait=True)
                 return self.models[model_name].objects.get(
                     **{ModelLookupKeys[model_name]: dive_db_name}
                 )
