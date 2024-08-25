@@ -17,7 +17,7 @@ from server.metadata.models import (  # noqa: E402
     AnimalDeployments,
 )
 
-if os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] != "true":
+if os.environ.get("DJANGO_ALLOW_ASYNC_UNSAFE", "false") != "true":
     logging.warning(
         "DJANGO_ALLOW_ASYNC_UNSAFE is not set to true. This is required for MetadataManager to work outside of a Django server."
     )

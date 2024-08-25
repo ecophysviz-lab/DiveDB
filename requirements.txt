@@ -12,3 +12,4 @@ pyarrow
 pylint-django
 pytest
 pytest-django
+pytest-recording
