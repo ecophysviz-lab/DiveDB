@@ -6,12 +6,17 @@ edfio
 flake8
 importlib-metadata==4.8.3
 load_dotenv
+mne
 notion_client
 pandas
 pre-commit
 psycopg2-binary
 pyarrow
+pyedflib
 pylint-django
 pytest
 pytest-django
 pytest-recording
+python-keystoneclient
+python-swiftclient
+tqdm

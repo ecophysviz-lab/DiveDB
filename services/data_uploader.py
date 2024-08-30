@@ -23,7 +23,7 @@ swift_client = SwiftClient()
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.django_app.settings")
 django.setup()
 
-from server.metadata.models import Files  # noqa: E402
+from server.metadata.models import Files, Recordings  # noqa: E402
 
 
 @dataclass
@@ -44,13 +44,14 @@ class SignalData:
 
 DataSchema = pa.schema(
     [
+        # Keep schema in order of partitions
+        pa.field("logger", pa.string()),
         pa.field("signal_name", pa.string()),
-        pa.field("datetime", pa.timestamp("us", tz="UTC")),
-        pa.field("data", pa.float64()),
         pa.field("animal", pa.string()),
         pa.field("deployment", pa.string()),
-        pa.field("logger", pa.string()),
         pa.field("recording", pa.string()),
+        pa.field("datetime", pa.timestamp("us", tz="UTC")),
+        pa.field("data", pa.float64()),
     ]
 )
 
@@ -67,7 +68,7 @@ MetadataSchema = pa.schema(
 class DataUploader:
     """Data Uploader"""
 
-    def read_signal(self, edf: edfio.Edf, signal_name: str):
+    def _read_edf_signal(self, edf: edfio.Edf, signal_name: str):
         """Function to read a single signal from an EDF file."""
         signal = edf.get_signal(signal_name)
         data = signal.data
@@ -102,6 +103,7 @@ class DataUploader:
         csv_metadata_map: dict = None,
         signals: list[str] = "all",
         batch_size: int = 10000000,  # The smaller the batch size, the slower and the more memory efficient. 10M stays comfortably under 8GB of RAM.
+        metadata: dict = None,
     ):
         """
         Uploads EDF data to the database and DuckPond.
@@ -118,38 +120,51 @@ class DataUploader:
         2. Calculates the total number of signals to process.
         3. Initializes a progress bar for signal processing.
         4. For each EDF file:
-        - Reads the EDF file and its signals.
-        - Processes each signal in batches.
-        - Creates and uploads data batches to DuckPond.
-        - Updates the progress bar.
+            - Reads the EDF file and its signals.
+            - Processes each signal in batches.
+            - Creates and uploads data batches to DuckPond.
+            - Updates the progress bar.
         5. Prints a completion message.
         """
-
-        metadata_manager = MetadataManager()
-        metadata_models = metadata_manager.get_metadata_models(
-            csv_metadata_path, csv_metadata_map
-        )
+        if not metadata:
+            metadata_manager = MetadataManager()
+            metadata_models = metadata_manager.get_metadata_models(
+                csv_metadata_path, csv_metadata_map
+            )
+            metadata = {
+                "animal": metadata_models["animal"].id,
+                "deployment": metadata_models["deployment"].deployment_name,
+                "logger": metadata_models["logger"].id,
+                "recording": metadata_models["recording"].name,
+            }
 
         # Calculate total number of signals to process
         total_signals = 0
         for edf_file_path in edf_file_paths:
             edf = edfio.read_edf(edf_file_path, lazy_load_data=True)
             total_signals += len(signals if signals != "all" else edf.signals)
-            # Add this once we have a dev bucket
-            # swift_client.put_object_to_swift(
-            #     container_name="EDF_DATA",
-            #     object_name=file.file_path,
-            #     contents=edf,
-            # )
+            # Upload the EDF file to Swift
+            print(f"Uploading {edf_file_path} to OpenStack Swift")
+            swift_client.put_object_to_swift(
+                container_name="dev_data",
+                object_name=os.path.basename(edf_file_path),
+                contents=edf_file_path,
+            )
 
         # Initialize progress bar
         print(f"Processing {total_signals} signals in {len(edf_file_paths)} files.")
         with tqdm(total=total_signals, desc="Processing signals") as pbar:
             for edf_file_path in edf_file_paths:
                 edf = edfio.read_edf(edf_file_path, lazy_load_data=True)
-
-                for signal in signals if signals != "all" else edf.signals:
-                    signalData, signalMetadata = self.read_signal(edf, signal.label)
+                edf_signals = (
+                    edf.signals
+                    if signals == "all"
+                    else filter(lambda signal: signal.label in signals, edf.signals)
+                )
+                for signal in edf_signals:
+                    signalData, signalMetadata = self._read_edf_signal(
+                        edf, signal.label
+                    )
 
                     # Process data in batches
                     for start in range(0, signalData.signal_length, batch_size):
@@ -161,38 +176,43 @@ class DataUploader:
                             [signalData.signal_name] * length, type=pa.string()
                         )
                         animal_array = pa.array(
-                            [metadata_models["animal"].id] * length, type=pa.string()
+                            [metadata["animal"]] * length, type=pa.string()
                         )
                         deployment_array = pa.array(
-                            [metadata_models["deployment"].deployment_name] * length,
+                            [metadata["deployment"]] * length,
                             type=pa.string(),
                         )
                         logger_array = pa.array(
-                            [metadata_models["logger"].id] * length, type=pa.string()
+                            [metadata["logger"]] * length, type=pa.string()
                         )
                         recording_array = pa.array(
-                            [metadata_models["recording"].name] * length, type=pa.string()
+                            [metadata["recording"]] * length, type=pa.string()
                         )
 
                         # Create PyArrow table with repeated and direct data columns
                         batch_table = pa.table(
                             {
                                 "signal_name": signal_name_array,
-                                "datetime": pa.array(signalData.time[start:end]),
-                                "data": pa.array(
-                                    signalData.data[start:end], type=pa.float64()
-                                ),
                                 "animal": animal_array,
                                 "deployment": deployment_array,
                                 "logger": logger_array,
                                 "recording": recording_array,
+                                "datetime": pa.array(
+                                    signalData.time[start:end],
+                                    type=pa.timestamp("us", tz="UTC"),
+                                ),
+                                "data": pa.array(
+                                    signalData.data[start:end], type=pa.float64()
+                                ),
                             },
                             schema=DataSchema,
                         )
 
-                        # Create a new file
+                        # Create a new file record
                         file = Files.objects.create(
-                            recording=metadata_models["recording"],
+                            recording=Recordings.objects.get(
+                                name=metadata["recording"]
+                            ),
                             file_path=edf_file_path,
                             extension="edf",
                             type="data",
@@ -210,7 +230,7 @@ class DataUploader:
                                 "recording",
                                 "signal_name",
                             ],
-                            name=file.file_path,
+                            name=file.file_path if file else "Test",
                             description="test",
                         )
                         del batch_table
