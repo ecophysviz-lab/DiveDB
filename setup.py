@@ -4,4 +4,5 @@ setup(
     name="DiveDB",
     version="0.1.0",
     packages=find_packages(include=["services", "services.*", "server", "server.*"]),
+    include_package_data=True,
 )
