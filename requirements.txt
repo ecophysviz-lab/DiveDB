@@ -19,4 +19,5 @@ pytest-django
 pytest-recording
 python-keystoneclient
 python-swiftclient
+setuptools
 tqdm
