@@ -1,3 +1,14 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "DiveDB"
+version = "0.1.0"
+
+[tool.setuptools]
+packages = ["services", "server"]
+
 [tool.black]
 line-length = 88
 target-version = ["py37"]
