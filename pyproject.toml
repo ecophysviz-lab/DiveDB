@@ -30,8 +30,6 @@ dependencies = [
   "setuptools",
   "tqdm",
 ]
-[tool.setuptools]
-packages = ["services", "server"]
 
 [tool.black]
 line-length = 88

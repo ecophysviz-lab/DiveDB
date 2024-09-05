@@ -2,8 +2,6 @@
 Delta Lake Manager
 """
 
-# flake8: noqa
-
 import logging
 import os
 from typing import List
@@ -11,6 +9,8 @@ from typing import List
 import duckdb
 import pyarrow as pa
 from deltalake import DeltaTable, write_deltalake
+
+# flake8: noqa
 
 
 class DuckPond:
@@ -115,7 +115,8 @@ class DuckPond:
                 return ""
             if len(values) == 1:
                 return f"{predicate} = '{values[0]}'"
-            return f"{predicate} IN ({', '.join(f"'{value}'" for value in values)})"
+            list_of_values = [f"'{value}'" for value in values]
+            return f"{predicate} IN ({', '.join(list_of_values)})"
 
         if isinstance(signal_names, str):
             signal_names = [signal_names]
@@ -136,15 +137,15 @@ class DuckPond:
         query_string += "datetime, data FROM DeltaLake"
 
         if signal_names:
-            query_string += f"{get_predicate_preface()} {get_predicate_string("signal_name", signal_names)}"
+            query_string += f"{get_predicate_preface()} {get_predicate_string('signal_name', signal_names)}"
         if logger_ids:
-            query_string += f"{get_predicate_preface()} {get_predicate_string("logger", logger_ids)}"
+            query_string += f"{get_predicate_preface()} {get_predicate_string('logger', logger_ids)}"
         if animal_ids:
-            query_string += f"{get_predicate_preface()} {get_predicate_string("animal", animal_ids)}"
+            query_string += f"{get_predicate_preface()} {get_predicate_string('animal', animal_ids)}"
         if deployment_ids:
-            query_string += f"{get_predicate_preface()} {get_predicate_string("deployment", deployment_ids)}"
+            query_string += f"{get_predicate_preface()} {get_predicate_string('deployment', deployment_ids)}"
         if recording_ids:
-            query_string += f"{get_predicate_preface()} {get_predicate_string("recording", recording_ids)}"
+            query_string += f"{get_predicate_preface()} {get_predicate_string('recording', recording_ids)}"
         if date_range:
             query_string += f"{get_predicate_preface()} datetime >= '{date_range[0]}' AND datetime <= '{date_range[1]}'"
         if limit:

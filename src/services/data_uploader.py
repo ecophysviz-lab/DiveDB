@@ -5,8 +5,8 @@ Data Uploader
 import os
 import edfio
 import django
-from services.metadata_manager import MetadataManager
-from services.duck_pond import DuckPond
+from src.services.metadata_manager import MetadataManager
+from src.services.duck_pond import DuckPond
 import numpy as np
 import gc
 import pyarrow as pa
@@ -23,7 +23,7 @@ swift_client = SwiftClient()
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.django_app.settings")
 django.setup()
 
-from server.metadata.models import Files, Recordings  # noqa: E402
+from src.server.metadata.models import Files, Recordings  # noqa: E402
 
 
 @dataclass
