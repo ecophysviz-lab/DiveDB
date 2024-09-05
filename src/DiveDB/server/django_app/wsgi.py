@@ -11,6 +11,6 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "src.server.django_app.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "src.DiveDB.server.django_app.settings")
 
 application = get_wsgi_application()

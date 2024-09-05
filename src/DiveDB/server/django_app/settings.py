@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.postgres",
-    "src.server.metadata",
+    "src.DiveDB.server.metadata",
 ]
 
 MIDDLEWARE = [
@@ -59,7 +59,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "src.server.django_app.urls"
+ROOT_URLCONF = "src.DiveDB.server.django_app.urls"
 
 TEMPLATES = [
     {
@@ -77,7 +77,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "src.server.django_app.wsgi.application"
+WSGI_APPLICATION = "src.DiveDB.server.django_app.wsgi.application"
 
 
 # Database

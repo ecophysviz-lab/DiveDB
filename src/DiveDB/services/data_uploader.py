@@ -23,7 +23,7 @@ swift_client = SwiftClient()
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.django_app.settings")
 django.setup()
 
-from src.server.metadata.models import Files, Recordings  # noqa: E402
+from src.DiveDB.server.metadata.models import Files, Recordings  # noqa: E402
 
 
 @dataclass
