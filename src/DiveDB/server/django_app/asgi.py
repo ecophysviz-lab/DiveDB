@@ -11,6 +11,10 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "src.DiveDB.server.django_app.settings")
+
+django_prefix = os.environ.get("DJANGO_PREFIX", "DiveDB")
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE", f"{django_prefix}.server.django_app.settings"
+)
 
 application = get_asgi_application()

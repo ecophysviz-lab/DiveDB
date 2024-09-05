@@ -10,10 +10,13 @@ import sys
 import django
 from notion_client import Client
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "src.DiveDB.server.django_app.settings")
+django_prefix = os.environ.get("DJANGO_PREFIX", "DiveDB")
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE", f"{django_prefix}.server.django_app.settings"
+)
 django.setup()
 
-from src.DiveDB.server.metadata.models import (  # noqa: E402
+from DiveDB.server.metadata.models import (  # noqa: E402
     AnimalDeployments,
     Animals,
     Deployments,
