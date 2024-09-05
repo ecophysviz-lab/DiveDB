@@ -5,8 +5,8 @@ Data Uploader
 import os
 import edfio
 import django
-from src.services.metadata_manager import MetadataManager
-from src.services.duck_pond import DuckPond
+from src.DiveDB.services.metadata_manager import MetadataManager
+from src.DiveDB.services.duck_pond import DuckPond
 import numpy as np
 import gc
 import pyarrow as pa
