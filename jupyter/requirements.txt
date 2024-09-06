@@ -29,6 +29,7 @@ pre-commit
 prefect
 prefect-dask
 psycopg2-binary
+pyedflib
 python-keystoneclient
 
 python-swiftclient 

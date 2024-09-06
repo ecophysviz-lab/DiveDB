@@ -18,6 +18,7 @@ class LoggersWiki(models.Model):
     projects = ArrayField(models.TextField())
 
     class Meta:
+        db_table = "Logger_Wikis"
         verbose_name = "Logger Wiki"
         verbose_name_plural = "Logger Wikis"
 
@@ -40,6 +41,7 @@ class Loggers(models.Model):
     owner = models.CharField(null=True, blank=True)
 
     class Meta:
+        db_table = "Loggers"
         verbose_name = "Logger"
         verbose_name_plural = "Loggers"
 
@@ -55,6 +57,7 @@ class Animals(models.Model):
     scientific_name = models.CharField()
 
     class Meta:
+        db_table = "Animals"
         verbose_name = "Animal"
         verbose_name_plural = "Animals"
 
@@ -82,6 +85,7 @@ class Deployments(models.Model):
     notes = models.TextField(null=True, blank=True)
 
     class Meta:
+        db_table = "Deployments"
         verbose_name = "Deployment"
         verbose_name_plural = "Deployments"
 
@@ -95,6 +99,7 @@ class AnimalDeployments(models.Model):
     animal = models.ForeignKey(Animals, on_delete=models.CASCADE)
 
     class Meta:
+        db_table = "Animal_Deployments"
         verbose_name = "Animal Deployment"
         verbose_name_plural = "Animal Deployments"
 
@@ -120,6 +125,7 @@ class Recordings(models.Model):
     )
 
     class Meta:
+        db_table = "Recordings"
         verbose_name = "Recording"
         verbose_name_plural = "Recordings"
 
@@ -153,6 +159,7 @@ class Files(models.Model):
     metadata = models.JSONField(null=True, blank=True)
 
     class Meta:
+        db_table = "Files"
         verbose_name = "File"
         verbose_name_plural = "Files"
 
@@ -172,5 +179,6 @@ class MediaUpdates(models.Model):
     update_factor = models.FloatField()
 
     class Meta:
+        db_table = "Media_Updates"
         verbose_name = "Media Update"
         verbose_name_plural = "Media Updates"

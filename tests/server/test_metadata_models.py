@@ -1,7 +1,7 @@
 import pytest
 from django.utils import timezone
 
-from server.metadata.models import (
+from src.DiveDB.server.metadata.models import (
     AnimalDeployments,
     Animals,
     Deployments,
