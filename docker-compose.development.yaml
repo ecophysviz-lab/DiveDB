@@ -43,8 +43,7 @@ services:
       - .env
     volumes:
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
-      - ./services:/app/services
-      - ./server:/app/server
+      - ./src:/app/src
       - ./pyologger:/app/pyologger
     depends_on:
       - metadata_database

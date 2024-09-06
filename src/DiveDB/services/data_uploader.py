@@ -5,8 +5,8 @@ Data Uploader
 import os
 import edfio
 import django
-from services.metadata_manager import MetadataManager
-from services.duck_pond import DuckPond
+from DiveDB.services.metadata_manager import MetadataManager
+from DiveDB.services.duck_pond import DuckPond
 import numpy as np
 import gc
 import pyarrow as pa
@@ -15,15 +15,18 @@ from tqdm import tqdm
 # import pyarrow.compute as pc
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
-from services.utils.openstack import SwiftClient
+from DiveDB.services.utils.openstack import SwiftClient
 
 duckpond = DuckPond()
 swift_client = SwiftClient()
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.django_app.settings")
+django_prefix = os.environ.get("DJANGO_PREFIX", "DiveDB")
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE", f"{django_prefix}.server.django_app.settings"
+)
 django.setup()
 
-from server.metadata.models import Files, Recordings  # noqa: E402
+from DiveDB.server.metadata.models import Files, Recordings  # noqa: E402
 
 
 @dataclass

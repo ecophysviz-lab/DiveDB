@@ -11,6 +11,9 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.django_app.settings")
+django_prefix = os.environ.get("DJANGO_PREFIX", "DiveDB")
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE", f"{django_prefix}.server.django_app.settings"
+)
 
 application = get_wsgi_application()

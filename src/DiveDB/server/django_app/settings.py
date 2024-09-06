@@ -37,7 +37,7 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
-
+django_prefix = os.environ.get("DJANGO_PREFIX", "DiveDB")
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.postgres",
-    "server.metadata",
+    f"{django_prefix}.server.metadata",
 ]
 
 MIDDLEWARE = [
@@ -59,7 +59,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "server.django_app.urls"
+ROOT_URLCONF = f"{django_prefix}.server.django_app.urls"
 
 TEMPLATES = [
     {
@@ -77,7 +77,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "server.django_app.wsgi.application"
+WSGI_APPLICATION = f"{django_prefix}.server.django_app.wsgi.application"
 
 
 # Database
