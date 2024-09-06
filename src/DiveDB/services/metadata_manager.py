@@ -82,10 +82,10 @@ class MetadataManager:
             if model_name == self.model_names.LOGGER:
                 converted_data.append(
                     {
-                        "id": properties["LoggerID"]["title"][0]["plain_text"],
+                        "id": properties["Logger ID"]["title"][0]["plain_text"],
                         "serial_no": (
-                            properties["SerialNo"]["rich_text"][0]["plain_text"]
-                            if properties["SerialNo"]["rich_text"]
+                            properties["Serial Number"]["rich_text"][0]["plain_text"]
+                            if properties["Serial Number"]["rich_text"]
                             else None
                         ),
                         "manufacturer": (
@@ -99,8 +99,8 @@ class MetadataManager:
                             else None
                         ),
                         "type_name": (
-                            properties["TypeName"]["select"]["name"]
-                            if properties["TypeName"]["select"]
+                            properties["Manufacturer Name"]["select"]["name"]
+                            if properties["Manufacturer Name"]["select"]
                             else None
                         ),
                         "notes": (
@@ -123,42 +123,40 @@ class MetadataManager:
             elif model_name == self.model_names.ANIMAL:
                 converted_data.append(
                     {
-                        "id": properties["AnimalID"]["title"][0]["plain_text"],
+                        "id": properties["Animal ID"]["title"][0]["plain_text"],
                         "project_id": (
-                            properties["ProjectID"]["rich_text"][0]["plain_text"]
-                            if properties["ProjectID"]["rich_text"]
+                            properties["Project ID"]["rich_text"][0]["plain_text"]
+                            if properties["Project ID"]["rich_text"]
                             else None
                         ),
-                        "common_name": properties["CommonName"]["select"]["name"],
-                        "scientific_name": properties["ScientificName"]["select"][
+                        "common_name": properties["Common Name"]["select"]["name"],
+                        "scientific_name": properties["Scientific Name"]["select"][
                             "name"
                         ],
                     }
                 )
             elif model_name == self.model_names.DEPLOYMENT:
                 start_time = (
-                    properties["Start time"]["rich_text"][0]["plain_text"]
-                    if properties["Start time"]["rich_text"]
+                    properties["Start Time"]["rollup"]["array"][0]["rich_text"][0][
+                        "plain_text"
+                    ]
+                    if properties["Start Time"]["rollup"]["array"]
                     else None
                 )
                 if start_time:
                     start_time = datetime.fromisoformat(
-                        properties["Rec Date"]["date"]["start"] + "T" + start_time
+                        properties["Recording Date"]["date"]["start"] + "T" + start_time
                     )
                 converted_data.append(
                     {
                         "id": properties["ID"]["unique_id"]["number"],
-                        "deployment_name": properties["Deployment Name"]["title"][0][
+                        "deployment_name": properties["Deployment ID"]["title"][0][
                             "plain_text"
                         ],
-                        "rec_date": properties["Rec Date"]["date"]["start"],
+                        "rec_date": properties["Recording Date"]["date"]["start"],
                         "animal": properties["Animal"]["select"]["name"],
                         "start_time": start_time,
-                        "start_time_precision": (
-                            properties["Start Time Precision"]["select"]["name"]
-                            if properties["Start Time Precision"]["select"]
-                            else None
-                        ),
+                        "start_time_precision": None,
                         "timezone": properties["Time Zone"]["select"]["name"],
                         "notes": (
                             properties["Notes"]["rich_text"][0]["plain_text"]
@@ -169,8 +167,8 @@ class MetadataManager:
                 )
             elif model_name == self.model_names.RECORDING:
                 start_time = (
-                    properties["Start time"]["rich_text"][0]["plain_text"]
-                    if properties["Start time"]["rich_text"]
+                    properties["Start Time"]["rich_text"][0]["plain_text"]
+                    if properties["Start Time"]["rich_text"]
                     else None
                 )
                 if start_time:
@@ -202,7 +200,7 @@ class MetadataManager:
                 converted_data.append(
                     {
                         "id": properties["ID"]["unique_id"]["number"],
-                        "name": properties["Recording Name"]["title"][0]["plain_text"],
+                        "name": properties["Recording ID"]["title"][0]["plain_text"],
                         "start_time": start_time,
                         "actual_start_time": actual_start_time,
                         "end_time": end_time,
@@ -217,8 +215,8 @@ class MetadataManager:
                             else None
                         ),
                         "logger_id": (
-                            properties["LL-Loggers"]["relation"][0]["id"]
-                            if properties["LL-Loggers"]["relation"]
+                            properties["Logger ID"]["relation"][0]["id"]
+                            if properties["Logger ID"]["relation"]
                             else None
                         ),
                     }
