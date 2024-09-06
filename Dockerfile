@@ -20,4 +20,4 @@ EXPOSE 8000
 ENV DJANGO_PREFIX=src.DiveDB
 
 # Run the Django application
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000", "--watch", "/app/src/DiveDB/services"]

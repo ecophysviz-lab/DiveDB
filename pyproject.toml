@@ -9,6 +9,7 @@ dependencies = [
   "black",
   "deltalake",
   "django",
+  "django-storages",
   "duckdb",
   "edfio",
   "flake8",

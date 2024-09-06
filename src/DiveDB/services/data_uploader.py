@@ -117,6 +117,12 @@ class DataUploader:
         csv_metadata_map (dict, optional): Mapping for CSV metadata. Defaults to None.
         signals (list[str], optional): List of signals to process. Defaults to "all".
         batch_size (int, optional): Size of data batches for processing. Defaults to 20,000,000.
+        metadata (dict, optional): Metadata dictionary. Defaults to None.
+            Required keys:
+                - animal: Animal ID (int)
+                - deployment: Deployment Name (str)
+                - logger: Logger ID (int)
+                - recording: Recording Name (str)
 
         Workflow:
         1. Retrieves metadata models from the CSV file.
@@ -148,7 +154,7 @@ class DataUploader:
             total_signals += len(signals if signals != "all" else edf.signals)
             # Upload the EDF file to Swift
             print(f"Uploading {edf_file_path} to OpenStack Swift")
-            swift_client.put_object_to_swift(
+            swift_client.put_object(
                 container_name="dev_data",
                 object_name=os.path.basename(edf_file_path),
                 contents=edf_file_path,

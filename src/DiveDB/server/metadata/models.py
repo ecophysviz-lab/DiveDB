@@ -2,10 +2,12 @@
 This module contains the models for the metadata app.
 """
 
+import os
 from datetime import datetime
 
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
+from DiveDB.services.utils.storage import OpenStackStorage
 
 
 class LoggersWiki(models.Model):
@@ -124,6 +126,9 @@ class Recordings(models.Model):
         null=True, blank=True, choices=PRECISION_CHOICES
     )
 
+    def __str__(self):
+        return f"{self.name} ({self.id})"
+
     class Meta:
         db_table = "Recordings"
         verbose_name = "Recording"
@@ -152,11 +157,15 @@ class Files(models.Model):
     ]
     extension = models.CharField()
     type = models.CharField(max_length=5, choices=FILE_TYPE_CHOICES)
-    config_metadata = models.JSONField(null=True, blank=True)
     delta_path = models.CharField(null=True, blank=True)
-    file_path = models.CharField(null=True, blank=True)
     recording = models.ForeignKey(Recordings, on_delete=models.CASCADE)
     metadata = models.JSONField(null=True, blank=True)
+    start_time = models.DateTimeField(null=True, blank=True)
+    uploaded_at = models.DateTimeField(null=True, blank=True)
+    file = models.FileField(
+        upload_to=f"{os.environ['OPENSTACK_FILE_STORAGE_CONTAINER_NAME']}/",
+        storage=OpenStackStorage(),
+    )
 
     class Meta:
         db_table = "Files"

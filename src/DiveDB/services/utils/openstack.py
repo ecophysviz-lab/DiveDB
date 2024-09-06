@@ -20,6 +20,7 @@ class SwiftClient:
 
     sess = session.Session(auth=auth)
     client = swiftclient.Connection(session=sess)
+    storage_url, _ = client.get_auth()
 
     def get_containers(self):
         return self.client.get_account()[1]
@@ -41,7 +42,12 @@ class SwiftClient:
         with open(output, "wb") as f:
             f.write(obj)
 
-    def put_object_to_swift(self, container_name: str, object_name: str, contents: str):
-        # Untested while waiting on JKB to make a dev bucket
-        with open(contents, "rb") as file_data:
-            self.client.put_object(container_name, object_name, contents=file_data)
+    def create_container(self, container_name: str):
+        self.client.put_container(container_name)
+
+    def put_object(self, container_name: str, object_name: str, contents: str):
+        if container_name not in self.get_containers():
+            print(f"Container {container_name} does not exist. Creating...")
+            self.create_container(container_name)
+        self.client.put_object(container_name, object_name, contents=contents)
+        return f"{self.storage_url}/{container_name}/{object_name}"
