@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: divedb-postgres-deployment
+  labels:
+    app: divedb-postgres-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_PORT
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: POSTGRES_PORT
+        - name: POSTGRES_HOST
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: POSTGRES_HOST
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: divedb-pg-storage
+        resources:
+           limits:
+             memory: 4G
+             cpu: 1
+           requests:
+             memory: 1G
+             cpu: 50m
+      volumes:
+      - name: divedb-pg-storage
+        persistentVolumeClaim:
+          claimName: divedb-pg-pv-claim
