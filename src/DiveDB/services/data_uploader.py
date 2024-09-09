@@ -231,7 +231,7 @@ class DataUploader:
                         duckpond.write_to_delta(
                             data=batch_table,
                             schema=DataSchema,
-                            mode="overwrite",
+                            mode="append",
                             partition_by=[
                                 "logger",
                                 "animal",
@@ -242,7 +242,6 @@ class DataUploader:
                             ],
                             name=file.file_path if file else "Test",
                             description="test",
-                            schema_mode="overwrite",
                         )
                         del batch_table
                         gc.collect()
