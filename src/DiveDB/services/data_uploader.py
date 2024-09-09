@@ -252,3 +252,24 @@ class DataUploader:
                     pbar.update(1)
 
         print("Upload complete.")
+
+    def upload_netcdf(self, netcdf_file_path: str, metadata: dict):
+        """
+        Uploads a netCDF file to the database and DuckPond.
+
+        Parameters:
+        netcdf_file_path (str): Path to the netCDF file.
+        metadata (dict): Metadata dictionary.
+            Required keys:
+                - animal: Animal ID (int)
+                - deployment: Deployment Name (str)
+                - logger: Logger ID (int)
+                - recording: Recording Name (str)
+        """
+        # Upload the netCDF file to Swift
+        print(f"Uploading {netcdf_file_path} to OpenStack Swift")
+        swift_client.put_object(
+            container_name="dev_data",
+            object_name=os.path.basename(netcdf_file_path),
+            contents=netcdf_file_path,
+        )
