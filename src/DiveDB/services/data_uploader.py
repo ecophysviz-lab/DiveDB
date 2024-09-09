@@ -55,8 +55,9 @@ DataSchema = pa.schema(
         pa.field("animal", pa.string()),
         pa.field("deployment", pa.string()),
         pa.field("recording", pa.string()),
+        pa.field("data_labels", pa.string()),
         pa.field("datetime", pa.timestamp("us", tz="UTC")),
-        pa.field("data", pa.float64()),
+        pa.field("values", pa.list_(pa.float64())),
     ]
 )
 
@@ -201,6 +202,13 @@ class DataUploader:
                         recording_array = pa.array(
                             [metadata["recording"]] * length, type=pa.string()
                         )
+                        data_labels_array = pa.array(
+                            ["value"] * length, type=pa.string()
+                        )
+                        values_array = pa.array(
+                            [[v] for v in signalData.data[start:end]],
+                            type=pa.list_(pa.float64()),
+                        )
 
                         # Create PyArrow table with repeated and direct data columns
                         batch_table = pa.table(
@@ -210,13 +218,12 @@ class DataUploader:
                                 "deployment": deployment_array,
                                 "logger": logger_array,
                                 "recording": recording_array,
+                                "data_labels": data_labels_array,
                                 "datetime": pa.array(
                                     signalData.time[start:end],
                                     type=pa.timestamp("us", tz="UTC"),
                                 ),
-                                "data": pa.array(
-                                    signalData.data[start:end], type=pa.float64()
-                                ),
+                                "values": values_array,
                             },
                             schema=DataSchema,
                         )
@@ -231,6 +238,7 @@ class DataUploader:
                                 "deployment",
                                 "recording",
                                 "signal_name",
+                                "data_labels",
                             ],
                             name=file.file_path if file else "Test",
                             description="test",
@@ -247,7 +255,9 @@ class DataUploader:
 
         print("Upload complete.")
 
-    def upload_netcdf(self, netcdf_file_path: str, metadata: dict):
+    def upload_netcdf(
+        self, netcdf_file_path: str, metadata: dict, batch_size: int = 1000000
+    ):
         """
         Uploads a netCDF file to the database and DuckPond.
 
@@ -259,6 +269,7 @@ class DataUploader:
                 - deployment: Deployment Name (str)
                 - logger: Logger ID (int)
                 - recording: Recording Name (str)
+        batch_size (int, optional): Size of data batches for processing. Defaults to 10,000,000.
         """
         ds = xr.open_dataset(netcdf_file_path)
 
@@ -289,103 +300,76 @@ class DataUploader:
         with tqdm(total=total_vars, desc="Processing variables") as pbar:
             # Upload each variable in the netCDF file
             for var_name, var_data in ds.data_vars.items():
-                # Generate schema based on the variable's data shape
-                schema = self._generate_schema(var_name, var_data)
+                for start in range(0, var_data.shape[0], batch_size):
+                    end = min(start + batch_size, var_data.shape[0])
+                    length = end - start
 
-                # Get the corresponding time coordinate, assuming time is always the first dimension
-                time_coord = var_data.dims[0]
-                times = pa.array(
-                    ds.coords[time_coord].values, type=pa.timestamp("us", tz="UTC")
-                )
+                    # Get the corresponding time coordinate, assuming time is always the first dimension
+                    time_coord = var_data.dims[0]
+                    times = pa.array(
+                        ds.coords[time_coord].values[start:end],
+                        type=pa.timestamp("us", tz="UTC"),
+                    )
 
-                # Prepare data based on its shape
-                if var_data.ndim == 2 and var_data.shape[1] == 1:
-                    data_dict = {
-                        "data": pa.array(var_data.values[:, 0], type=pa.float64())
-                    }
-                else:
-                    data_dict = {
-                        col: pa.array(var_data.values[:, i], type=pa.float64())
-                        for i, col in enumerate(
-                            var_data.attrs.get(
-                                "variables",
-                                [
-                                    f"{var_name}_{i + 1}"
-                                    for i in range(var_data.shape[1])
-                                ],
-                            )
+                    values = [list(row) for row in var_data.values[start:end]]
+                    # Unpack variable names from the second dimension
+                    if "variables" in var_data.attrs:
+                        if isinstance(var_data.attrs["variables"], (list, np.ndarray)):
+                            labels = "___".join(var_data.attrs["variables"])
+                        else:
+                            labels = var_data.attrs["variables"]
+                    else:
+                        labels = "___".join(
+                            f"var_{i}" for i in range(var_data.shape[1])
                         )
-                    }
 
-                # Create the batch table
-                batch_table = pa.table(
-                    {
-                        "logger": pa.array(
-                            [metadata["logger"]] * len(times), type=pa.string()
-                        ),
-                        "signal_name": pa.array(
-                            [var_name] * len(times), type=pa.string()
-                        ),
-                        "animal": pa.array(
-                            [metadata["animal"]] * len(times), type=pa.string()
-                        ),
-                        "deployment": pa.array(
-                            [metadata["deployment"]] * len(times), type=pa.string()
-                        ),
-                        "recording": pa.array(
-                            [metadata["recording"]] * len(times), type=pa.string()
-                        ),
-                        "datetime": times,
-                        **data_dict,
-                    },
-                    schema=schema,
-                )
+                    # Create the batch table
+                    batch_table = pa.table(
+                        {
+                            "logger": pa.array(
+                                [metadata["logger"]] * length, type=pa.string()
+                            ),
+                            "signal_name": pa.array(
+                                [var_name] * length, type=pa.string()
+                            ),
+                            "animal": pa.array(
+                                [metadata["animal"]] * length, type=pa.string()
+                            ),
+                            "deployment": pa.array(
+                                [metadata["deployment"]] * length, type=pa.string()
+                            ),
+                            "recording": pa.array(
+                                [metadata["recording"]] * length, type=pa.string()
+                            ),
+                            "data_labels": pa.array(
+                                [labels] * length, type=pa.string()
+                            ),
+                            "datetime": times,
+                            "values": pa.array(values, type=pa.list_(pa.float64())),
+                        },
+                        schema=DataSchema,
+                    )
 
-                duckpond.write_to_delta(
-                    data=batch_table,
-                    schema=schema,
-                    mode="overwrite",
-                    partition_by=[
-                        "logger",
-                        "animal",
-                        "deployment",
-                        "recording",
-                        "signal_name",
-                    ],
-                    name=file.file.name,
-                    description="test",
-                    schema_mode="overwrite",
-                )
+                    duckpond.write_to_delta(
+                        data=batch_table,
+                        schema=DataSchema,
+                        mode="append",
+                        partition_by=[
+                            "logger",
+                            "animal",
+                            "deployment",
+                            "recording",
+                            "signal_name",
+                            "data_labels",
+                        ],
+                        name=file.file.name,
+                        description="test",
+                    )
 
-                del batch_table
-                gc.collect()
+                    del batch_table
+                    gc.collect()
 
                 # Update progress bar
                 pbar.update(1)
 
         print("Upload complete.")
-
-    def _generate_schema(self, var_name: str, var_data: xr.DataArray) -> pa.Schema:
-        """Generate a PyArrow schema based on the variable's data shape."""
-        fields = [
-            # Keep schema in order of partitions
-            pa.field("logger", pa.string()),
-            pa.field("signal_name", pa.string()),
-            pa.field("animal", pa.string()),
-            pa.field("deployment", pa.string()),
-            pa.field("recording", pa.string()),
-            pa.field("datetime", pa.timestamp("us", tz="UTC")),
-        ]
-
-        if var_data.ndim == 2 and var_data.shape[1] == 1:
-            fields.append(pa.field("data", pa.float64()))
-        else:
-            for i, col in enumerate(
-                var_data.attrs.get(
-                    "variables",
-                    [f"{var_name}_{i + 1}" for i in range(var_data.shape[1])],
-                )
-            ):
-                fields.append(pa.field(col, pa.float64()))
-
-        return pa.schema(fields)

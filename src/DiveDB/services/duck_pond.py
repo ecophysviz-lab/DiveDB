@@ -30,7 +30,7 @@ class DuckPond:
             logging.info("Connecting to PostgreSQL")
             POSTGRES_CONNECTION_STRING = f"postgresql://{os.environ.get('POSTGRES_USER')}:{os.environ.get('POSTGRES_PASSWORD')}@{os.environ.get('POSTGRES_HOST')}:{os.environ.get('POSTGRES_PORT')}/{os.environ.get('POSTGRES_DB')}"
             pg_connection_string = POSTGRES_CONNECTION_STRING
-            self.conn.execute(f"ATTACH 'postgres:{pg_connection_string}' AS Metadata")
+            self.conn.execute(f"ATTACH 'postgres:{pg_connection_string}' AS metadata")
 
     def _create_view(self):
         """Create a view of the delta lake"""
@@ -136,7 +136,7 @@ class DuckPond:
         query_string = "SELECT "
         if not signal_names or len(signal_names) != 1:
             query_string += "signal_name, "
-        query_string += "datetime, data FROM DeltaLake"
+        query_string += "datetime, values FROM DeltaLake"
 
         if signal_names:
             query_string += f"{get_predicate_preface()} {get_predicate_string('signal_name', signal_names)}"
@@ -153,7 +153,25 @@ class DuckPond:
         if limit:
             query_string += f" LIMIT {limit}"
 
-        logging.info("Running the following query:")
-        logging.info(query_string)
+        print("Running the following query:")
+        print(query_string)
 
-        return self.conn.sql(query_string)
+        results = self.conn.sql(query_string)
+        value_index = 2 if len(signal_names) != 1 else 1
+        if len(results.fetchone()[value_index]) == 1:
+            if len(signal_names) != 1:
+                return self.conn.sql(
+                    f"""
+                    SELECT signal_name, datetime, unnest(values) as value
+                    FROM results
+                    """
+                )
+            else:
+                return self.conn.sql(
+                    f"""
+                SELECT datetime, unnest(values) as value
+                FROM results
+                """
+                )
+        else:
+            return results
