@@ -46,7 +46,9 @@ class SwiftClient:
         self.client.put_container(container_name)
 
     def put_object(self, container_name: str, object_name: str, contents: str):
-        if container_name not in self.get_containers():
+        if container_name not in [
+            container["name"] for container in self.get_containers()
+        ]:
             print(f"Container {container_name} does not exist. Creating...")
             self.create_container(container_name)
         self.client.put_object(container_name, object_name, contents=contents)

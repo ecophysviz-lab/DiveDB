@@ -54,6 +54,7 @@ class DuckPond:
         partition_by: list[str],
         name: str,
         description: str,
+        schema_mode: str | None = None,
     ):
         """Write data to our delta lake"""
         self.delta_lake = write_deltalake(
@@ -64,6 +65,7 @@ class DuckPond:
             mode=mode,
             name=name,
             description=description,
+            schema_mode=schema_mode,
         )
         self._create_view()
 

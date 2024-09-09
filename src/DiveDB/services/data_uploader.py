@@ -5,12 +5,14 @@ Data Uploader
 import os
 import edfio
 import django
+from django.core.files import File
 from DiveDB.services.metadata_manager import MetadataManager
 from DiveDB.services.duck_pond import DuckPond
 import numpy as np
 import gc
 import pyarrow as pa
 from tqdm import tqdm
+import xarray as xr
 
 # import pyarrow.compute as pc
 from dataclasses import dataclass, asdict
@@ -152,13 +154,15 @@ class DataUploader:
         for edf_file_path in edf_file_paths:
             edf = edfio.read_edf(edf_file_path, lazy_load_data=True)
             total_signals += len(signals if signals != "all" else edf.signals)
-            # Upload the EDF file to Swift
-            print(f"Uploading {edf_file_path} to OpenStack Swift")
-            swift_client.put_object(
-                container_name="dev_data",
-                object_name=os.path.basename(edf_file_path),
-                contents=edf_file_path,
-            )
+
+        # Create a new file record
+        file = Files.objects.create(
+            recording=Recordings.objects.get(name=metadata["recording"]),
+            extension="edf",
+            type="data",
+            # TODO: Add metadata to the file object
+            metadata=asdict(edf.annotations),
+        )
 
         # Initialize progress bar
         print(f"Processing {total_signals} signals in {len(edf_file_paths)} files.")
@@ -217,21 +221,10 @@ class DataUploader:
                             schema=DataSchema,
                         )
 
-                        # Create a new file record
-                        file = Files.objects.create(
-                            recording=Recordings.objects.get(
-                                name=metadata["recording"]
-                            ),
-                            file_path=edf_file_path,
-                            extension="edf",
-                            type="data",
-                            metadata=asdict(signalMetadata),
-                        )
-
                         duckpond.write_to_delta(
                             data=batch_table,
                             schema=DataSchema,
-                            mode="append",  # Use append mode for batching
+                            mode="overwrite",
                             partition_by=[
                                 "logger",
                                 "animal",
@@ -241,6 +234,7 @@ class DataUploader:
                             ],
                             name=file.file_path if file else "Test",
                             description="test",
+                            schema_mode="overwrite",
                         )
                         del batch_table
                         gc.collect()
@@ -266,10 +260,132 @@ class DataUploader:
                 - logger: Logger ID (int)
                 - recording: Recording Name (str)
         """
-        # Upload the netCDF file to Swift
-        print(f"Uploading {netcdf_file_path} to OpenStack Swift")
-        swift_client.put_object(
-            container_name="dev_data",
-            object_name=os.path.basename(netcdf_file_path),
-            contents=netcdf_file_path,
+        ds = xr.open_dataset(netcdf_file_path)
+
+        # Create a new file record
+        print(
+            f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
         )
+        with open(netcdf_file_path, "rb") as f:
+            file_object = File(f, name=os.path.basename(netcdf_file_path))
+            file = Files.objects.create(
+                recording=Recordings.objects.get(name=metadata["recording"]),
+                file=file_object,
+                extension="nc",
+                type="data",
+                metadata={
+                    key: (
+                        value.item()
+                        if isinstance(value, (np.integer, np.floating))
+                        else value
+                    )
+                    for key, value in ds.attrs.items()
+                },
+            )
+
+        total_vars = len(ds.data_vars)
+
+        print(f"Processing {total_vars} variables in the netCDF file.")
+        with tqdm(total=total_vars, desc="Processing variables") as pbar:
+            # Upload each variable in the netCDF file
+            for var_name, var_data in ds.data_vars.items():
+                # Generate schema based on the variable's data shape
+                schema = self._generate_schema(var_name, var_data)
+
+                # Get the corresponding time coordinate, assuming time is always the first dimension
+                time_coord = var_data.dims[0]
+                times = pa.array(
+                    ds.coords[time_coord].values, type=pa.timestamp("us", tz="UTC")
+                )
+
+                # Prepare data based on its shape
+                if var_data.ndim == 2 and var_data.shape[1] == 1:
+                    data_dict = {
+                        "data": pa.array(var_data.values[:, 0], type=pa.float64())
+                    }
+                else:
+                    data_dict = {
+                        col: pa.array(var_data.values[:, i], type=pa.float64())
+                        for i, col in enumerate(
+                            var_data.attrs.get(
+                                "variables",
+                                [
+                                    f"{var_name}_{i + 1}"
+                                    for i in range(var_data.shape[1])
+                                ],
+                            )
+                        )
+                    }
+
+                # Create the batch table
+                batch_table = pa.table(
+                    {
+                        "logger": pa.array(
+                            [metadata["logger"]] * len(times), type=pa.string()
+                        ),
+                        "signal_name": pa.array(
+                            [var_name] * len(times), type=pa.string()
+                        ),
+                        "animal": pa.array(
+                            [metadata["animal"]] * len(times), type=pa.string()
+                        ),
+                        "deployment": pa.array(
+                            [metadata["deployment"]] * len(times), type=pa.string()
+                        ),
+                        "recording": pa.array(
+                            [metadata["recording"]] * len(times), type=pa.string()
+                        ),
+                        "datetime": times,
+                        **data_dict,
+                    },
+                    schema=schema,
+                )
+
+                duckpond.write_to_delta(
+                    data=batch_table,
+                    schema=schema,
+                    mode="overwrite",
+                    partition_by=[
+                        "logger",
+                        "animal",
+                        "deployment",
+                        "recording",
+                        "signal_name",
+                    ],
+                    name=file.file.name,
+                    description="test",
+                    schema_mode="overwrite",
+                )
+
+                del batch_table
+                gc.collect()
+
+                # Update progress bar
+                pbar.update(1)
+
+        print("Upload complete.")
+
+    def _generate_schema(self, var_name: str, var_data: xr.DataArray) -> pa.Schema:
+        """Generate a PyArrow schema based on the variable's data shape."""
+        fields = [
+            # Keep schema in order of partitions
+            pa.field("logger", pa.string()),
+            pa.field("signal_name", pa.string()),
+            pa.field("animal", pa.string()),
+            pa.field("deployment", pa.string()),
+            pa.field("recording", pa.string()),
+            pa.field("datetime", pa.timestamp("us", tz="UTC")),
+        ]
+
+        if var_data.ndim == 2 and var_data.shape[1] == 1:
+            fields.append(pa.field("data", pa.float64()))
+        else:
+            for i, col in enumerate(
+                var_data.attrs.get(
+                    "variables",
+                    [f"{var_name}_{i + 1}" for i in range(var_data.shape[1])],
+                )
+            ):
+                fields.append(pa.field(col, pa.float64()))
+
+        return pa.schema(fields)

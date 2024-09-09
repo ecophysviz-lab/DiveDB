@@ -37,4 +37,6 @@ seaborn
 sleepecg
 tqdm
 wfdb
+
+xarray
 yasa
