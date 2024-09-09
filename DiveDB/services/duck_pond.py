@@ -24,6 +24,7 @@ class DuckPond:
             self.delta_path = delta_path
         logging.info("Connecting to DuckDB")
         self.conn = duckdb.connect()
+
         self._create_view()
 
         if connect_to_postgres:

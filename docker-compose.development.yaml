@@ -43,7 +43,7 @@ services:
       - .env
     volumes:
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
-      - ./src:/app/src
+      - ./DiveDB:/app/DiveDB
       - ./pyologger:/app/pyologger
     depends_on:
       - metadata_database
