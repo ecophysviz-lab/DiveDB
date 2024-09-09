@@ -5,6 +5,7 @@ echo "Script directory: $SCRIPT_DIR"
 
 kubectl apply -f $SCRIPT_DIR/django.deployment.yaml
 kubectl apply -f $SCRIPT_DIR/django.service.yaml
+kubectl apply -f $SCRIPT_DIR/django.ingress.yaml
 
 
 
