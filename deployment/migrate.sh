@@ -1,3 +1,5 @@
-kubectl port-forward svc/divedb-pg-service 5432:5432
+POD_NAME=$(kubectl get pods -l app=divedb-django -o jsonpath='{.items[0].metadata.name}')
 
-# Code for migrations goes here
+# Might have to run 
+# kubectl exec -it $POD_NAME -- python3 manage.py makemigrations
+kubectl exec -it $POD_NAME -- python3 manage.py migrate
