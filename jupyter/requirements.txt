@@ -5,7 +5,7 @@ black
 dask
 deltalake
 django
-duckdb
+duckdb==1.0.0
 edfio
 flake8
 heartpy
