@@ -163,7 +163,7 @@ class Files(models.Model):
     start_time = models.DateTimeField(null=True, blank=True)
     uploaded_at = models.DateTimeField(null=True, blank=True)
     file = models.FileField(
-        upload_to=f"{os.environ['OPENSTACK_FILE_STORAGE_CONTAINER_NAME']}/",
+        upload_to=f"{os.getenv('OPENSTACK_FILE_STORAGE_CONTAINER_NAME', 'media')}/",
         storage=OpenStackStorage(),
     )
 
