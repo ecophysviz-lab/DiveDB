@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 
 def pytest_configure():
+    print("Mocking SwiftClient")
     patcher = patch("DiveDB.services.utils.storage.SwiftClient")
     MockSwiftClient = patcher.start()
     instance = MockSwiftClient.return_value
