@@ -50,5 +50,6 @@ exclude = '''
   | build
   | dist
   | services/duck_pond.py
+  | pyologger
 )/
 '''
