@@ -20,6 +20,9 @@ jobs:
       POSTGRES_USER: "divedbuser"
       POSTGRES_PASSWORD: "divedbpassword"
       POSTGRES_PORT: 5432
+      OPENSTACK_AUTH_URL: http://mock-openstack-url
+      OPENSTACK_APPLICATION_CREDENTIAL_ID: mock-credential-id
+      OPENSTACK_APPLICATION_CREDENTIAL_SECRET: mock-credential-secret
 
     services:
       postgres:
@@ -54,4 +57,5 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
+        python manage.py migrate
         pytest
