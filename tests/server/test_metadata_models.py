@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from django.utils import timezone
 
 from src.DiveDB.server.metadata.models import (
@@ -65,8 +66,21 @@ def setup_test_data():
     }
 
 
+@pytest.fixture
+def mock_swiftclient():
+    with patch("DiveDB.services.utils.storage.SwiftClient") as MockSwiftClient:
+        instance = MockSwiftClient.return_value
+        instance.get_containers.return_value = []
+        instance.list_objects.return_value = []
+        instance.get_object_binary.return_value = b""
+        instance.write_object_to_local.return_value = None
+        instance.create_container.return_value = None
+        instance.put_object.return_value = "mocked_url"
+        yield instance
+
+
 @pytest.mark.django_db
-def test_loggers_wiki_creation(setup_test_data):
+def test_loggers_wiki_creation(setup_test_data, mock_swiftclient):
     loggers_wiki = setup_test_data["loggers_wiki"]
     assert loggers_wiki.description == "Test Logger Wiki"
     assert loggers_wiki.tags == ["tag1", "tag2"]
@@ -74,7 +88,7 @@ def test_loggers_wiki_creation(setup_test_data):
 
 
 @pytest.mark.django_db
-def test_loggers_creation(setup_test_data):
+def test_loggers_creation(setup_test_data, mock_swiftclient):
     logger = setup_test_data["logger"]
     loggers_wiki = setup_test_data["loggers_wiki"]
     assert logger.wiki == loggers_wiki
@@ -83,7 +97,7 @@ def test_loggers_creation(setup_test_data):
 
 
 @pytest.mark.django_db
-def test_animals_creation(setup_test_data):
+def test_animals_creation(setup_test_data, mock_swiftclient):
     animal = setup_test_data["animal"]
     assert animal.id == "A001"
     assert animal.project_id == "P001"
@@ -92,7 +106,7 @@ def test_animals_creation(setup_test_data):
 
 
 @pytest.mark.django_db
-def test_deployments_creation(setup_test_data):
+def test_deployments_creation(setup_test_data, mock_swiftclient):
     deployment = setup_test_data["deployment"]
     assert deployment.id == "D001"
     assert deployment.animal == "A001"
@@ -100,7 +114,7 @@ def test_deployments_creation(setup_test_data):
 
 
 @pytest.mark.django_db
-def test_animal_deployments_creation(setup_test_data):
+def test_animal_deployments_creation(setup_test_data, mock_swiftclient):
     animal_deployment = setup_test_data["animal_deployment"]
     deployment = setup_test_data["deployment"]
     animal = setup_test_data["animal"]
@@ -109,7 +123,7 @@ def test_animal_deployments_creation(setup_test_data):
 
 
 @pytest.mark.django_db
-def test_recordings_creation(setup_test_data):
+def test_recordings_creation(setup_test_data, mock_swiftclient):
     recording = setup_test_data["recording"]
     animal_deployment = setup_test_data["animal_deployment"]
     logger = setup_test_data["logger"]
@@ -119,7 +133,7 @@ def test_recordings_creation(setup_test_data):
 
 
 @pytest.mark.django_db
-def test_files_creation(setup_test_data):
+def test_files_creation(setup_test_data, mock_swiftclient):
     file = setup_test_data["file"]
     recording = setup_test_data["recording"]
     assert file.extension == ".wav"
@@ -128,7 +142,7 @@ def test_files_creation(setup_test_data):
 
 
 @pytest.mark.django_db
-def test_media_updates_creation(setup_test_data):
+def test_media_updates_creation(setup_test_data, mock_swiftclient):
     media_update = setup_test_data["media_update"]
     file = setup_test_data["file"]
     assert media_update.file == file
@@ -137,7 +151,7 @@ def test_media_updates_creation(setup_test_data):
 
 
 @pytest.mark.django_db
-def test_relationships(setup_test_data):
+def test_relationships(setup_test_data, mock_swiftclient):
     loggers_wiki = setup_test_data["loggers_wiki"]
     logger = setup_test_data["logger"]
     deployment = setup_test_data["deployment"]
