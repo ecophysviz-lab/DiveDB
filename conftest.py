@@ -1,8 +1,7 @@
-import pytest
 from unittest.mock import patch
 
 
-def pytest_configure():
+def pytest_load_initial_conftests(early_config, parser, args):
     print("Mocking SwiftClient")
     patcher = patch("DiveDB.services.utils.storage.SwiftClient")
     MockSwiftClient = patcher.start()
@@ -13,8 +12,4 @@ def pytest_configure():
     instance.write_object_to_local.return_value = None
     instance.create_container.return_value = None
     instance.put_object.return_value = "mocked_url"
-    pytest.mock_patcher = patcher
-
-
-def pytest_unconfigure():
-    pytest.mock_patcher.stop()
+    early_config.add_cleanup(patcher.stop)
