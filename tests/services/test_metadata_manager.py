@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from services.metadata_manager import MetadataManager, ModelNames
+from DiveDB.services.metadata_manager import MetadataManager, ModelNames
 
 
 @pytest.fixture
