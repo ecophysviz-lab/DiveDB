@@ -17,7 +17,7 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Set the DJANGO_PREFIX environment variable
-ENV DJANGO_PREFIX=src.DiveDB
+ENV DJANGO_PREFIX=DiveDB
 
 # Run the Django application
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000", "--watch", "/app/src/DiveDB/services"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000", "--watch", "/app/DiveDB/services"]

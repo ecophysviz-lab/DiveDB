@@ -21,11 +21,11 @@ def test_convert_notion_to_model_logger(metadata_manager):
     notion_data = [
         {
             "properties": {
-                "LoggerID": {"title": [{"plain_text": "logger1"}]},
-                "SerialNo": {"rich_text": [{"plain_text": "12345"}]},
+                "Logger ID": {"title": [{"plain_text": "logger1"}]},
+                "Serial Number": {"rich_text": [{"plain_text": "12345"}]},
                 "Manufacturer": {"select": {"name": "ABC Corp"}},
                 "Type": {"select": {"name": "Type1"}},
-                "TypeName": {"select": {"name": "TypeName1"}},
+                "Manufacturer Name": {"select": {"name": "TypeName1"}},
                 "Notes": {"rich_text": [{"plain_text": "Some notes"}]},
                 "Owner": {"rich_text": [{"plain_text": "Owner1"}]},
                 "Icon": {"files": [{"file": {"url": "http://example.com/icon.png"}}]},
@@ -61,6 +61,8 @@ def test_create_logger_records(metadata_manager):
             "icon_url": "http://example.com/icon.png",
         }
     ]
-    with patch("services.metadata_manager.Loggers.objects.create") as mock_create:
+    with patch(
+        "DiveDB.services.metadata_manager.Loggers.objects.create"
+    ) as mock_create:
         metadata_manager.create_logger_records(logger_data)
         mock_create.assert_called_once_with(**logger_data[0])
