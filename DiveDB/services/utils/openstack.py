@@ -3,24 +3,26 @@ import os
 from keystoneauth1 import loading, session
 from swiftclient import client as swiftclient
 
-OPENSTACK_AUTH_URL = os.environ["OPENSTACK_AUTH_URL"]
-OPENSTACK_APPLICATION_CREDENTIAL_ID = os.environ["OPENSTACK_APPLICATION_CREDENTIAL_ID"]
-OPENSTACK_APPLICATION_CREDENTIAL_SECRET = os.environ[
-    "OPENSTACK_APPLICATION_CREDENTIAL_SECRET"
-]
+OPENSTACK_AUTH_URL = os.getenv("OPENSTACK_AUTH_URL", "")
+OPENSTACK_APPLICATION_CREDENTIAL_ID = os.getenv(
+    "OPENSTACK_APPLICATION_CREDENTIAL_ID", ""
+)
+OPENSTACK_APPLICATION_CREDENTIAL_SECRET = os.getenv(
+    "OPENSTACK_APPLICATION_CREDENTIAL_SECRET", ""
+)
 
 
 class SwiftClient:
-    loader = loading.get_plugin_loader("v3applicationcredential")
-    auth = loader.load_from_options(
-        auth_url=OPENSTACK_AUTH_URL,
-        application_credential_id=OPENSTACK_APPLICATION_CREDENTIAL_ID,
-        application_credential_secret=OPENSTACK_APPLICATION_CREDENTIAL_SECRET,
-    )
-
-    sess = session.Session(auth=auth)
-    client = swiftclient.Connection(session=sess)
-    storage_url, _ = client.get_auth()
+    def __init__(self):
+        loader = loading.get_plugin_loader("v3applicationcredential")
+        auth = loader.load_from_options(
+            auth_url=OPENSTACK_AUTH_URL,
+            application_credential_id=OPENSTACK_APPLICATION_CREDENTIAL_ID,
+            application_credential_secret=OPENSTACK_APPLICATION_CREDENTIAL_SECRET,
+        )
+        self.sess = session.Session(auth=auth)
+        self.client = swiftclient.Connection(session=self.sess)
+        self.storage_url, _ = self.client.get_auth()
 
     def get_containers(self):
         return self.client.get_account()[1]
