@@ -23,6 +23,7 @@ class LoggersWiki(models.Model):
         db_table = "Logger_Wikis"
         verbose_name = "Logger Wiki"
         verbose_name_plural = "Logger Wikis"
+        app_label = "metadata"
 
 
 class Loggers(models.Model):
@@ -46,6 +47,7 @@ class Loggers(models.Model):
         db_table = "Loggers"
         verbose_name = "Logger"
         verbose_name_plural = "Loggers"
+        app_label = "metadata"
 
 
 class Animals(models.Model):
@@ -62,6 +64,7 @@ class Animals(models.Model):
         db_table = "Animals"
         verbose_name = "Animal"
         verbose_name_plural = "Animals"
+        app_label = "metadata"
 
 
 class Deployments(models.Model):
@@ -90,6 +93,7 @@ class Deployments(models.Model):
         db_table = "Deployments"
         verbose_name = "Deployment"
         verbose_name_plural = "Deployments"
+        app_label = "metadata"
 
 
 class AnimalDeployments(models.Model):
@@ -104,6 +108,7 @@ class AnimalDeployments(models.Model):
         db_table = "Animal_Deployments"
         verbose_name = "Animal Deployment"
         verbose_name_plural = "Animal Deployments"
+        app_label = "metadata"
 
 
 class Recordings(models.Model):
@@ -133,6 +138,7 @@ class Recordings(models.Model):
         db_table = "Recordings"
         verbose_name = "Recording"
         verbose_name_plural = "Recordings"
+        app_label = "metadata"
 
     def save(self, *args, **kwargs):
         if not self.id:
@@ -163,7 +169,7 @@ class Files(models.Model):
     start_time = models.DateTimeField(null=True, blank=True)
     uploaded_at = models.DateTimeField(null=True, blank=True)
     file = models.FileField(
-        upload_to=f"{os.environ['OPENSTACK_FILE_STORAGE_CONTAINER_NAME']}/",
+        upload_to=f"{os.getenv('OPENSTACK_FILE_STORAGE_CONTAINER_NAME', 'media')}/",
         storage=OpenStackStorage(),
     )
 
@@ -171,6 +177,7 @@ class Files(models.Model):
         db_table = "Files"
         verbose_name = "File"
         verbose_name_plural = "Files"
+        app_label = "metadata"
 
 
 class MediaUpdates(models.Model):
@@ -191,3 +198,4 @@ class MediaUpdates(models.Model):
         db_table = "Media_Updates"
         verbose_name = "Media Update"
         verbose_name_plural = "Media Updates"
+        app_label = "metadata"
