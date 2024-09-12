@@ -9,6 +9,7 @@ dependencies = [
   "black",
   "deltalake",
   "django",
+  "django-storages",
   "duckdb",
   "edfio",
   "flake8",
@@ -29,6 +30,7 @@ dependencies = [
   "python-swiftclient",
   "setuptools",
   "tqdm",
+  "xarray",
 ]
 
 [tool.black]
@@ -48,5 +50,6 @@ exclude = '''
   | build
   | dist
   | services/duck_pond.py
+  | pyologger
 )/
 '''

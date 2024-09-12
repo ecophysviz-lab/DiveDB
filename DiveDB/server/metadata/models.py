@@ -2,10 +2,12 @@
 This module contains the models for the metadata app.
 """
 
+import os
 from datetime import datetime
 
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
+from DiveDB.services.utils.storage import OpenStackStorage
 
 
 class LoggersWiki(models.Model):
@@ -21,6 +23,7 @@ class LoggersWiki(models.Model):
         db_table = "Logger_Wikis"
         verbose_name = "Logger Wiki"
         verbose_name_plural = "Logger Wikis"
+        app_label = "metadata"
 
 
 class Loggers(models.Model):
@@ -44,6 +47,7 @@ class Loggers(models.Model):
         db_table = "Loggers"
         verbose_name = "Logger"
         verbose_name_plural = "Loggers"
+        app_label = "metadata"
 
 
 class Animals(models.Model):
@@ -60,6 +64,7 @@ class Animals(models.Model):
         db_table = "Animals"
         verbose_name = "Animal"
         verbose_name_plural = "Animals"
+        app_label = "metadata"
 
 
 class Deployments(models.Model):
@@ -88,6 +93,7 @@ class Deployments(models.Model):
         db_table = "Deployments"
         verbose_name = "Deployment"
         verbose_name_plural = "Deployments"
+        app_label = "metadata"
 
 
 class AnimalDeployments(models.Model):
@@ -102,6 +108,7 @@ class AnimalDeployments(models.Model):
         db_table = "Animal_Deployments"
         verbose_name = "Animal Deployment"
         verbose_name_plural = "Animal Deployments"
+        app_label = "metadata"
 
 
 class Recordings(models.Model):
@@ -124,10 +131,14 @@ class Recordings(models.Model):
         null=True, blank=True, choices=PRECISION_CHOICES
     )
 
+    def __str__(self):
+        return f"{self.name} ({self.id})"
+
     class Meta:
         db_table = "Recordings"
         verbose_name = "Recording"
         verbose_name_plural = "Recordings"
+        app_label = "metadata"
 
     def save(self, *args, **kwargs):
         if not self.id:
@@ -152,16 +163,21 @@ class Files(models.Model):
     ]
     extension = models.CharField()
     type = models.CharField(max_length=5, choices=FILE_TYPE_CHOICES)
-    config_metadata = models.JSONField(null=True, blank=True)
     delta_path = models.CharField(null=True, blank=True)
-    file_path = models.CharField(null=True, blank=True)
     recording = models.ForeignKey(Recordings, on_delete=models.CASCADE)
     metadata = models.JSONField(null=True, blank=True)
+    start_time = models.DateTimeField(null=True, blank=True)
+    uploaded_at = models.DateTimeField(null=True, blank=True)
+    file = models.FileField(
+        upload_to=f"{os.getenv('OPENSTACK_FILE_STORAGE_CONTAINER_NAME', 'media')}/",
+        storage=OpenStackStorage(),
+    )
 
     class Meta:
         db_table = "Files"
         verbose_name = "File"
         verbose_name_plural = "Files"
+        app_label = "metadata"
 
 
 class MediaUpdates(models.Model):
@@ -182,3 +198,4 @@ class MediaUpdates(models.Model):
         db_table = "Media_Updates"
         verbose_name = "Media Update"
         verbose_name_plural = "Media Updates"
+        app_label = "metadata"

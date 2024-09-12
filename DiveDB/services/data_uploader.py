@@ -5,12 +5,14 @@ Data Uploader
 import os
 import edfio
 import django
+from django.core.files import File
 from DiveDB.services.metadata_manager import MetadataManager
 from DiveDB.services.duck_pond import DuckPond
 import numpy as np
 import gc
 import pyarrow as pa
 from tqdm import tqdm
+import xarray as xr
 
 # import pyarrow.compute as pc
 from dataclasses import dataclass, asdict
@@ -53,8 +55,9 @@ DataSchema = pa.schema(
         pa.field("animal", pa.string()),
         pa.field("deployment", pa.string()),
         pa.field("recording", pa.string()),
+        pa.field("data_labels", pa.string()),
         pa.field("datetime", pa.timestamp("us", tz="UTC")),
-        pa.field("data", pa.float64()),
+        pa.field("values", pa.list_(pa.float64())),
     ]
 )
 
@@ -117,6 +120,12 @@ class DataUploader:
         csv_metadata_map (dict, optional): Mapping for CSV metadata. Defaults to None.
         signals (list[str], optional): List of signals to process. Defaults to "all".
         batch_size (int, optional): Size of data batches for processing. Defaults to 20,000,000.
+        metadata (dict, optional): Metadata dictionary. Defaults to None.
+            Required keys:
+                - animal: Animal ID (int)
+                - deployment: Deployment Name (str)
+                - logger: Logger ID (int)
+                - recording: Recording Name (str)
 
         Workflow:
         1. Retrieves metadata models from the CSV file.
@@ -146,13 +155,15 @@ class DataUploader:
         for edf_file_path in edf_file_paths:
             edf = edfio.read_edf(edf_file_path, lazy_load_data=True)
             total_signals += len(signals if signals != "all" else edf.signals)
-            # Upload the EDF file to Swift
-            print(f"Uploading {edf_file_path} to OpenStack Swift")
-            swift_client.put_object_to_swift(
-                container_name="dev_data",
-                object_name=os.path.basename(edf_file_path),
-                contents=edf_file_path,
-            )
+
+        # Create a new file record
+        file = Files.objects.create(
+            recording=Recordings.objects.get(name=metadata["recording"]),
+            extension="edf",
+            type="data",
+            # TODO: Add metadata to the file object
+            metadata=asdict(edf.annotations),
+        )
 
         # Initialize progress bar
         print(f"Processing {total_signals} signals in {len(edf_file_paths)} files.")
@@ -191,6 +202,13 @@ class DataUploader:
                         recording_array = pa.array(
                             [metadata["recording"]] * length, type=pa.string()
                         )
+                        data_labels_array = pa.array(
+                            ["value"] * length, type=pa.string()
+                        )
+                        values_array = pa.array(
+                            [[v] for v in signalData.data[start:end]],
+                            type=pa.list_(pa.float64()),
+                        )
 
                         # Create PyArrow table with repeated and direct data columns
                         batch_table = pa.table(
@@ -200,38 +218,27 @@ class DataUploader:
                                 "deployment": deployment_array,
                                 "logger": logger_array,
                                 "recording": recording_array,
+                                "data_labels": data_labels_array,
                                 "datetime": pa.array(
                                     signalData.time[start:end],
                                     type=pa.timestamp("us", tz="UTC"),
                                 ),
-                                "data": pa.array(
-                                    signalData.data[start:end], type=pa.float64()
-                                ),
+                                "values": values_array,
                             },
                             schema=DataSchema,
-                        )
-
-                        # Create a new file record
-                        file = Files.objects.create(
-                            recording=Recordings.objects.get(
-                                name=metadata["recording"]
-                            ),
-                            file_path=edf_file_path,
-                            extension="edf",
-                            type="data",
-                            metadata=asdict(signalMetadata),
                         )
 
                         duckpond.write_to_delta(
                             data=batch_table,
                             schema=DataSchema,
-                            mode="append",  # Use append mode for batching
+                            mode="append",
                             partition_by=[
                                 "logger",
                                 "animal",
                                 "deployment",
                                 "recording",
                                 "signal_name",
+                                "data_labels",
                             ],
                             name=file.file_path if file else "Test",
                             description="test",
@@ -244,5 +251,124 @@ class DataUploader:
 
                     # Update progress bar
                     pbar.update(1)
+
+        print("Upload complete.")
+
+    def upload_netcdf(
+        self, netcdf_file_path: str, metadata: dict, batch_size: int = 1000000
+    ):
+        """
+        Uploads a netCDF file to the database and DuckPond.
+
+        Parameters:
+        netcdf_file_path (str): Path to the netCDF file.
+        metadata (dict): Metadata dictionary.
+            Required keys:
+                - animal: Animal ID (int)
+                - deployment: Deployment Name (str)
+                - logger: Logger ID (int)
+                - recording: Recording Name (str)
+        batch_size (int, optional): Size of data batches for processing. Defaults to 10,000,000.
+        """
+        ds = xr.open_dataset(netcdf_file_path)
+
+        # Create a new file record
+        print(
+            f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
+        )
+        with open(netcdf_file_path, "rb") as f:
+            file_object = File(f, name=os.path.basename(netcdf_file_path))
+            file = Files.objects.create(
+                recording=Recordings.objects.get(name=metadata["recording"]),
+                file=file_object,
+                extension="nc",
+                type="data",
+                metadata={
+                    key: (
+                        value.item()
+                        if isinstance(value, (np.integer, np.floating))
+                        else value
+                    )
+                    for key, value in ds.attrs.items()
+                },
+            )
+
+        total_vars = len(ds.data_vars)
+
+        print(f"Processing {total_vars} variables in the netCDF file.")
+        with tqdm(total=total_vars, desc="Processing variables") as pbar:
+            # Upload each variable in the netCDF file
+            for var_name, var_data in ds.data_vars.items():
+                for start in range(0, var_data.shape[0], batch_size):
+                    end = min(start + batch_size, var_data.shape[0])
+                    length = end - start
+
+                    # Get the corresponding time coordinate, assuming time is always the first dimension
+                    time_coord = var_data.dims[0]
+                    times = pa.array(
+                        ds.coords[time_coord].values[start:end],
+                        type=pa.timestamp("us", tz="UTC"),
+                    )
+
+                    values = [list(row) for row in var_data.values[start:end]]
+                    # Unpack variable names from the second dimension
+                    if "variables" in var_data.attrs:
+                        if isinstance(var_data.attrs["variables"], (list, np.ndarray)):
+                            labels = "___".join(var_data.attrs["variables"])
+                        else:
+                            labels = var_data.attrs["variables"]
+                    else:
+                        labels = "___".join(
+                            f"var_{i}" for i in range(var_data.shape[1])
+                        )
+
+                    # Create the batch table
+                    batch_table = pa.table(
+                        {
+                            "logger": pa.array(
+                                [metadata["logger"]] * length, type=pa.string()
+                            ),
+                            "signal_name": pa.array(
+                                [var_name] * length, type=pa.string()
+                            ),
+                            "animal": pa.array(
+                                [metadata["animal"]] * length, type=pa.string()
+                            ),
+                            "deployment": pa.array(
+                                [metadata["deployment"]] * length, type=pa.string()
+                            ),
+                            "recording": pa.array(
+                                [metadata["recording"]] * length, type=pa.string()
+                            ),
+                            "data_labels": pa.array(
+                                [labels] * length, type=pa.string()
+                            ),
+                            "datetime": times,
+                            "values": pa.array(values, type=pa.list_(pa.float64())),
+                        },
+                        schema=DataSchema,
+                    )
+
+                    duckpond.write_to_delta(
+                        data=batch_table,
+                        schema=DataSchema,
+                        mode="append",
+                        partition_by=[
+                            "logger",
+                            "animal",
+                            "deployment",
+                            "recording",
+                            "signal_name",
+                            "data_labels",
+                        ],
+                        name=file.file.name,
+                        description="test",
+                    )
+
+                    del batch_table
+                    gc.collect()
+
+                # Update progress bar
+                pbar.update(1)
 
         print("Upload complete.")
