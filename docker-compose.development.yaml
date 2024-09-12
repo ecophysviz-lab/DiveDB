@@ -44,6 +44,7 @@ services:
     volumes:
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
       - ./DiveDB:/app/DiveDB
+      - ./data:/app/data
       - ./pyologger:/app/pyologger
     depends_on:
       - metadata_database

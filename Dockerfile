@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . /app/
 
 # Install the dependencies
-RUN pip install --no-cache-dir .
+RUN pip install .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
