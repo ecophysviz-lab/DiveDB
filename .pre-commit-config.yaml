@@ -4,14 +4,15 @@ repos:
       hooks:
         - id: check-yaml
         - id: requirements-txt-fixer
+    - repo: https://github.com/psf/black
+      rev: 23.1.0
+      hooks:
+        - id: black
+          exclude: jupyter/.*\.py,pyologger/.*\.py
     - repo: https://github.com/PyCQA/flake8
       rev: 5.0.4
       hooks:
         - id: flake8
           additional_dependencies: [flake8-typing-imports==1.10.0]
           args: ["--config=.flake8"]
-          exclude: jupyter/*.py
-    - repo: https://github.com/psf/black
-      rev: 23.1.0
-      hooks:
-        - id: black
+          exclude: jupyter/.*\.py,pyologger/.*\.py

@@ -1,16 +1,25 @@
+
+# pyologger
+antropy
 black
 dask
 deltalake
 django
-duckdb
+duckdb==1.0.0
+edfio
 flake8
+heartpy
 hvplot
 importlib-metadata==4.8.3
 jupyter
 load_dotenv
 matplotlib
+matplotlib
+mne
 mne
 netCDF4
+
+notion_client
 numpy
 pandas
 
@@ -20,7 +29,14 @@ pre-commit
 prefect
 prefect-dask
 psycopg2-binary
+pyedflib
 python-keystoneclient
 
 python-swiftclient 
 seaborn
+sleepecg
+tqdm
+wfdb
+
+xarray
+yasa
