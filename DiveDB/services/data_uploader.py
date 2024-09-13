@@ -330,7 +330,7 @@ class DataUploader:
                                 "recording",
                                 "event_key",
                             ],
-                            name="test", # file.file.name,
+                            name="test",  # file.file.name,
                             description="test",
                         )
                         del point_batch_table
@@ -393,7 +393,7 @@ class DataUploader:
                                 "signal_name",
                                 "data_labels",
                             ],
-                            name="test", # file.file.name,
+                            name="test",  # file.file.name,
                             description="test",
                         )
                         del batch_table

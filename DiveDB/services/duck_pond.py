@@ -91,7 +91,8 @@ class DuckPond:
 
     def _authenticate(self):
         """Authenticate with OpenStack Swift"""
-        self.conn.execute(f"""
+        self.conn.execute(
+            f"""
         CREATE SECRET my_secret (
             TYPE S3,
             ENDPOINT 'https://object.cloud.sdsc.edu:443/v1/AUTH_413c350724914abbbb2ece619b2b69d4/',
@@ -99,7 +100,8 @@ class DuckPond:
             SECRET '{os.getenv("OPENSTACK_APPLICATION_CREDENTIAL_SECRET")}',
             REGION 'us-east-1'
         );
-        """)
+        """
+        )
 
     def _create_lake_views(self, lake: str | None = None):
         """Create a view of the delta lake"""
@@ -151,6 +153,7 @@ class DuckPond:
     ):
         """Write data to our delta lake"""
         import logging
+
         logging.basicConfig(level=logging.DEBUG)
         self.delta_lake = write_deltalake(
             table_or_uri=LAKE_CONFIGS[lake]["path"],
@@ -164,7 +167,9 @@ class DuckPond:
             storage_options={
                 "AWS_ENDPOINT_URL": "http://localhost:9000",
                 "AWS_ACCESS_KEY_ID": os.getenv("OPENSTACK_APPLICATION_CREDENTIAL_ID"),
-                "AWS_SECRET_ACCESS_KEY": os.getenv("OPENSTACK_APPLICATION_CREDENTIAL_SECRET"),
+                "AWS_SECRET_ACCESS_KEY": os.getenv(
+                    "OPENSTACK_APPLICATION_CREDENTIAL_SECRET"
+                ),
                 "AWS_REGION": "us-east-1",
                 "AWS_S3_URL_STYLE": "path",
             },
