@@ -5,10 +5,13 @@ Delta Lake Manager
 import logging
 import os
 from typing import List, Literal
-
 import duckdb
 import pyarrow as pa
 from deltalake import DeltaTable, write_deltalake
+
+# from swiftclient import client as swiftclient
+from swiftclient.exceptions import ClientException
+from DiveDB.services.utils.openstack import SwiftClient
 
 # flake8: noqa
 
@@ -21,7 +24,7 @@ LAKES = [
 LAKE_CONFIGS = {
     "DATA": {
         "name": "DataLake",
-        "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/data",
+        "path": "s3://divedb-delta-lakes" + "/data",
         "schema": pa.schema(
             [
                 pa.field("signal_name", pa.string()),
@@ -36,7 +39,7 @@ LAKE_CONFIGS = {
     },
     "POINT_EVENTS": {
         "name": "PointEventsLake",
-        "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/point_events",
+        "path": "s3://divedb-delta-lakes" + "/point_events",
         "schema": pa.schema(
             [
                 pa.field("animal", pa.string()),
@@ -52,7 +55,7 @@ LAKE_CONFIGS = {
     "STATE_EVENTS": {
         # TODO: Support these in DataUploader
         "name": "StateEventsLake",
-        "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/state_events",
+        "path": "s3://divedb-delta-lakes" + "/state_events",
         "schema": pa.schema(
             [
                 pa.field("animal", pa.string()),
@@ -72,14 +75,13 @@ LAKE_CONFIGS = {
 class DuckPond:
     """Delta Lake Manager"""
 
-    delta_lakes: dict[str, DeltaTable] = {}
-
     def __init__(self, delta_path: str | None = None, connect_to_postgres: bool = True):
-        if delta_path:
-            self.delta_path = delta_path
+        self.swift_client = SwiftClient()
+        self.delta_path = "s3://divedb-delta-lakes"
         logging.info("Connecting to DuckDB")
         self.conn = duckdb.connect()
-        self._create_lake_views()
+        self._authenticate()
+        # self._create_lake_views()
 
         if connect_to_postgres:
             logging.info("Connecting to PostgreSQL")
@@ -87,27 +89,51 @@ class DuckPond:
             pg_connection_string = POSTGRES_CONNECTION_STRING
             self.conn.execute(f"ATTACH 'postgres:{pg_connection_string}' AS metadata")
 
+    def _authenticate(self):
+        """Authenticate with OpenStack Swift"""
+        self.conn.execute(f"""
+        CREATE SECRET my_secret (
+            TYPE S3,
+            ENDPOINT 'https://object.cloud.sdsc.edu:443/v1/AUTH_413c350724914abbbb2ece619b2b69d4/',
+            KEY_ID '{os.getenv("OPENSTACK_APPLICATION_CREDENTIAL_ID")}',
+            SECRET '{os.getenv("OPENSTACK_APPLICATION_CREDENTIAL_SECRET")}',
+            REGION 'us-east-1'
+        );
+        """)
+
     def _create_lake_views(self, lake: str | None = None):
         """Create a view of the delta lake"""
         if lake:
             lake_config = LAKE_CONFIGS[lake]
-            if os.path.exists(lake_config["path"]):
+            if self._check_path_exists(lake_config["path"]):
                 self.conn.sql(
                     f"""
-                DROP VIEW IF EXISTS {lake_config['name']};
-                CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
-                """
+                    DROP VIEW IF EXISTS {lake_config['name']};
+                    CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
+                    """
                 )
         else:
             for lake in LAKES:
                 lake_config = LAKE_CONFIGS[lake]
-            if os.path.exists(lake_config["path"]):
-                self.conn.sql(
-                    f"""
-                DROP VIEW IF EXISTS {lake_config['name']};
-                CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
-                """
-                )
+                if self._check_path_exists(lake_config["path"]):
+                    self.conn.sql(
+                        f"""
+                        DROP VIEW IF EXISTS {lake_config['name']};
+                        CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
+                        """
+                    )
+
+    def _check_path_exists(self, path: str) -> bool:
+        """Check if a path exists in the Swift  container or local file system"""
+        if path.startswith("s3://"):
+            try:
+                self.swift_client.client.get_container(path.split("/")[2])
+                return True
+            except ClientException as e:
+                logging.error(f"Swift client error: {e}")
+                return False
+        else:
+            return os.path.exists(path)
 
     def read_from_delta(self, query: str):
         """Read data from our delta lake"""
@@ -124,6 +150,8 @@ class DuckPond:
         schema_mode: str | None = None,
     ):
         """Write data to our delta lake"""
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
         self.delta_lake = write_deltalake(
             table_or_uri=LAKE_CONFIGS[lake]["path"],
             data=data,
@@ -133,6 +161,13 @@ class DuckPond:
             name=name,
             description=description,
             schema_mode=schema_mode,
+            storage_options={
+                "AWS_ENDPOINT_URL": "http://localhost:9000",
+                "AWS_ACCESS_KEY_ID": os.getenv("OPENSTACK_APPLICATION_CREDENTIAL_ID"),
+                "AWS_SECRET_ACCESS_KEY": os.getenv("OPENSTACK_APPLICATION_CREDENTIAL_SECRET"),
+                "AWS_REGION": "us-east-1",
+                "AWS_S3_URL_STYLE": "path",
+            },
         )
         self._create_lake_views(lake)
 

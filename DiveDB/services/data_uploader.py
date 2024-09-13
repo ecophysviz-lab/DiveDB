@@ -84,7 +84,7 @@ class DataUploader:
         csv_metadata_path: str,
         csv_metadata_map: dict = None,
         signals: list[str] = "all",
-        batch_size: int = 10000000,  # The smaller the batch size, the slower and the more memory efficient. 10M stays comfortably under 8GB of RAM.
+        batch_size: int = 1000000,  # DuckDB works best with a max of 1M rows per parquet
         metadata: dict = None,
     ):
         """
@@ -95,7 +95,7 @@ class DataUploader:
         csv_metadata_path (str): Path to the CSV file containing metadata.
         csv_metadata_map (dict, optional): Mapping for CSV metadata. Defaults to None.
         signals (list[str], optional): List of signals to process. Defaults to "all".
-        batch_size (int, optional): Size of data batches for processing. Defaults to 20,000,000.
+        batch_size (int, optional): Size of data batches for processing. Defaults to 1,000,000.
         metadata (dict, optional): Metadata dictionary. Defaults to None.
             Required keys:
                 - animal: Animal ID (int)
@@ -224,7 +224,10 @@ class DataUploader:
         print("Upload complete.")
 
     def upload_netcdf(
-        self, netcdf_file_path: str, metadata: dict, batch_size: int = 1000000
+        self,
+        netcdf_file_path: str,
+        metadata: dict,
+        batch_size: int = 1000000,  # DuckDB works best with a max of 1M rows per parquet
     ):
         """
         Uploads a netCDF file to the database and DuckPond.
@@ -236,7 +239,7 @@ class DataUploader:
                 - animal: Animal ID (int)
                 - deployment: Deployment Name (str)
                 - recording: Recording Name (str)
-        batch_size (int, optional): Size of data batches for processing. Defaults to 10,000,000.
+        batch_size (int, optional): Size of data batches for processing. Defaults to 1,000,000.
         """
         ds = xr.open_dataset(netcdf_file_path)
 
@@ -246,20 +249,20 @@ class DataUploader:
         )
         with open(netcdf_file_path, "rb") as f:
             file_object = File(f, name=os.path.basename(netcdf_file_path))
-            file = Files.objects.create(
-                recording=Recordings.objects.get(name=metadata["recording"]),
-                file=file_object,
-                extension="nc",
-                type="data",
-                metadata={
-                    key: (
-                        value.item()
-                        if isinstance(value, (np.integer, np.floating))
-                        else value
-                    )
-                    for key, value in ds.attrs.items()
-                },
-            )
+            # file = Files.objects.create(
+            #     recording=Recordings.objects.get(name=metadata["recording"]),
+            #     file=file_object,
+            #     extension="nc",
+            #     type="data",
+            #     metadata={
+            #         key: (
+            #             value.item()
+            #             if isinstance(value, (np.integer, np.floating))
+            #             else value
+            #         )
+            #         for key, value in ds.attrs.items()
+            #     },
+            # )
 
         total_vars = len(ds.data_vars)
 
@@ -327,7 +330,7 @@ class DataUploader:
                                 "recording",
                                 "event_key",
                             ],
-                            name=file.file.name,
+                            name="test", # file.file.name,
                             description="test",
                         )
                         del point_batch_table
@@ -390,7 +393,7 @@ class DataUploader:
                                 "signal_name",
                                 "data_labels",
                             ],
-                            name=file.file.name,
+                            name="test", # file.file.name,
                             description="test",
                         )
                         del batch_table
