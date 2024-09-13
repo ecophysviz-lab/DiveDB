@@ -4,11 +4,13 @@ Delta Lake Manager
 
 import logging
 import os
+import pandas as pd
 from typing import List, Literal
 
 import duckdb
 import pyarrow as pa
 from deltalake import DeltaTable, write_deltalake
+from DiveDB.services.utils.sampling import resample
 
 # flake8: noqa
 
@@ -92,22 +94,28 @@ class DuckPond:
         if lake:
             lake_config = LAKE_CONFIGS[lake]
             if os.path.exists(lake_config["path"]):
+                print(f"Creating view for {lake_config['name']}")
                 self.conn.sql(
                     f"""
                 DROP VIEW IF EXISTS {lake_config['name']};
                 CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
                 """
                 )
+            else:
+                print(f"Delta lake {lake_config['name']} does not exist")
         else:
             for lake in LAKES:
                 lake_config = LAKE_CONFIGS[lake]
-            if os.path.exists(lake_config["path"]):
-                self.conn.sql(
-                    f"""
-                DROP VIEW IF EXISTS {lake_config['name']};
-                CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
-                """
-                )
+                if os.path.exists(lake_config["path"]):
+                    print(f"Creating view for {lake_config['name']}")
+                    self.conn.sql(
+                        f"""
+                    DROP VIEW IF EXISTS {lake_config['name']};
+                    CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
+                    """
+                    )
+                else:
+                    print(f"Delta lake {lake_config['name']} does not exist")
 
     def read_from_delta(self, query: str):
         """Read data from our delta lake"""
@@ -152,6 +160,7 @@ class DuckPond:
         deployment_ids: str | List[str] | None = None,
         recording_ids: str | List[str] | None = None,
         date_range: tuple[str, str] | None = None,
+        frequency: int | None = None,
         limit: int | None = None,
     ):
         """
@@ -164,6 +173,7 @@ class DuckPond:
         - deployment_ids (str | List[str] | None): Filter by deployment IDs.
         - recording_ids (str | List[str] | None): Filter by recording IDs.
         - date_range (tuple[str, str] | None): Filter by date range (start_date, end_date).
+        - frequency (int | None): Filter by frequency (Hz)
         - limit (int | None): Limit the number of rows returned.
 
         Returns:
@@ -184,8 +194,7 @@ class DuckPond:
                 return ""
             if len(values) == 1:
                 return f"{predicate} = '{values[0]}'"
-            list_of_values = [f"'{value}'" for value in values]
-            return f"{predicate} IN ({', '.join(list_of_values)})"
+            return " OR ".join([f"{predicate} = '{value}'" for value in values])
 
         if isinstance(signal_names, str):
             signal_names = [signal_names]
@@ -227,18 +236,38 @@ class DuckPond:
         value_index = 2 if len(signal_names) != 1 else 1
         if len(results.fetchone()[value_index]) == 1:
             if len(signal_names) != 1:
-                return self.conn.sql(
+                results = self.conn.sql(
                     f"""
                     SELECT signal_name, datetime, unnest(values) as value
                     FROM results
                     """
                 )
             else:
-                return self.conn.sql(
+                results = self.conn.sql(
                     f"""
                 SELECT datetime, unnest(values) as value
                 FROM results
                 """
                 )
-        else:
-            return results
+
+        if frequency:
+            # Get dfs for each signal name
+            df = results.df()
+            signal_dfs = {
+                signal_name: df[df["signal_name"] == signal_name]
+                for signal_name in signal_names
+            }
+            # Resample each df to the desired frequency
+            for signal_name, df in signal_dfs.items():
+                df["datetime"] = pd.to_datetime(df["datetime"])
+                df = df.set_index("datetime")
+                signal_dfs[signal_name] = resample(df, frequency)
+            # Concatenate the dfs
+            results = pd.concat(signal_dfs)
+            results = results.reset_index()
+            results = results.pivot_table(
+                index="datetime", columns="signal_name", values="value"
+            ).reset_index()
+            results = results.dropna()
+
+        return results
