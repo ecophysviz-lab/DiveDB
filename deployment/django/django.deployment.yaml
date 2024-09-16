@@ -20,6 +20,7 @@ spec:
       - name: django
         image: ghcr.io/ecophysviz-lab/divedb-django:latest
         imagePullPolicy: Always
+        command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
         env:
         - name: POSTGRES_DB
           valueFrom:
@@ -41,6 +42,21 @@ spec:
             secretKeyRef:
               name: divedb-postgres-credentials
               key: DJANGO_SECRET_KEY
+        - name: OPENSTACK_AUTH_URL
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: OPENSTACK_AUTH_URL
+        - name: OPENSTACK_APPLICATION_CREDENTIAL_ID
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: OPENSTACK_APPLICATION_CREDENTIAL_ID
+        - name: OPENSTACK_APPLICATION_CREDENTIAL_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: OPENSTACK_APPLICATION_CREDENTIAL_SECRET
         - name: POSTGRES_HOST
           value: divedb-pg-service
         ports:

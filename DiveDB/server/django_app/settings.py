@@ -40,6 +40,8 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
+    'https://nrp-nautilus.io',
+    'https://www.nrp-nautilus.io',
     'https://divedb.nrp-nautilus.io'
     'https://www.divedb.nrp-nautilus.io'
 ]
