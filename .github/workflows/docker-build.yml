@@ -9,6 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   DJANGO_IMAGE_NAME: ${{ github.repository }}-django
+  JUPYTER_IMAGE_NAME: ${{ github.repository }}-jupyter
 
 # There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
 jobs:
@@ -46,7 +47,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.DJANGO_IMAGE_NAME }}:latest,${{ env.DJANGO_IMAGE_NAME }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
       
       - name: Build and push Jupyter image
@@ -55,7 +56,7 @@ jobs:
         with:
           context: ./jupyter
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.JUPYTER_IMAGE_NAME }}:latest,${{ env.JUPYTER_IMAGE_NAME }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
       
       # Failed to persist attestation: Feature not available for the ecophysviz-lab organization. To enable this feature, please upgrade the billing plan, or make this repository public.
