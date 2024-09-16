@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
-from services.metadata_manager import MetadataManager  # noqa: E402
+from DiveDB.services.metadata_manager import MetadataManager  # noqa: E402
 
 
 def main():
