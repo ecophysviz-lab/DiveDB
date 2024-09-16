@@ -34,7 +34,13 @@ if SECRET_KEY == "":
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    '*'
+    'divedb.nrp-nautilus.io'
+    'www.divedb.nrp-nautilus.io'
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'divedb.nrp-nautilus.io'
+    'www.divedb.nrp-nautilus.io'
 ]
 
 

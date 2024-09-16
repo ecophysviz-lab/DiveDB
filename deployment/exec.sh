@@ -1,0 +1,1 @@
+# kubectl exec -it divedb-django-deployment-796c9d764c-477bd -- bash
