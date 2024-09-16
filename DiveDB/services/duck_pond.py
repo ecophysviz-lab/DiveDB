@@ -162,7 +162,7 @@ class DuckPond:
         date_range: tuple[str, str] | None = None,
         frequency: int | None = None,
         limit: int | None = None,
-    ):
+    ) -> pd.DataFrame | duckdb.DuckDBPyConnection:
         """
         Get data from the Delta Lake based on various filters.
 
@@ -177,7 +177,8 @@ class DuckPond:
         - limit (int | None): Limit the number of rows returned.
 
         Returns:
-        - List[tuple]: Query results from the Delta Lake.
+        - If frequency is not None, returns a pd.DataFrame.
+        - If frequency is None, returns a DuckDBPyConnection object.
         """
         has_predicates = False
 
@@ -210,8 +211,7 @@ class DuckPond:
             recording_ids = [recording_ids]
 
         query_string = "SELECT "
-        if not signal_names or len(signal_names) != 1:
-            query_string += "signal_name, "
+        query_string += "signal_name, "
         query_string += "datetime, values FROM DataLake"
 
         if signal_names:
@@ -233,22 +233,15 @@ class DuckPond:
         print(query_string)
 
         results = self.conn.sql(query_string)
-        value_index = 2 if len(signal_names) != 1 else 1
-        if len(results.fetchone()[value_index]) == 1:
-            if len(signal_names) != 1:
-                results = self.conn.sql(
-                    f"""
-                    SELECT signal_name, datetime, unnest(values) as value
-                    FROM results
-                    """
-                )
-            else:
-                results = self.conn.sql(
-                    f"""
-                SELECT datetime, unnest(values) as value
+
+        # Assuming the "values" column is the third item in result's tuple
+        if len(results.fetchone()[2]) == 1:
+            results = self.conn.sql(
+                f"""
+                SELECT signal_name, datetime, unnest(values) as value
                 FROM results
                 """
-                )
+            )
 
         if frequency:
             # Get dfs for each signal name
@@ -266,8 +259,10 @@ class DuckPond:
             results = pd.concat(signal_dfs)
             results = results.reset_index()
             results = results.pivot_table(
-                index="datetime", columns="signal_name", values="value"
-            ).reset_index()
-            results = results.dropna()
+                index="datetime",
+                columns="signal_name",
+                values="value",
+            )
+            results = results.dropna().reset_index()
 
         return results
