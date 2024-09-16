@@ -251,9 +251,9 @@ class DuckPond:
                 for signal_name in signal_names
             }
             # Resample each df to the desired frequency
+            # TODO: Figure out why the new index is so wonky
             for signal_name, df in signal_dfs.items():
                 df["datetime"] = pd.to_datetime(df["datetime"])
-                df = df.set_index("datetime")
                 signal_dfs[signal_name] = resample(df, frequency)
             # Concatenate the dfs
             results = pd.concat(signal_dfs)
