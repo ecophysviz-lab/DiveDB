@@ -31,5 +31,6 @@ data:
 
 cat /tmp/b64_ghcr_secret.yaml
 
+kubectl delete -f /tmp/b64_ghcr_secret.yaml
 kubectl create -f /tmp/b64_ghcr_secret.yaml
 rm /tmp/b64_ghcr_secret.yaml
