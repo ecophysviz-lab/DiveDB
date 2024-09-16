@@ -18,7 +18,7 @@ spec:
       - name: ghcr-login-ecophysviz
       containers:
       - name: django
-        image: ghcr.io/ecophysviz-lab/divedb-django:pr-16
+        image: ghcr.io/ecophysviz-lab/divedb-django:latest
         imagePullPolicy: Always
         env:
         - name: POSTGRES_DB

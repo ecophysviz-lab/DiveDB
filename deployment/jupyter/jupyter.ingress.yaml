@@ -18,7 +18,7 @@ spec:
           service:
             name: divedb-jupyter-service
             port:
-              number: 8000
+              number: 8888
         path: /
         pathType: ImplementationSpecific
   tls:
