@@ -45,6 +45,9 @@ spec:
         #   value: divedb-pg-service
         ports:
         - containerPort: 8000
+        volumeMounts:
+        - mountPath: /data
+          name: divedb-deltalake-storage
         resources:
            limits:
              memory: 32G
@@ -52,3 +55,7 @@ spec:
            requests:
              memory: 16G
              cpu: 4
+      volumes:
+      - name: divedb-deltalake-storage
+        persistentVolumeClaim:
+          claimName: divedb-deltalake-pv-claim

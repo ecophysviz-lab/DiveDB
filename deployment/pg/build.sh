@@ -1,7 +1,3 @@
-
-# Use docker compose to build the required images
-# make build
-
 # Get the directory of this script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Script directory: $SCRIPT_DIR"
