@@ -7,7 +7,7 @@ import edfio
 import django
 from django.core.files import File
 from DiveDB.services.metadata_manager import MetadataManager
-from DiveDB.services.duck_pond import DuckPond
+from DiveDB.services.duck_pond import DuckPond, LAKE_CONFIGS
 import numpy as np
 import gc
 import pyarrow as pa
@@ -45,30 +45,6 @@ class SignalData:
     time: pa.Array
     data: np.ndarray
     signal_length: int
-
-
-DataSchema = pa.schema(
-    [
-        # Keep schema in order of partitions
-        pa.field("logger", pa.string()),
-        pa.field("signal_name", pa.string()),
-        pa.field("animal", pa.string()),
-        pa.field("deployment", pa.string()),
-        pa.field("recording", pa.string()),
-        pa.field("data_labels", pa.string()),
-        pa.field("datetime", pa.timestamp("us", tz="UTC")),
-        pa.field("values", pa.list_(pa.float64())),
-    ]
-)
-
-MetadataSchema = pa.schema(
-    [
-        pa.field("signal_name", pa.string()),
-        pa.field("freq", pa.int16()),
-        pa.field("start_time", pa.timestamp("us", tz="UTC")),
-        pa.field("end_time", pa.timestamp("us", tz="UTC")),
-    ]
-)
 
 
 class DataUploader:
@@ -124,7 +100,6 @@ class DataUploader:
             Required keys:
                 - animal: Animal ID (int)
                 - deployment: Deployment Name (str)
-                - logger: Logger ID (int)
                 - recording: Recording Name (str)
 
         Workflow:
@@ -146,7 +121,6 @@ class DataUploader:
             metadata = {
                 "animal": metadata_models["animal"].id,
                 "deployment": metadata_models["deployment"].deployment_name,
-                "logger": metadata_models["logger"].id,
                 "recording": metadata_models["recording"].name,
             }
 
@@ -196,9 +170,6 @@ class DataUploader:
                             [metadata["deployment"]] * length,
                             type=pa.string(),
                         )
-                        logger_array = pa.array(
-                            [metadata["logger"]] * length, type=pa.string()
-                        )
                         recording_array = pa.array(
                             [metadata["recording"]] * length, type=pa.string()
                         )
@@ -216,7 +187,6 @@ class DataUploader:
                                 "signal_name": signal_name_array,
                                 "animal": animal_array,
                                 "deployment": deployment_array,
-                                "logger": logger_array,
                                 "recording": recording_array,
                                 "data_labels": data_labels_array,
                                 "datetime": pa.array(
@@ -225,15 +195,14 @@ class DataUploader:
                                 ),
                                 "values": values_array,
                             },
-                            schema=DataSchema,
+                            schema=LAKE_CONFIGS["DATA"]["schema"],
                         )
 
                         duckpond.write_to_delta(
                             data=batch_table,
-                            schema=DataSchema,
+                            lake="DATA",
                             mode="append",
                             partition_by=[
-                                "logger",
                                 "animal",
                                 "deployment",
                                 "recording",
@@ -266,7 +235,6 @@ class DataUploader:
             Required keys:
                 - animal: Animal ID (int)
                 - deployment: Deployment Name (str)
-                - logger: Logger ID (int)
                 - recording: Recording Name (str)
         batch_size (int, optional): Size of data batches for processing. Defaults to 10,000,000.
         """
@@ -303,70 +271,130 @@ class DataUploader:
                     end = min(start + batch_size, var_data.shape[0])
                     length = end - start
 
-                    # Get the corresponding time coordinate, assuming time is always the first dimension
-                    time_coord = var_data.dims[0]
-                    times = pa.array(
-                        ds.coords[time_coord].values[start:end],
-                        type=pa.timestamp("us", tz="UTC"),
-                    )
-
-                    values = [list(row) for row in var_data.values[start:end]]
-                    # Unpack variable names from the second dimension
-                    if "variables" in var_data.attrs:
-                        if isinstance(var_data.attrs["variables"], (list, np.ndarray)):
-                            labels = "___".join(var_data.attrs["variables"])
-                        else:
-                            labels = var_data.attrs["variables"]
-                    else:
-                        labels = "___".join(
-                            f"var_{i}" for i in range(var_data.shape[1])
+                    if var_name == "event_data":
+                        # Get the corresponding time coordinate, assuming time is always the first dimension
+                        time_coord = var_data.dims[0]
+                        times = pa.array(
+                            ds.coords[time_coord].values[start:end],
+                            type=pa.timestamp("us", tz="UTC"),
                         )
 
-                    # Create the batch table
-                    batch_table = pa.table(
-                        {
-                            "logger": pa.array(
-                                [metadata["logger"]] * length, type=pa.string()
-                            ),
-                            "signal_name": pa.array(
-                                [var_name] * length, type=pa.string()
-                            ),
-                            "animal": pa.array(
-                                [metadata["animal"]] * length, type=pa.string()
-                            ),
-                            "deployment": pa.array(
-                                [metadata["deployment"]] * length, type=pa.string()
-                            ),
-                            "recording": pa.array(
-                                [metadata["recording"]] * length, type=pa.string()
-                            ),
-                            "data_labels": pa.array(
-                                [labels] * length, type=pa.string()
-                            ),
-                            "datetime": times,
-                            "values": pa.array(values, type=pa.list_(pa.float64())),
-                        },
-                        schema=DataSchema,
-                    )
+                        values = [list(row) for row in var_data.values[start:end]]
 
-                    duckpond.write_to_delta(
-                        data=batch_table,
-                        schema=DataSchema,
-                        mode="append",
-                        partition_by=[
-                            "logger",
-                            "animal",
-                            "deployment",
-                            "recording",
-                            "signal_name",
-                            "data_labels",
-                        ],
-                        name=file.file.name,
-                        description="test",
-                    )
+                        # Split the event data type point and state
+                        point_data = [row for row in values if row[0] == "point"]
+                        # state_data = [row for row in values if row[0] == "state"]
 
-                    del batch_table
-                    gc.collect()
+                        point_data_length = len(point_data)
+                        # state_data_length = len(state_data)
+
+                        # Create the batch table for point events
+                        point_batch_table = pa.table(
+                            {
+                                "animal": pa.array(
+                                    [metadata["animal"]] * point_data_length,
+                                    type=pa.string(),
+                                ),
+                                "deployment": pa.array(
+                                    [metadata["deployment"]] * point_data_length,
+                                    type=pa.string(),
+                                ),
+                                "recording": pa.array(
+                                    [metadata["recording"]] * point_data_length,
+                                    type=pa.string(),
+                                ),
+                                "event_key": pa.array(
+                                    [row[1] for row in point_data], type=pa.string()
+                                ),
+                                "datetime": times,
+                                "short_description": pa.array(
+                                    [row[2] for row in point_data], type=pa.string()
+                                ),
+                                "long_description": pa.array(
+                                    [row[3] for row in point_data], type=pa.string()
+                                ),
+                            },
+                            schema=LAKE_CONFIGS["POINT_EVENTS"]["schema"],
+                        )
+
+                        duckpond.write_to_delta(
+                            data=point_batch_table,
+                            lake="POINT_EVENTS",
+                            mode="append",
+                            partition_by=[
+                                "animal",
+                                "deployment",
+                                "recording",
+                                "event_key",
+                            ],
+                            name=file.file.name,
+                            description="test",
+                        )
+                        del point_batch_table
+                        gc.collect()
+                        # TODO:Create the batch table for state events
+                    else:
+                        # Get the corresponding time coordinate, assuming time is always the first dimension
+                        time_coord = var_data.dims[0]
+                        times = pa.array(
+                            ds.coords[time_coord].values[start:end],
+                            type=pa.timestamp("us", tz="UTC"),
+                        )
+
+                        values = [list(row) for row in var_data.values[start:end]]
+                        # Unpack variable names from the second dimension
+                        if "variables" in var_data.attrs:
+                            if isinstance(
+                                var_data.attrs["variables"], (list, np.ndarray)
+                            ):
+                                labels = "___".join(var_data.attrs["variables"])
+                            else:
+                                labels = var_data.attrs["variables"]
+                        else:
+                            labels = "___".join(
+                                f"var_{i}" for i in range(var_data.shape[1])
+                            )
+
+                        # Create the batch table
+                        batch_table = pa.table(
+                            {
+                                "signal_name": pa.array(
+                                    [var_name] * length, type=pa.string()
+                                ),
+                                "animal": pa.array(
+                                    [metadata["animal"]] * length, type=pa.string()
+                                ),
+                                "deployment": pa.array(
+                                    [metadata["deployment"]] * length, type=pa.string()
+                                ),
+                                "recording": pa.array(
+                                    [metadata["recording"]] * length, type=pa.string()
+                                ),
+                                "data_labels": pa.array(
+                                    [labels] * length, type=pa.string()
+                                ),
+                                "datetime": times,
+                                "values": pa.array(values, type=pa.list_(pa.float64())),
+                            },
+                            schema=LAKE_CONFIGS["DATA"]["schema"],
+                        )
+
+                        duckpond.write_to_delta(
+                            data=batch_table,
+                            lake="DATA",
+                            mode="append",
+                            partition_by=[
+                                "animal",
+                                "deployment",
+                                "recording",
+                                "signal_name",
+                                "data_labels",
+                            ],
+                            name=file.file.name,
+                            description="test",
+                        )
+                        del batch_table
+                        gc.collect()
 
                 # Update progress bar
                 pbar.update(1)

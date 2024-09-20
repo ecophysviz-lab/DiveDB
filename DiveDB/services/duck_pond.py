@@ -4,7 +4,7 @@ Delta Lake Manager
 
 import logging
 import os
-from typing import List
+from typing import List, Literal
 
 import duckdb
 import pyarrow as pa
@@ -12,20 +12,74 @@ from deltalake import DeltaTable, write_deltalake
 
 # flake8: noqa
 
+LAKES = [
+    "DATA",
+    "POINT_EVENTS",
+    "STATE_EVENTS",
+]
+
+LAKE_CONFIGS = {
+    "DATA": {
+        "name": "DataLake",
+        "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/data",
+        "schema": pa.schema(
+            [
+                pa.field("signal_name", pa.string()),
+                pa.field("animal", pa.string()),
+                pa.field("deployment", pa.string()),
+                pa.field("recording", pa.string()),
+                pa.field("data_labels", pa.string()),
+                pa.field("datetime", pa.timestamp("us", tz="UTC")),
+                pa.field("values", pa.list_(pa.float64())),
+            ]
+        ),
+    },
+    "POINT_EVENTS": {
+        "name": "PointEventsLake",
+        "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/point_events",
+        "schema": pa.schema(
+            [
+                pa.field("animal", pa.string()),
+                pa.field("deployment", pa.string()),
+                pa.field("recording", pa.string()),
+                pa.field("event_key", pa.string()),
+                pa.field("datetime", pa.timestamp("us", tz="UTC")),
+                pa.field("short_description", pa.string()),
+                pa.field("long_description", pa.string()),
+            ]
+        ),
+    },
+    "STATE_EVENTS": {
+        # TODO: Support these in DataUploader
+        "name": "StateEventsLake",
+        "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/state_events",
+        "schema": pa.schema(
+            [
+                pa.field("animal", pa.string()),
+                pa.field("deployment", pa.string()),
+                pa.field("recording", pa.string()),
+                pa.field("event_key", pa.string()),
+                pa.field("datetime_start", pa.timestamp("us", tz="UTC")),
+                pa.field("datetime_end", pa.timestamp("us", tz="UTC")),
+                pa.field("short_description", pa.string()),
+                pa.field("long_description", pa.string()),
+            ]
+        ),
+    },
+}
+
 
 class DuckPond:
     """Delta Lake Manager"""
 
-    delta_path: str = os.getenv("CONTAINER_DELTA_LAKE_PATH")
-    delta_lake: DeltaTable | None = None
+    delta_lakes: dict[str, DeltaTable] = {}
 
     def __init__(self, delta_path: str | None = None, connect_to_postgres: bool = True):
         if delta_path:
             self.delta_path = delta_path
         logging.info("Connecting to DuckDB")
         self.conn = duckdb.connect()
-
-        self._create_view()
+        self._create_lake_views()
 
         if connect_to_postgres:
             logging.info("Connecting to PostgreSQL")
@@ -33,15 +87,27 @@ class DuckPond:
             pg_connection_string = POSTGRES_CONNECTION_STRING
             self.conn.execute(f"ATTACH 'postgres:{pg_connection_string}' AS metadata")
 
-    def _create_view(self):
+    def _create_lake_views(self, lake: str | None = None):
         """Create a view of the delta lake"""
-        if os.path.exists(self.delta_path):
-            self.conn.sql(
-                f"""
-                DROP VIEW IF EXISTS DeltaLake;
-                CREATE VIEW DeltaLake AS SELECT * FROM delta_scan('{self.delta_path}');
+        if lake:
+            lake_config = LAKE_CONFIGS[lake]
+            if os.path.exists(lake_config["path"]):
+                self.conn.sql(
+                    f"""
+                DROP VIEW IF EXISTS {lake_config['name']};
+                CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
                 """
-            )
+                )
+        else:
+            for lake in LAKES:
+                lake_config = LAKE_CONFIGS[lake]
+            if os.path.exists(lake_config["path"]):
+                self.conn.sql(
+                    f"""
+                DROP VIEW IF EXISTS {lake_config['name']};
+                CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
+                """
+                )
 
     def read_from_delta(self, query: str):
         """Read data from our delta lake"""
@@ -50,7 +116,7 @@ class DuckPond:
     def write_to_delta(
         self,
         data: pa.table,
-        schema: pa.schema,
+        lake: Literal["DATA", "POINT_EVENTS", "STATE_EVENTS"],
         mode: str,
         partition_by: list[str],
         name: str,
@@ -59,16 +125,16 @@ class DuckPond:
     ):
         """Write data to our delta lake"""
         self.delta_lake = write_deltalake(
-            table_or_uri=self.delta_path,
+            table_or_uri=LAKE_CONFIGS[lake]["path"],
             data=data,
-            schema=schema,
+            schema=LAKE_CONFIGS[lake]["schema"],
             partition_by=partition_by,
             mode=mode,
             name=name,
             description=description,
             schema_mode=schema_mode,
         )
-        self._create_view()
+        self._create_lake_views(lake)
 
     def get_db_schema(self):
         """View all tables in the database"""
@@ -137,7 +203,7 @@ class DuckPond:
         query_string = "SELECT "
         if not signal_names or len(signal_names) != 1:
             query_string += "signal_name, "
-        query_string += "datetime, values FROM DeltaLake"
+        query_string += "datetime, values FROM DataLake"
 
         if signal_names:
             query_string += f"{get_predicate_preface()} {get_predicate_string('signal_name', signal_names)}"
