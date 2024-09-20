@@ -94,28 +94,22 @@ class DuckPond:
         if lake:
             lake_config = LAKE_CONFIGS[lake]
             if os.path.exists(lake_config["path"]):
-                print(f"Creating view for {lake_config['name']}")
                 self.conn.sql(
                     f"""
                 DROP VIEW IF EXISTS {lake_config['name']};
                 CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
                 """
                 )
-            else:
-                print(f"Delta lake {lake_config['name']} does not exist")
         else:
             for lake in LAKES:
                 lake_config = LAKE_CONFIGS[lake]
-                if os.path.exists(lake_config["path"]):
-                    print(f"Creating view for {lake_config['name']}")
-                    self.conn.sql(
-                        f"""
-                    DROP VIEW IF EXISTS {lake_config['name']};
-                    CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
-                    """
-                    )
-                else:
-                    print(f"Delta lake {lake_config['name']} does not exist")
+            if os.path.exists(lake_config["path"]):
+                self.conn.sql(
+                    f"""
+                DROP VIEW IF EXISTS {lake_config['name']};
+                CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
+                """
+                )
 
     def read_from_delta(self, query: str):
         """Read data from our delta lake"""
