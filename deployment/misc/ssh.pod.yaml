@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ssh-pod
+  labels:
+    app: ssh
+spec:
+  containers:
+    - name: ssh-container
+      image: rastasheep/ubuntu-sshd:18.04
+      ports:
+        - containerPort: 22
+      volumeMounts:
+        - mountPath: /data
+          name: divedb-deltalake-storage
+  volumes:
+    - name: divedb-deltalake-storage
+      persistentVolumeClaim:
+        claimName: divedb-deltalake-cephfs-pv-claim

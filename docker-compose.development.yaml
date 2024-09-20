@@ -43,8 +43,22 @@ services:
       - .env
     volumes:
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
+      - rclone-shared:/mnt/data
       - ./DiveDB:/app/DiveDB
       - ./data:/app/data
       - ./pyologger:/app/pyologger
     depends_on:
       - metadata_database
+
+  rclone:
+    image: rclone-mount
+    build:
+      context: .
+      dockerfile: Dockerfile.rclone
+    volumes:
+      - rclone-shared:/mnt/data
+      - ./config/rclone:/config/rclone
+    command: ["mount", "sshpod:/data", "/mnt/data", "--allow-other", "--vfs-cache-mode", "writes"]
+
+volumes:
+  rclone-shared:
