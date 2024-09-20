@@ -45,9 +45,9 @@ ModelLookupKeys = {
 }
 
 NotionLookupKeys = {
-    ModelNames.ANIMAL: "ProjectID",
+    ModelNames.ANIMAL: "Project ID",
     ModelNames.DEPLOYMENT: "Deployment Name",
-    ModelNames.LOGGER: "LoggerID",
+    ModelNames.LOGGER: "Logger ID",
     ModelNames.RECORDING: "Recording Name",
 }
 
@@ -246,22 +246,22 @@ class MetadataManager:
                 continue
             try:
                 logger_page = self.notion.pages.retrieve(logger_id)
-                recording["logger_id"] = logger_page["properties"]["LoggerID"]["title"][
-                    0
-                ]["plain_text"]
+                recording["logger_id"] = logger_page["properties"]["Logger ID"][
+                    "title"
+                ][0]["plain_text"]
                 deployment_page = self.notion.pages.retrieve(deployment_id)
                 deployment_id = deployment_page["properties"]["ID"]["unique_id"][
                     "number"
                 ]
                 notion_animal_ids = [
                     relation["id"]
-                    for relation in deployment_page["properties"]["AnimalIDs"][
+                    for relation in deployment_page["properties"]["Animal ID"][
                         "relation"
                     ]
                 ]
                 animal_ids = [
                     self.notion.pages.retrieve(notion_animal_id)["properties"][
-                        "AnimalID"
+                        "Animal ID"
                     ]["title"][0]["plain_text"]
                     for notion_animal_id in notion_animal_ids
                 ]

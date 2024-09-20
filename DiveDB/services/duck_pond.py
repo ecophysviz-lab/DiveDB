@@ -4,11 +4,13 @@ Delta Lake Manager
 
 import logging
 import os
+import pandas as pd
 from typing import List, Literal
 
 import duckdb
 import pyarrow as pa
 from deltalake import DeltaTable, write_deltalake
+from DiveDB.services.utils.sampling import resample
 
 # flake8: noqa
 
@@ -152,8 +154,9 @@ class DuckPond:
         deployment_ids: str | List[str] | None = None,
         recording_ids: str | List[str] | None = None,
         date_range: tuple[str, str] | None = None,
+        frequency: int | None = None,
         limit: int | None = None,
-    ):
+    ) -> pd.DataFrame | duckdb.DuckDBPyConnection:
         """
         Get data from the Delta Lake based on various filters.
 
@@ -164,10 +167,12 @@ class DuckPond:
         - deployment_ids (str | List[str] | None): Filter by deployment IDs.
         - recording_ids (str | List[str] | None): Filter by recording IDs.
         - date_range (tuple[str, str] | None): Filter by date range (start_date, end_date).
+        - frequency (int | None): Filter by frequency (Hz)
         - limit (int | None): Limit the number of rows returned.
 
         Returns:
-        - List[tuple]: Query results from the Delta Lake.
+        - If frequency is not None, returns a pd.DataFrame.
+        - If frequency is None, returns a DuckDBPyConnection object.
         """
         has_predicates = False
 
@@ -184,8 +189,7 @@ class DuckPond:
                 return ""
             if len(values) == 1:
                 return f"{predicate} = '{values[0]}'"
-            list_of_values = [f"'{value}'" for value in values]
-            return f"{predicate} IN ({', '.join(list_of_values)})"
+            return " OR ".join([f"{predicate} = '{value}'" for value in values])
 
         if isinstance(signal_names, str):
             signal_names = [signal_names]
@@ -201,8 +205,7 @@ class DuckPond:
             recording_ids = [recording_ids]
 
         query_string = "SELECT "
-        if not signal_names or len(signal_names) != 1:
-            query_string += "signal_name, "
+        query_string += "signal_name, "
         query_string += "datetime, values FROM DataLake"
 
         if signal_names:
@@ -224,21 +227,36 @@ class DuckPond:
         print(query_string)
 
         results = self.conn.sql(query_string)
-        value_index = 2 if len(signal_names) != 1 else 1
-        if len(results.fetchone()[value_index]) == 1:
-            if len(signal_names) != 1:
-                return self.conn.sql(
-                    f"""
-                    SELECT signal_name, datetime, unnest(values) as value
-                    FROM results
-                    """
-                )
-            else:
-                return self.conn.sql(
-                    f"""
-                SELECT datetime, unnest(values) as value
+
+        # Assuming the "values" column is the third item in result's tuple
+        if len(results.fetchone()[2]) == 1:
+            results = self.conn.sql(
+                f"""
+                SELECT signal_name, datetime, unnest(values) as value
                 FROM results
                 """
-                )
-        else:
-            return results
+            )
+
+        if frequency:
+            # Get dfs for each signal name
+            df = results.df()
+            signal_dfs = {
+                signal_name: df[df["signal_name"] == signal_name]
+                for signal_name in signal_names
+            }
+            # Resample each df to the desired frequency
+            # TODO: Figure out why the new index is so wonky
+            for signal_name, df in signal_dfs.items():
+                df["datetime"] = pd.to_datetime(df["datetime"])
+                signal_dfs[signal_name] = resample(df, frequency)
+            # Concatenate the dfs
+            results = pd.concat(signal_dfs)
+            results = results.reset_index()
+            results = results.pivot_table(
+                index="datetime",
+                columns="signal_name",
+                values="value",
+            )
+            results = results.dropna().reset_index()
+
+        return results
