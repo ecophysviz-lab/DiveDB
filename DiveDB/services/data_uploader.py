@@ -271,7 +271,7 @@ class DataUploader:
                     end = min(start + batch_size, var_data.shape[0])
                     length = end - start
 
-                    if var_name == "event_data":
+                    if "event_data" in var_name:
                         # Get the corresponding time coordinate, assuming time is always the first dimension
                         time_coord = var_data.dims[0]
                         times = pa.array(
@@ -347,13 +347,12 @@ class DataUploader:
                             if isinstance(
                                 var_data.attrs["variables"], (list, np.ndarray)
                             ):
-                                labels = "___".join(var_data.attrs["variables"])
-                            else:
                                 labels = var_data.attrs["variables"]
+                            else:
+                                labels = [var_data.attrs["variables"]]
                         else:
-                            labels = "___".join(
-                                f"var_{i}" for i in range(var_data.shape[1])
-                            )
+                            labels = [f"var_{i}" for i in range(var_data.shape[1])]
+                        labels = [label for label in labels if label != "datetime"]
 
                         # Create the batch table
                         batch_table = pa.table(
@@ -371,7 +370,7 @@ class DataUploader:
                                     [metadata["recording"]] * length, type=pa.string()
                                 ),
                                 "data_labels": pa.array(
-                                    [labels] * length, type=pa.string()
+                                    [labels] * length, type=pa.list_(pa.string())
                                 ),
                                 "datetime": times,
                                 "values": pa.array(values, type=pa.list_(pa.float64())),
@@ -388,7 +387,6 @@ class DataUploader:
                                 "deployment",
                                 "recording",
                                 "signal_name",
-                                "data_labels",
                             ],
                             name=file.file.name,
                             description="test",

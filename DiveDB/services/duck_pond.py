@@ -30,7 +30,7 @@ LAKE_CONFIGS = {
                 pa.field("animal", pa.string()),
                 pa.field("deployment", pa.string()),
                 pa.field("recording", pa.string()),
-                pa.field("data_labels", pa.string()),
+                pa.field("data_labels", pa.list_(pa.string())),
                 pa.field("datetime", pa.timestamp("us", tz="UTC")),
                 pa.field("values", pa.list_(pa.float64())),
             ]
@@ -103,13 +103,13 @@ class DuckPond:
         else:
             for lake in LAKES:
                 lake_config = LAKE_CONFIGS[lake]
-            if os.path.exists(lake_config["path"]):
-                self.conn.sql(
-                    f"""
-                DROP VIEW IF EXISTS {lake_config['name']};
-                CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
-                """
-                )
+                if os.path.exists(lake_config["path"]):
+                    self.conn.sql(
+                        f"""
+                        DROP VIEW IF EXISTS {lake_config['name']};
+                        CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
+                        """
+                    )
 
     def read_from_delta(self, query: str):
         """Read data from our delta lake"""
@@ -126,7 +126,7 @@ class DuckPond:
         schema_mode: str | None = None,
     ):
         """Write data to our delta lake"""
-        self.delta_lake = write_deltalake(
+        write_deltalake(
             table_or_uri=LAKE_CONFIGS[lake]["path"],
             data=data,
             schema=LAKE_CONFIGS[lake]["schema"],
@@ -206,7 +206,7 @@ class DuckPond:
 
         query_string = "SELECT "
         query_string += "signal_name, "
-        query_string += "datetime, values FROM DataLake"
+        query_string += "datetime, UNNEST(data_labels) AS label, UNNEST(values) AS value FROM DataLake"
 
         if signal_names:
             query_string += f"{get_predicate_preface()} {get_predicate_string('signal_name', signal_names)}"
@@ -223,19 +223,21 @@ class DuckPond:
         if limit:
             query_string += f" LIMIT {limit}"
 
-        print("Running the following query:")
-        print(query_string)
-
+        # First query to unnest and get distinct labels
         results = self.conn.sql(query_string)
 
-        # Assuming the "values" column is the third item in result's tuple
-        if len(results.fetchone()[2]) == 1:
-            results = self.conn.sql(
-                f"""
-                SELECT signal_name, datetime, unnest(values) as value
-                FROM results
-                """
-            )
+        labels_query = "SELECT DISTINCT label FROM results"
+        labels = [row[0] for row in self.conn.sql(labels_query).fetchall()]
+
+        pivot_query = f"""
+            SELECT
+                signal_name,
+                datetime,
+                {', '.join([f"MAX(CASE WHEN label = '{label}' THEN value END) AS {label}" for label in labels])}
+            FROM results
+            GROUP BY signal_name, datetime
+        """
+        results = self.conn.sql(pivot_query)
 
         if frequency:
             # Get dfs for each signal name
@@ -255,7 +257,7 @@ class DuckPond:
             results = results.pivot_table(
                 index="datetime",
                 columns="signal_name",
-                values="value",
+                values=labels,
             )
             results = results.dropna().reset_index()
 
