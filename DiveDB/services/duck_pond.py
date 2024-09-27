@@ -223,6 +223,8 @@ class DuckPond:
         if limit:
             query_string += f" LIMIT {limit}"
 
+        query_string += " ORDER BY datetime"
+
         # First query to unnest and get distinct labels
         results = self.conn.sql(query_string)
 
@@ -247,18 +249,21 @@ class DuckPond:
                 for signal_name in signal_names
             }
             # Resample each df to the desired frequency
-            # TODO: Figure out why the new index is so wonky
             for signal_name, df in signal_dfs.items():
                 df["datetime"] = pd.to_datetime(df["datetime"])
                 signal_dfs[signal_name] = resample(df, frequency)
             # Concatenate the dfs
             results = pd.concat(signal_dfs)
-            results = results.reset_index()
+            results = results.reset_index(drop=True)
             results = results.pivot_table(
                 index="datetime",
                 columns="signal_name",
                 values=labels,
             )
             results = results.dropna().reset_index()
+
+            # Flatten the columns and rename them
+            results.columns = ["datetime"] + [col[0] for col in results.columns[1:]]
+            results = results.reset_index(drop=True)
 
         return results

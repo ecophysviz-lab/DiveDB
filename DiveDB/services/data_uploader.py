@@ -78,6 +78,16 @@ class DataUploader:
             ),
         )
 
+    def _get_datetime_type(self, time_data_array: xr.DataArray):
+        """Function to get the datetime type from a PyArrow array."""
+        time_dtype = time_data_array.dtype
+        if time_dtype == "datetime64[ns]":
+            return pa.timestamp("ns", tz="UTC")
+        elif time_dtype == "datetime64[us]":
+            return pa.timestamp("us", tz="UTC")
+        else:
+            raise ValueError(f"Unsupported time dtype: {time_dtype}")
+
     def upload_edf(
         self,
         edf_file_paths: list[str],
@@ -273,10 +283,10 @@ class DataUploader:
 
                     if "event_data" in var_name:
                         # Get the corresponding time coordinate, assuming time is always the first dimension
-                        time_coord = var_data.dims[0]
+                        time_coord = list(var_data.coords.keys())[0]
                         times = pa.array(
                             ds.coords[time_coord].values[start:end],
-                            type=pa.timestamp("us", tz="UTC"),
+                            type=self._get_datetime_type(ds.coords[time_coord].values),
                         )
 
                         values = [list(row) for row in var_data.values[start:end]]
@@ -335,10 +345,10 @@ class DataUploader:
                         # TODO:Create the batch table for state events
                     else:
                         # Get the corresponding time coordinate, assuming time is always the first dimension
-                        time_coord = var_data.dims[0]
+                        time_coord = list(var_data.coords.keys())[0]
                         times = pa.array(
                             ds.coords[time_coord].values[start:end],
-                            type=pa.timestamp("us", tz="UTC"),
+                            type=self._get_datetime_type(ds.coords[time_coord]),
                         )
 
                         values = [list(row) for row in var_data.values[start:end]]
