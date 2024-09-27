@@ -40,3 +40,5 @@ wfdb
 
 xarray
 yasa
+
+s3fs

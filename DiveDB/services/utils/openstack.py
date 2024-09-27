@@ -1,7 +1,9 @@
-import os
+import os, s3fs
 
 from keystoneauth1 import loading, session
 from swiftclient import client as swiftclient
+
+import logging
 
 OPENSTACK_AUTH_URL = os.getenv("OPENSTACK_AUTH_URL", "")
 OPENSTACK_APPLICATION_CREDENTIAL_ID = os.getenv(
@@ -55,3 +57,23 @@ class SwiftClient:
             self.create_container(container_name)
         self.client.put_object(container_name, object_name, contents=contents)
         return f"{self.storage_url}/{container_name}/{object_name}"
+
+    def get_aws_handle(self, container: str, path: str):
+        # Access credentials for the Swift S3 store
+        s3_fs = s3fs.S3FileSystem(
+            key=OPENSTACK_APPLICATION_CREDENTIAL_ID,
+            secret=OPENSTACK_APPLICATION_CREDENTIAL_SECRET,
+            client_kwargs={'endpoint_url': OPENSTACK_AUTH_URL}
+        )
+
+        # Define the S3 path to the netCDF file (in bucket/key format)
+        s3_path = f"{container}/{path}"
+        logging.info(s3_fs.ls(container))
+        # logging.info(s3_path)
+        return s3_fs.open(s3_path)
+
+        # Open the netCDF file directly from the Swift S3-compatible store
+        # ds = xr.open_dataset(s3_fs.open(s3_path))
+
+# Now you can work with your xarray Dataset
+# print(ds)
