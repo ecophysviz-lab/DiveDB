@@ -13,6 +13,7 @@ import gc
 import pyarrow as pa
 from tqdm import tqdm
 import xarray as xr
+import pandas as pd
 
 # import pyarrow.compute as pc
 from dataclasses import dataclass, asdict
@@ -263,9 +264,13 @@ class DataUploader:
                 type="data",
                 metadata={
                     key: (
-                        value.item()
-                        if isinstance(value, (np.integer, np.floating))
-                        else value
+                        "NaN"
+                        if pd.isna(value)
+                        else (
+                            value.item()
+                            if isinstance(value, (np.integer, np.floating))
+                            else value
+                        )
                     )
                     for key, value in ds.attrs.items()
                 },
