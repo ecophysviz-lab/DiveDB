@@ -5,7 +5,10 @@ import numpy as np
 
 
 def convert_to_formatted_dataset(
-    input_file_path: str, level: 1 | 2 | 3 = None, output_file_path: str = None
+    input_file_path: str,
+    level: 1 | 2 | 3 = None,
+    output_file_path: str = None,
+    nan_encoding: int = None,
 ):
     """
     Convert an initial dataset to a formatted dataset.
@@ -49,9 +52,17 @@ def convert_to_formatted_dataset(
 
                 if len(numeric_vars) > 0:
                     numeric_data_array = ds[numeric_vars].to_array().values
-                    numeric_data_array = numeric_data_array[
-                        ~pd.isna(numeric_data_array).all(axis=1)
-                    ]
+                    vars_to_removed = ~pd.isna(numeric_data_array).all(axis=1)
+                    numeric_vars = numeric_vars[vars_to_removed]
+                    # TODO: Remove the labels from the numeric data array is all nan
+                    if nan_encoding:
+                        numeric_data_array = np.where(
+                            np.isnan(numeric_data_array),
+                            nan_encoding,
+                            numeric_data_array,
+                        )
+                    else:
+                        numeric_data_array = numeric_data_array[vars_to_removed]
 
                     numeric_array_name = (
                         f"processed_{group}" if level == 3 else f"{group}"
