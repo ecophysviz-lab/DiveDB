@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: divedb-django-deployment
+  labels:
+    app: divedb-django-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: divedb-django
+  template:
+    metadata:
+      labels:
+        app: divedb-django
+    spec:
+      imagePullSecrets:
+      - name: ghcr-login-ecophysviz
+      containers:
+      - name: django
+        image: ghcr.io/ecophysviz-lab/divedb-django:latest
+        imagePullPolicy: Always
+        command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: POSTGRES_PASSWORD
+        - name: DJANGO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: DJANGO_SECRET_KEY
+        - name: OPENSTACK_AUTH_URL
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: OPENSTACK_AUTH_URL
+        - name: OPENSTACK_APPLICATION_CREDENTIAL_ID
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: OPENSTACK_APPLICATION_CREDENTIAL_ID
+        - name: OPENSTACK_APPLICATION_CREDENTIAL_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: divedb-postgres-credentials
+              key: OPENSTACK_APPLICATION_CREDENTIAL_SECRET
+        - name: POSTGRES_HOST
+          value: divedb-pg-service
+        ports:
+        - containerPort: 8000
+        resources:
+           limits:
+             memory: 4G
+             cpu: 1
+           requests:
+             memory: 1G
+             cpu: 50m

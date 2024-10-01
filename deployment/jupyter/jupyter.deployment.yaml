@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: divedb-jupyter-deployment
+  labels:
+    app: divedb-jupyter-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: divedb-jupyter
+  template:
+    metadata:
+      labels:
+        app: divedb-jupyter
+    spec:
+      imagePullSecrets:
+      - name: ghcr-login-ecophysviz
+      containers:
+      - name: jupyter
+        image: ghcr.io/ecophysviz-lab/divedb-jupyter:latest
+        imagePullPolicy: Always
+        # env:
+        # - name: POSTGRES_DB
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: divedb-postgres-credentials
+        #       key: POSTGRES_DB
+        # - name: POSTGRES_USER
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: divedb-postgres-credentials
+        #       key: POSTGRES_USER
+        # - name: POSTGRES_PASSWORD
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: divedb-postgres-credentials
+        #       key: POSTGRES_PASSWORD
+        # - name: DJANGO_SECRET_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: divedb-postgres-credentials
+        #       key: DJANGO_SECRET_KEY
+        # - name: POSTGRES_HOST
+        #   value: divedb-pg-service
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - mountPath: /data
+          name: divedb-deltalake-storage
+        resources:
+           limits:
+             memory: 32G
+             cpu: 8
+           requests:
+             memory: 16G
+             cpu: 4
+      volumes:
+      - name: divedb-deltalake-storage
+        persistentVolumeClaim:
+          claimName: divedb-deltalake-pv-claim
