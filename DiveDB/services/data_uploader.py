@@ -6,17 +6,15 @@ import os
 import edfio
 import django
 from django.core.files import File
-from DiveDB.services.metadata_manager import MetadataManager
 from DiveDB.services.duck_pond import DuckPond, LAKE_CONFIGS
 import numpy as np
 import gc
 import pyarrow as pa
 from tqdm import tqdm
 import xarray as xr
-import pandas as pd
+import json
 
-# import pyarrow.compute as pc
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from DiveDB.services.utils.openstack import SwiftClient
 
@@ -34,7 +32,7 @@ from DiveDB.server.metadata.models import Files, Recordings  # noqa: E402
 
 @dataclass
 class SignalMetadata:
-    signal_name: str
+    label: str
     frequency: float
     start_time: str
     end_time: str
@@ -42,7 +40,7 @@ class SignalMetadata:
 
 @dataclass
 class SignalData:
-    signal_name: str
+    label: str
     time: pa.Array
     data: np.ndarray
     signal_length: int
@@ -51,9 +49,9 @@ class SignalData:
 class DataUploader:
     """Data Uploader"""
 
-    def _read_edf_signal(self, edf: edfio.Edf, signal_name: str):
+    def _read_edf_signal(self, edf: edfio.Edf, label: str):
         """Function to read a single signal from an EDF file."""
-        signal = edf.get_signal(signal_name)
+        signal = edf.get_signal(label)
         data = signal.data
         start_datetime_str = f"{edf.startdate}T{edf.starttime}"
         start_time = np.datetime64(start_datetime_str).astype("datetime64[us]")
@@ -66,11 +64,9 @@ class DataUploader:
         end_time = times[-1].as_py().replace(tzinfo=timezone.utc)
 
         return (
-            SignalData(
-                signal_name=signal_name, time=times, data=data, signal_length=len(data)
-            ),
+            SignalData(label=label, time=times, data=data, signal_length=len(data)),
             SignalMetadata(
-                signal_name=signal_name,
+                label=label,
                 frequency=freq,
                 start_time=start_time.astype(datetime)
                 .replace(tzinfo=timezone.utc)
@@ -89,150 +85,176 @@ class DataUploader:
         else:
             raise ValueError(f"Unsupported time dtype: {time_dtype}")
 
-    def upload_edf(
-        self,
-        edf_file_paths: list[str],
-        csv_metadata_path: str,
-        csv_metadata_map: dict = None,
-        signals: list[str] = "all",
-        batch_size: int = 10000000,  # The smaller the batch size, the slower and the more memory efficient. 10M stays comfortably under 8GB of RAM.
-        metadata: dict = None,
-    ):
-        """
-        Uploads EDF data to the database and DuckPond.
+    # Convert ds.attrs to a JSON-serializable dictionary
+    def _make_json_serializable(self, attrs):
+        serializable_attrs = {}
+        for key, value in attrs.items():
+            if isinstance(value, (np.integer, np.floating)):
+                serializable_attrs[key] = value.item()
+            elif isinstance(value, np.ndarray):
+                serializable_attrs[key] = value.tolist()
+            else:
+                serializable_attrs[key] = value
+        return serializable_attrs
 
-        Parameters:
-        edf_file_paths (list[str]): List of paths to EDF files.
-        csv_metadata_path (str): Path to the CSV file containing metadata.
-        csv_metadata_map (dict, optional): Mapping for CSV metadata. Defaults to None.
-        signals (list[str], optional): List of signals to process. Defaults to "all".
-        batch_size (int, optional): Size of data batches for processing. Defaults to 20,000,000.
-        metadata (dict, optional): Metadata dictionary. Defaults to None.
-            Required keys:
-                - animal: Animal ID (int)
-                - deployment: Deployment Name (str)
-                - recording: Recording Name (str)
+    def _create_value_structs(self, values):
+        """Helper function to create value structs for PyArrow table."""
+        boolean_values = np.where(
+            np.isin(values, [True, False]) & ~np.isin(values, [1.0, 0.0]),
+            values,
+            None,
+        )
+        numeric_values = np.vectorize(
+            lambda x: (float(x) if isinstance(x, (int, float)) else np.nan)
+        )(values)
 
-        Workflow:
-        1. Retrieves metadata models from the CSV file.
-        2. Calculates the total number of signals to process.
-        3. Initializes a progress bar for signal processing.
-        4. For each EDF file:
-            - Reads the EDF file and its signals.
-            - Processes each signal in batches.
-            - Creates and uploads data batches to DuckPond.
-            - Updates the progress bar.
-        5. Prints a completion message.
-        """
-        if not metadata:
-            metadata_manager = MetadataManager()
-            metadata_models = metadata_manager.get_metadata_models(
-                csv_metadata_path, csv_metadata_map
+        # Determine if any value has a decimal place
+        if np.any(numeric_values % 1 != 0):
+            float_values = np.where(np.isfinite(numeric_values), numeric_values, None)
+            int_values = None
+        else:
+            float_values = None
+            int_values = np.where(
+                np.isfinite(numeric_values), numeric_values.astype(int), None
             )
-            metadata = {
-                "animal": metadata_models["animal"].id,
-                "deployment": metadata_models["deployment"].deployment_name,
-                "recording": metadata_models["recording"].name,
-            }
 
-        # Calculate total number of signals to process
-        total_signals = 0
-        for edf_file_path in edf_file_paths:
-            edf = edfio.read_edf(edf_file_path, lazy_load_data=True)
-            total_signals += len(signals if signals != "all" else edf.signals)
-
-        # Create a new file record
-        file = Files.objects.create(
-            recording=Recordings.objects.get(name=metadata["recording"]),
-            extension="edf",
-            type="data",
-            # TODO: Add metadata to the file object
-            metadata=asdict(edf.annotations),
+        string_values = np.where(
+            ~np.isin(values, [True, False])
+            & np.vectorize(
+                lambda x: (
+                    not np.isfinite(float(x)) if isinstance(x, (int, float)) else True
+                )
+            )(values),
+            values,
+            None,
+        )
+        # Ensure string_values are actually strings
+        string_values = np.where(
+            np.vectorize(lambda x: isinstance(x, str))(string_values),
+            string_values,
+            None,
+        )
+        return pa.StructArray.from_arrays(
+            [
+                (
+                    pa.array(float_values, type=pa.float64())
+                    if float_values is not None
+                    else pa.nulls(len(values), type=pa.float64())
+                ),
+                pa.array(string_values, type=pa.string()),
+                pa.array(boolean_values, type=pa.bool_()),
+                (
+                    pa.array(int_values, type=pa.int64())
+                    if int_values is not None
+                    else pa.nulls(len(values), type=pa.int64())
+                ),
+            ],
+            fields=[
+                pa.field("float", pa.float64(), nullable=True),
+                pa.field("string", pa.string(), nullable=True),
+                pa.field("boolean", pa.bool_(), nullable=True),
+                pa.field("int", pa.int64(), nullable=True),
+            ],
         )
 
-        # Initialize progress bar
-        print(f"Processing {total_signals} signals in {len(edf_file_paths)} files.")
-        with tqdm(total=total_signals, desc="Processing signals") as pbar:
-            for edf_file_path in edf_file_paths:
-                edf = edfio.read_edf(edf_file_path, lazy_load_data=True)
-                edf_signals = (
-                    edf.signals
-                    if signals == "all"
-                    else filter(lambda signal: signal.label in signals, edf.signals)
-                )
-                for signal in edf_signals:
-                    signalData, signalMetadata = self._read_edf_signal(
-                        edf, signal.label
-                    )
+    def _write_data_to_duckpond(
+        self,
+        metadata: dict,
+        times: pa.Array,
+        group: str,
+        class_name: str,
+        label: str,
+        values: np.ndarray,
+        file_name: str,
+    ):
+        """Helper function to write data to DuckPond."""
+        value_structs = self._create_value_structs(values)
+        batch_table = pa.table(
+            {
+                "animal": pa.array(
+                    [metadata["animal"]] * len(values), type=pa.string()
+                ),
+                "deployment": pa.array(
+                    [metadata["deployment"]] * len(values), type=pa.string()
+                ),
+                "recording": pa.array(
+                    [metadata["recording"]] * len(values), type=pa.string()
+                ),
+                "group": pa.array([group] * len(values), type=pa.string()),
+                "class": pa.array([class_name] * len(values), type=pa.string()),
+                "label": pa.array([label] * len(values), type=pa.string()),
+                "datetime": times,
+                "value": value_structs,
+            },
+            schema=LAKE_CONFIGS["DATA"]["schema"],
+        )
+        duckpond.write_to_delta(
+            data=batch_table,
+            lake="DATA",
+            mode="overwrite",
+            partition_by=[
+                "animal",
+                "deployment",
+                "recording",
+                "group",
+                "class",
+                "label",
+            ],
+            name=file_name,
+            description="test",
+        )
+        del batch_table
+        gc.collect()
 
-                    # Process data in batches
-                    for start in range(0, signalData.signal_length, batch_size):
-                        end = min(start + batch_size, signalData.signal_length)
-                        length = end - start
+    def _write_event_to_duckpond(
+        self,
+        metadata: dict,
+        start_times: pa.Array,
+        end_times: pa.Array,
+        group: str = None,
+        event_keys: list = None,
+        event_data: list = None,
+        short_descriptions: list[str] | None = None,
+        long_descriptions: list[str] | None = None,
+        file_name: str = None,
+    ):
+        """Helper function to write data to DuckPond."""
+        if short_descriptions is None:
+            short_descriptions = [None] * len(event_keys)
+        if long_descriptions is None:
+            long_descriptions = [None] * len(event_keys)
 
-                        # Create repeated arrays using list multiplication
-                        signal_name_array = pa.array(
-                            [signalData.signal_name] * length, type=pa.string()
-                        )
-                        animal_array = pa.array(
-                            [metadata["animal"]] * length, type=pa.string()
-                        )
-                        deployment_array = pa.array(
-                            [metadata["deployment"]] * length,
-                            type=pa.string(),
-                        )
-                        recording_array = pa.array(
-                            [metadata["recording"]] * length, type=pa.string()
-                        )
-                        data_labels_array = pa.array(
-                            ["value"] * length, type=pa.string()
-                        )
-                        values_array = pa.array(
-                            [[v] for v in signalData.data[start:end]],
-                            type=pa.list_(pa.float64()),
-                        )
-
-                        # Create PyArrow table with repeated and direct data columns
-                        batch_table = pa.table(
-                            {
-                                "signal_name": signal_name_array,
-                                "animal": animal_array,
-                                "deployment": deployment_array,
-                                "recording": recording_array,
-                                "data_labels": data_labels_array,
-                                "datetime": pa.array(
-                                    signalData.time[start:end],
-                                    type=pa.timestamp("us", tz="UTC"),
-                                ),
-                                "values": values_array,
-                            },
-                            schema=LAKE_CONFIGS["DATA"]["schema"],
-                        )
-
-                        duckpond.write_to_delta(
-                            data=batch_table,
-                            lake="DATA",
-                            mode="append",
-                            partition_by=[
-                                "animal",
-                                "deployment",
-                                "recording",
-                                "signal_name",
-                                "data_labels",
-                            ],
-                            name=file.file_path if file else "Test",
-                            description="test",
-                        )
-                        del batch_table
-                        gc.collect()
-
-                    del signalData
-                    gc.collect()
-
-                    # Update progress bar
-                    pbar.update(1)
-
-        print("Upload complete.")
+        batch_table = pa.table(
+            {
+                "animal": pa.array(
+                    [metadata["animal"]] * len(event_keys), type=pa.string()
+                ),
+                "deployment": pa.array(
+                    [metadata["deployment"]] * len(event_keys), type=pa.string()
+                ),
+                "recording": pa.array(
+                    [metadata["recording"]] * len(event_keys), type=pa.string()
+                ),
+                "group": pa.array([group] * len(event_keys), type=pa.string()),
+                "event_key": event_keys,
+                "datetime_start": start_times,
+                "datetime_end": end_times,
+                "event_data": [json.dumps(data) for data in event_data],
+                "short_description": short_descriptions,
+                "long_description": long_descriptions,
+            },
+            schema=LAKE_CONFIGS["STATE_EVENTS"]["schema"],
+        )
+        duckpond.write_to_delta(
+            data=batch_table,
+            lake="STATE_EVENTS",
+            mode="overwrite",
+            partition_by=["animal", "deployment", "recording", "group", "event_key"],
+            name=file_name,
+            description="test",
+        )
+        del batch_table
+        gc.collect()
 
     def upload_netcdf(
         self, netcdf_file_path: str, metadata: dict, batch_size: int = 1000000
@@ -247,7 +269,7 @@ class DataUploader:
                 - animal: Animal ID (int)
                 - deployment: Deployment Name (str)
                 - recording: Recording Name (str)
-        batch_size (int, optional): Size of data batches for processing. Defaults to 10,000,000.
+        batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
         """
         ds = xr.open_dataset(netcdf_file_path)
 
@@ -255,161 +277,95 @@ class DataUploader:
         print(
             f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
         )
-        with open(netcdf_file_path, "rb") as f:
-            file_object = File(f, name=os.path.basename(netcdf_file_path))
-            file = Files.objects.create(
-                recording=Recordings.objects.get(name=metadata["recording"]),
-                file=file_object,
-                extension="nc",
-                type="data",
-                metadata={
-                    key: (
-                        "NaN"
-                        if pd.isna(value)
-                        else (
-                            value.item()
-                            if isinstance(value, (np.integer, np.floating))
-                            else value
-                        )
-                    )
-                    for key, value in ds.attrs.items()
-                },
-            )
+        if os.environ.get("SKIP_OPENSTACK_UPLOAD", "false").lower() == "true":
+            print("Skipping OpenStack upload...")
+
+            class FileWrapper:
+                def __init__(self, name):
+                    self.file = {"name": name}
+
+            file = FileWrapper("mock file name")
+        else:
+            with open(netcdf_file_path, "rb") as f:
+                file_object = File(f, name=os.path.basename(netcdf_file_path))
+                file = Files.objects.create(
+                    recording=Recordings.objects.get(name=metadata["recording"]),
+                    file=file_object,
+                    extension="nc",
+                    type="data",
+                    metadata=self._make_json_serializable(ds.attrs),
+                )
 
         total_vars = len(ds.data_vars)
 
         print(f"Processing {total_vars} variables in the netCDF file.")
         with tqdm(total=total_vars, desc="Processing variables") as pbar:
-            # Upload each variable in the netCDF file
-            for var_name, var_data in ds.data_vars.items():
-                for start in range(0, var_data.shape[0], batch_size):
-                    end = min(start + batch_size, var_data.shape[0])
-                    length = end - start
+            for coord in ds.coords:
+                variables_with_coord = [
+                    var for var in ds.data_vars if coord in ds[var].dims
+                ]
+                if any("duration" in var.lower() for var in variables_with_coord):
+                    # Find var that matches duration
+                    duration_var = [
+                        var for var in variables_with_coord if "duration" in var.lower()
+                    ][0]
+                    duration_data = ds[duration_var].values
+                    start_times = ds[coord].values
+                    end_times = start_times + np.array(
+                        duration_data, dtype="timedelta64[s]"
+                    )
 
-                    if "event_data" in var_name:
-                        # Get the corresponding time coordinate, assuming time is always the first dimension
-                        time_coord = list(var_data.coords.keys())[0]
-                        times = pa.array(
-                            ds.coords[time_coord].values[start:end],
-                            type=self._get_datetime_type(ds.coords[time_coord].values),
-                        )
+                    event_data = [
+                        {
+                            var: ds[var].values[i]
+                            for var in variables_with_coord
+                            if var != duration_var
+                        }
+                        for i in range(len(start_times))
+                    ]
 
-                        values = [list(row) for row in var_data.values[start:end]]
+                    event_keys = ["dive"] * len(start_times)
 
-                        # Split the event data type point and state
-                        point_data = [row for row in values if row[0] == "point"]
-                        # state_data = [row for row in values if row[0] == "state"]
+                    self._write_event_to_duckpond(
+                        metadata=metadata,
+                        start_times=start_times,
+                        end_times=end_times,
+                        group=coord.replace("_samples", ""),
+                        event_keys=event_keys,
+                        event_data=event_data,
+                        file_name=file.file["name"],
+                    )
+                for var_name, var_data in ds[variables_with_coord].items():
+                    for start in range(0, var_data.shape[0], batch_size):
+                        end = min(start + batch_size, var_data.shape[0])
 
-                        point_data_length = len(point_data)
-                        # state_data_length = len(state_data)
-
-                        # Create the batch table for point events
-                        point_batch_table = pa.table(
-                            {
-                                "animal": pa.array(
-                                    [metadata["animal"]] * point_data_length,
-                                    type=pa.string(),
-                                ),
-                                "deployment": pa.array(
-                                    [metadata["deployment"]] * point_data_length,
-                                    type=pa.string(),
-                                ),
-                                "recording": pa.array(
-                                    [metadata["recording"]] * point_data_length,
-                                    type=pa.string(),
-                                ),
-                                "event_key": pa.array(
-                                    [row[1] for row in point_data], type=pa.string()
-                                ),
-                                "datetime": times,
-                                "short_description": pa.array(
-                                    [row[2] for row in point_data], type=pa.string()
-                                ),
-                                "long_description": pa.array(
-                                    [row[3] for row in point_data], type=pa.string()
-                                ),
-                            },
-                            schema=LAKE_CONFIGS["POINT_EVENTS"]["schema"],
-                        )
-
-                        duckpond.write_to_delta(
-                            data=point_batch_table,
-                            lake="POINT_EVENTS",
-                            mode="append",
-                            partition_by=[
-                                "animal",
-                                "deployment",
-                                "recording",
-                                "event_key",
-                            ],
-                            name=file.file.name,
-                            description="test",
-                        )
-                        del point_batch_table
-                        gc.collect()
-                        # TODO:Create the batch table for state events
-                    else:
-                        # Get the corresponding time coordinate, assuming time is always the first dimension
                         time_coord = list(var_data.coords.keys())[0]
                         times = pa.array(
                             ds.coords[time_coord].values[start:end],
                             type=self._get_datetime_type(ds.coords[time_coord]),
                         )
 
-                        values = [list(row) for row in var_data.values[start:end]]
-                        # Unpack variable names from the second dimension
-                        if "variables" in var_data.attrs:
-                            if isinstance(
-                                var_data.attrs["variables"], (list, np.ndarray)
-                            ):
-                                labels = var_data.attrs["variables"]
-                            else:
-                                labels = [var_data.attrs["variables"]]
-                        else:
-                            labels = [f"var_{i}" for i in range(var_data.shape[1])]
-                        labels = [label for label in labels if label != "datetime"]
-
-                        # Create the batch table
-                        batch_table = pa.table(
-                            {
-                                "signal_name": pa.array(
-                                    [var_name] * length, type=pa.string()
-                                ),
-                                "animal": pa.array(
-                                    [metadata["animal"]] * length, type=pa.string()
-                                ),
-                                "deployment": pa.array(
-                                    [metadata["deployment"]] * length, type=pa.string()
-                                ),
-                                "recording": pa.array(
-                                    [metadata["recording"]] * length, type=pa.string()
-                                ),
-                                "data_labels": pa.array(
-                                    [labels] * length, type=pa.list_(pa.string())
-                                ),
-                                "datetime": times,
-                                "values": pa.array(values, type=pa.list_(pa.float64())),
-                            },
-                            schema=LAKE_CONFIGS["DATA"]["schema"],
+                        group = var_data.attrs.get("group", "ungrouped")
+                        class_name = (
+                            var_name if "variables" in var_data.attrs else "classless"
+                        )
+                        label = (
+                            var_data.attrs["variable"]
+                            if "variable" in var_data.attrs
+                            else var_name
                         )
 
-                        duckpond.write_to_delta(
-                            data=batch_table,
-                            lake="DATA",
-                            mode="append",
-                            partition_by=[
-                                "animal",
-                                "deployment",
-                                "recording",
-                                "signal_name",
-                            ],
-                            name=file.file.name,
-                            description="test",
+                        values = var_data.values[start:end]
+                        self._write_data_to_duckpond(
+                            metadata=metadata,
+                            times=times,
+                            group=group,
+                            class_name=class_name,
+                            label=label.lower(),
+                            values=values,
+                            file_name=file.file["name"],
                         )
-                        del batch_table
-                        gc.collect()
 
-                # Update progress bar
-                pbar.update(1)
+                    pbar.update(1)
 
         print("Upload complete.")

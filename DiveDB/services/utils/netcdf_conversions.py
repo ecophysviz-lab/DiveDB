@@ -4,18 +4,38 @@ import pandas as pd
 import numpy as np
 
 
+def matlab_datenum_to_datetime_vectorized(
+    matlab_serial_dates: np.ndarray,
+) -> np.ndarray:
+    """
+    Converts a vector of MATLAB datenum values to pandas datetime in a vectorized manner.
+
+    MATLAB datenum starts from year 0000-01-00, while Python's datetime starts from 1970-01-01.
+    We need to adjust by subtracting the number of days between these dates.
+    """
+    # MATLAB serialized dates start from 0000-01-01
+    matlab_start_date = np.datetime64("0000-01-01")
+
+    # Split into days and fractional days
+    days = np.floor(matlab_serial_dates).astype(int)
+    fraction = matlab_serial_dates - days
+
+    # Convert MATLAB serial date to Python datetime
+    converted_dates = (
+        matlab_start_date
+        + days.astype("timedelta64[D]")
+        + (fraction * 24 * 3600).astype("timedelta64[s]")
+    ).astype("datetime64[ns]")
+    return converted_dates
+
+
 def convert_to_formatted_dataset(
     input_file_path: str,
-    level: 1 | 2 | 3 = None,
     output_file_path: str = None,
-    nan_encoding: int = None,
 ):
     """
     Convert an initial dataset to a formatted dataset.
     """
-    if level not in [1, 2, 3]:
-        raise ValueError("Level must be specified. Valid levels include 1, 2, and 3.")
-
     date_data_vars = ["DATE", "YEAR", "MONTH", "DAY", "HOUR", "MIN", "SEC"]
 
     with nc.Dataset(input_file_path, "r") as rootgrp:
@@ -27,10 +47,22 @@ def convert_to_formatted_dataset(
 
         for group in rootgrp.groups:
             with xr.open_dataset(input_file_path, group=group) as ds:
-                datetime_coord = pd.to_datetime(ds["DATE"].values)
+                # Check if datetime is in MATLAB datenum format by checking if dtype is float
+                if ds["DATE"].dtype == np.float64 and np.all(
+                    ds["DATE"].values < 800000
+                ):
+                    datetime_coord = matlab_datenum_to_datetime_vectorized(
+                        ds["DATE"].values
+                    )
+                else:
+                    datetime_coord = np.array(pd.to_datetime(ds["DATE"].values)).astype(
+                        "datetime64[ns]"
+                    )
+
                 datetime_coord = datetime_coord[
-                    datetime_coord.notnull() & (datetime_coord != "")
+                    ~np.isnat(datetime_coord) & (datetime_coord != np.datetime64(""))
                 ]
+
                 vars_to_convert = [
                     var
                     for var in ds.data_vars
@@ -38,54 +70,33 @@ def convert_to_formatted_dataset(
                 ]
 
                 if len(vars_to_convert) == 0 or len(datetime_coord) == 0:
+                    print(f"No valid variables to convert for group {group}")
                     continue
 
-                # Separate variables containing strings from those containing numeric data
-                string_vars = [
-                    var
-                    for var in vars_to_convert
-                    if ds[var].dtype == "O" or np.issubdtype(ds[var].dtype, np.str_)
-                ]
-                numeric_vars = [
-                    var for var in vars_to_convert if var not in string_vars
-                ]
+                for var in vars_to_convert:
+                    array_name = f"{var}"
+                    sample_dim_name = f"{group}_samples"
 
-                if len(numeric_vars) > 0:
-                    numeric_data_array = ds[numeric_vars].to_array().values
-                    vars_to_removed = ~pd.isna(numeric_data_array).all(axis=1)
-                    numeric_vars = numeric_vars[vars_to_removed]
-                    # TODO: Remove the labels from the numeric data array is all nan
-                    if nan_encoding:
-                        numeric_data_array = np.where(
-                            np.isnan(numeric_data_array),
-                            nan_encoding,
-                            numeric_data_array,
+                    if np.all(pd.isna(ds[var].values)) or np.all(ds[var].values == ""):
+                        print(
+                            f"All values are NaN or empty string for variable {var} in group {group}"
                         )
+                        continue
+
+                    dive_data_array = xr.DataArray(
+                        ds[var].values,
+                        dims=[sample_dim_name],
+                        coords=[datetime_coord],
+                        attrs={
+                            "group": group,
+                            "variable": var,
+                        },
+                    )
+
+                    if array_name in root_ds:
+                        root_ds[f"{array_name}__{group}"] = dive_data_array
                     else:
-                        numeric_data_array = numeric_data_array[vars_to_removed]
-
-                    numeric_array_name = (
-                        f"processed_{group}" if level == 3 else f"{group}"
-                    )
-                    numeric_var_dim_name = (
-                        f"processed_{group}_variables"
-                        if level == 3
-                        else f"{group}_variables"
-                    )
-                    numeric_sample_dim_name = (
-                        f"processed_{group}_samples"
-                        if level == 3
-                        else f"{group}_samples"
-                    )
-
-                    numeric_dive_data_array = xr.DataArray(
-                        numeric_data_array,
-                        dims=[numeric_var_dim_name, numeric_sample_dim_name],
-                        coords={numeric_sample_dim_name: datetime_coord},
-                    )
-
-                    root_ds[numeric_array_name] = numeric_dive_data_array
-                    root_ds[numeric_array_name].attrs["variables"] = numeric_vars
+                        root_ds[array_name] = dive_data_array
 
     if output_file_path is not None:
         root_ds.to_netcdf(output_file_path)
