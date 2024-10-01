@@ -7,6 +7,7 @@ name = "DiveDB"
 version = "0.1.0"
 dependencies = [
   "black",
+  "bs4",
   "deltalake",
   "django",
   "django-storages",
