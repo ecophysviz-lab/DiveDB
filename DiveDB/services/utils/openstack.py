@@ -60,17 +60,26 @@ class SwiftClient:
 
     def get_aws_handle(self, container: str, path: str):
         # Access credentials for the Swift S3 store
-        s3_fs = s3fs.S3FileSystem(
-            key=OPENSTACK_APPLICATION_CREDENTIAL_ID,
-            secret=OPENSTACK_APPLICATION_CREDENTIAL_SECRET,
-            client_kwargs={'endpoint_url': OPENSTACK_AUTH_URL}
+        import boto3
+        OTHER_AUTH_URL = "https://identity.cloud.sdsc.edu:5000/v3/users/107aa118a3c040d9a52db5f39c5ebdf0/credentials/OS-EC2/de051482a66f43188c420138e59c9f78"
+        
+        OTHER_AUTH_URL = "https://object.cloud.sdsc.edu/v1/AUTH_413c350724914abbbb2ece619b2b69d4"
+        s3_fs = boto3.client(
+            's3',
+            aws_access_key_id='de051482a66f43188c420138e59c9f78',
+            aws_secret_access_key='d1683e9710684a84be73bcd02e353d8b',
+            endpoint_url=OTHER_AUTH_URL,
+            use_ssl=False
         )
 
         # Define the S3 path to the netCDF file (in bucket/key format)
-        s3_path = f"{container}/{path}"
-        logging.info(s3_fs.ls(container))
+        # s3_path = f"{container}/{path}"
+        logging.info("Files in container:")
+        logging.info(s3_fs.list_objects_v2(Bucket=container))
+        return s3_fs.list_objects_v2(Bucket=container)
+        
         # logging.info(s3_path)
-        return s3_fs.open(s3_path)
+        # return s3_fs.open(s3_path)
 
         # Open the netCDF file directly from the Swift S3-compatible store
         # ds = xr.open_dataset(s3_fs.open(s3_path))

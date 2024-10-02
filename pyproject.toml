@@ -31,7 +31,8 @@ dependencies = [
   "setuptools",
   "tqdm",
   "xarray",
-  "s3fs"
+  "s3fs",
+  "boto3"
 ]
 
 [tool.black]
