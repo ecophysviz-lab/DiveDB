@@ -33,7 +33,18 @@ if SECRET_KEY == "":
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '*',
+    # 'divedb.nrp-nautilus.io'
+    # 'www.divedb.nrp-nautilus.io'
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://nrp-nautilus.io',
+    'https://www.nrp-nautilus.io',
+    'https://divedb.nrp-nautilus.io',
+    'https://www.divedb.nrp-nautilus.io'
+]
 
 
 # Application definition

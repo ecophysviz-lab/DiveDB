@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: haproxy
+    haproxy-ingress.github.io/timeout-server: 3600s
+    haproxy-ingress.github.io/timeout-server-fin: 3600s
+    haproxy-ingress.github.io/timeout-check: 3600s
+    haproxy-ingress.github.io/timeout-client: 3600s
+    haproxy-ingress.github.io/timeout-client-fin: 3600s
+  name: divedb-django-ingress
+spec:
+  rules:
+  - host: divedb.nrp-nautilus.io
+    http:
+      paths:
+      - backend:
+          service:
+            name: divedb-django-service
+            port:
+              number: 8000
+        path: /
+        pathType: ImplementationSpecific
+  tls:
+  - hosts:
+    - divedb.nrp-nautilus.io
