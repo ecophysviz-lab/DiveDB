@@ -168,6 +168,7 @@ class DuckPond:
         deployment_ids: str | List[str] | None = None,
         recording_ids: str | List[str] | None = None,
         groups: str | List[str] | None = None,
+        classes: str | List[str] | None = None,
         date_range: tuple[str, str] | None = None,
         frequency: int | None = None,
         limit: int | None = None,
@@ -204,6 +205,10 @@ class DuckPond:
             deployment_ids = [deployment_ids]
         if isinstance(recording_ids, str):
             recording_ids = [recording_ids]
+        if isinstance(groups, str):
+            groups = [groups]
+        if isinstance(classes, str):
+            classes = [classes]
 
         # Build the initial SELECT query
         base_query = f"""
@@ -235,7 +240,9 @@ class DuckPond:
         if recording_ids:
             predicates.append(get_predicate_string("recording", recording_ids))
         if groups:
-            predicates.append(get_predicate_string("group", groups))
+            predicates.append(get_predicate_string("'group'", groups))
+        if classes:
+            predicates.append(get_predicate_string("class", classes))
         if date_range:
             predicates.append(
                 f"datetime >= '{date_range[0]}' AND datetime <= '{date_range[1]}'"
@@ -279,6 +286,33 @@ class DuckPond:
 
         # Execute the pivot query
         results = self.conn.sql(pivot_query)
+
+        # Determine the best column for each label based on the presence of NaNs
+        best_columns = []
+        for label in labels:
+            nan_counts_query = f"""
+                SELECT
+                    SUM(CASE WHEN "{label}_float" IS NULL THEN 1 ELSE 0 END) AS nan_count_float,
+                    SUM(CASE WHEN "{label}_int" IS NULL THEN 1 ELSE 0 END) AS nan_count_int,
+                    SUM(CASE WHEN "{label}_bool" IS NULL THEN 1 ELSE 0 END) AS nan_count_bool,
+                    SUM(CASE WHEN "{label}_str" IS NULL THEN 1 ELSE 0 END) AS nan_count_str
+                FROM ({pivot_query}) AS sub
+            """
+            nan_counts = self.conn.sql(nan_counts_query).fetchone()
+            nan_counts = [
+                count if count is not None else float("inf") for count in nan_counts
+            ]
+            best_column = min(
+                zip(["float", "int", "bool", "str"], nan_counts), key=lambda x: x[1]
+            )[0]
+            best_columns.append(f"{label}_{best_column} AS {label}")
+
+        # Keep only the best columns and the datetime column
+        final_query = f"""
+            SELECT datetime, {', '.join(best_columns)}
+            FROM ({pivot_query}) AS sub
+        """
+        results = self.conn.sql(final_query)
 
         if frequency:
             # Pull data into memory for resampling

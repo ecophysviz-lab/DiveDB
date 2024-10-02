@@ -13,6 +13,7 @@ import pyarrow as pa
 from tqdm import tqdm
 import xarray as xr
 import json
+import math
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -90,9 +91,14 @@ class DataUploader:
         serializable_attrs = {}
         for key, value in attrs.items():
             if isinstance(value, (np.integer, np.floating)):
-                serializable_attrs[key] = value.item()
+                if math.isnan(value):
+                    serializable_attrs[key] = None
+                else:
+                    serializable_attrs[key] = value.item()
             elif isinstance(value, np.ndarray):
-                serializable_attrs[key] = value.tolist()
+                serializable_attrs[key] = [
+                    None if math.isnan(v) else v for v in value.tolist()
+                ]
             else:
                 serializable_attrs[key] = value
         return serializable_attrs
@@ -191,7 +197,7 @@ class DataUploader:
         duckpond.write_to_delta(
             data=batch_table,
             lake="DATA",
-            mode="overwrite",
+            mode="append",
             partition_by=[
                 "animal",
                 "deployment",
@@ -248,7 +254,7 @@ class DataUploader:
         duckpond.write_to_delta(
             data=batch_table,
             lake="STATE_EVENTS",
-            mode="overwrite",
+            mode="append",
             partition_by=["animal", "deployment", "recording", "group", "event_key"],
             name=file_name,
             description="test",
@@ -273,7 +279,6 @@ class DataUploader:
         """
         ds = xr.open_dataset(netcdf_file_path)
 
-        # Create a new file record
         print(
             f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
         )
@@ -296,16 +301,15 @@ class DataUploader:
                     metadata=self._make_json_serializable(ds.attrs),
                 )
 
-        total_vars = len(ds.data_vars)
+        sample_coords = [coord for coord in ds.coords if "_sample" in coord.lower()]
+        print(f"Processing {sample_coords} datasets in the netCDF file.")
 
-        print(f"Processing {total_vars} variables in the netCDF file.")
-        with tqdm(total=total_vars, desc="Processing variables") as pbar:
-            for coord in ds.coords:
-                variables_with_coord = [
+        with tqdm(total=len(sample_coords), desc="Processing variables") as pbar:
+            for coord in sample_coords:
+                variables_with_coord = set(
                     var for var in ds.data_vars if coord in ds[var].dims
-                ]
+                )
                 if any("duration" in var.lower() for var in variables_with_coord):
-                    # Find var that matches duration
                     duration_var = [
                         var for var in variables_with_coord if "duration" in var.lower()
                     ][0]
@@ -336,36 +340,72 @@ class DataUploader:
                         file_name=file.file["name"],
                     )
                 for var_name, var_data in ds[variables_with_coord].items():
-                    for start in range(0, var_data.shape[0], batch_size):
-                        end = min(start + batch_size, var_data.shape[0])
+                    if (
+                        isinstance(var_data.values, np.ndarray)
+                        and var_data.values.ndim > 1
+                    ):
+                        # Handle multi-variable data arrays
+                        for var_index, sub_var_name in enumerate(
+                            var_data.attrs.get("variables", [])
+                        ):
+                            print(f"Starting {sub_var_name}")
+                            for start in range(0, var_data.shape[0], batch_size):
+                                end = min(start + batch_size, var_data.shape[0])
 
-                        time_coord = list(var_data.coords.keys())[0]
-                        times = pa.array(
-                            ds.coords[time_coord].values[start:end],
-                            type=self._get_datetime_type(ds.coords[time_coord]),
-                        )
+                                time_coord = list(var_data.coords.keys())[0]
+                                times = pa.array(
+                                    ds.coords[time_coord].values[start:end],
+                                    type=self._get_datetime_type(ds.coords[time_coord]),
+                                )
 
-                        group = var_data.attrs.get("group", "ungrouped")
-                        class_name = (
-                            var_name if "variables" in var_data.attrs else "classless"
-                        )
-                        label = (
-                            var_data.attrs["variable"]
-                            if "variable" in var_data.attrs
-                            else var_name
-                        )
+                                group = var_data.attrs.get("group", "ungrouped")
+                                class_name = var_name
+                                label = sub_var_name
 
-                        values = var_data.values[start:end]
-                        self._write_data_to_duckpond(
-                            metadata=metadata,
-                            times=times,
-                            group=group,
-                            class_name=class_name,
-                            label=label.lower(),
-                            values=values,
-                            file_name=file.file["name"],
-                        )
+                                values = var_data.values[start:end, var_index]
+                                self._write_data_to_duckpond(
+                                    metadata=metadata,
+                                    times=times,
+                                    group=group,
+                                    class_name=class_name,
+                                    label=label.lower(),
+                                    values=values,
+                                    file_name=file.file["name"],
+                                )
+                    else:
+                        # Handle single-variable data arrays
+                        for start in range(0, var_data.shape[0], batch_size):
+                            end = min(start + batch_size, var_data.shape[0])
 
-                    pbar.update(1)
+                            time_coord = list(var_data.coords.keys())[0]
+                            times = pa.array(
+                                ds.coords[time_coord].values[start:end],
+                                type=self._get_datetime_type(ds.coords[time_coord]),
+                            )
+
+                            group = var_data.attrs.get("group", "ungrouped")
+                            class_name = (
+                                var_name
+                                if "variables" in var_data.attrs
+                                else "classless"
+                            )
+                            label = (
+                                var_data.attrs["variable"]
+                                if "variable" in var_data.attrs
+                                else var_name
+                            )
+
+                            values = var_data.values[start:end]
+                            self._write_data_to_duckpond(
+                                metadata=metadata,
+                                times=times,
+                                group=group,
+                                class_name=class_name,
+                                label=label.lower(),
+                                values=values,
+                                file_name=file.file["name"],
+                            )
+
+                pbar.update(1)
 
         print("Upload complete.")
