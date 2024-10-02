@@ -370,7 +370,7 @@ class DataUploader:
                                     class_name=class_name,
                                     label=label.lower(),
                                     values=values,
-                                    file_name=file.file["name"],
+                                    file_name=file.file.name,
                                 )
                     else:
                         # Handle single-variable data arrays
