@@ -348,7 +348,6 @@ class DataUploader:
                         for var_index, sub_var_name in enumerate(
                             var_data.attrs.get("variables", [])
                         ):
-                            print(f"Starting {sub_var_name}")
                             for start in range(0, var_data.shape[0], batch_size):
                                 end = min(start + batch_size, var_data.shape[0])
 

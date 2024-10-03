@@ -240,7 +240,7 @@ class DuckPond:
         if recording_ids:
             predicates.append(get_predicate_string("recording", recording_ids))
         if groups:
-            predicates.append(get_predicate_string("'group'", groups))
+            predicates.append(get_predicate_string('"group"', groups))
         if classes:
             predicates.append(get_predicate_string("class", classes))
         if date_range:
