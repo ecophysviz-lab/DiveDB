@@ -1,0 +1,11 @@
+include threejs_model/threejs_model.min.js
+include threejs_model/threejs_model.min.js.map
+include threejs_model/async-*.js
+include threejs_model/async-*.js.map
+include threejs_model/*-shared.js
+include threejs_model/*-shared.js.map
+include threejs_model/metadata.json
+include threejs_model/package-info.json
+include README.md
+include LICENSE
+include package.json
