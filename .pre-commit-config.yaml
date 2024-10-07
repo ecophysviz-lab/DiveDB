@@ -15,4 +15,9 @@ repos:
         - id: flake8
           additional_dependencies: [flake8-typing-imports==1.10.0]
           args: ["--config=.flake8"]
-          exclude: jupyter/.*\.py,pyologger/.*\.py
+          exclude: |
+            (?x)^(
+                jupyter/.*\.py$|
+                pyologger/.*\.py$|
+                threejs_model/.*\.py$|
+            )$

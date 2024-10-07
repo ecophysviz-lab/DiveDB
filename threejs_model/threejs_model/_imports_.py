@@ -1,5 +1,3 @@
 from .ThreejsModel import ThreejsModel
 
-__all__ = [
-    "ThreejsModel"
-]
+__all__ = ["ThreejsModel"]
