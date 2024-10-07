@@ -18,7 +18,7 @@ def create_mne_array(
     """
     df = data.df()
 
-    if "signal_name" in df.columns and df["signal_name"].nunique() > 1:
+    if "label" in df.columns and df["label"].nunique() > 1:
         raise ValueError("Multiple signal names found in the data.")
 
     df["time_diff"] = df["datetime"].diff().dt.total_seconds()
@@ -49,7 +49,7 @@ def create_mne_edf(
     Create an EDF file from an MNE RawArray
     """
     df = data.df()
-    unique_signals = df["signal_name"].unique()
+    unique_signals = df["label"].unique()
     # Initialize lists to hold data and channel names
     data_list = []
     ch_names = []
@@ -57,7 +57,7 @@ def create_mne_edf(
     # Loop through each unique signal and collect data
     for signal in unique_signals:
         # Filter data for the current signal
-        channel_df = df[df["signal_name"] == signal]
+        channel_df = df[df["label"] == signal]
         channel_data = channel_df["data"].values
         data_list.append(channel_data)
         ch_names.append(signal)

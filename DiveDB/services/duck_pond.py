@@ -26,13 +26,24 @@ LAKE_CONFIGS = {
         "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/data",
         "schema": pa.schema(
             [
-                pa.field("signal_name", pa.string()),
                 pa.field("animal", pa.string()),
                 pa.field("deployment", pa.string()),
                 pa.field("recording", pa.string()),
-                pa.field("data_labels", pa.string()),
+                pa.field("group", pa.string()),
+                pa.field("class", pa.string()),
+                pa.field("label", pa.string()),
                 pa.field("datetime", pa.timestamp("us", tz="UTC")),
-                pa.field("values", pa.list_(pa.float64())),
+                pa.field(
+                    "value",
+                    pa.struct(
+                        [
+                            pa.field("float", pa.float64(), nullable=True),
+                            pa.field("string", pa.string(), nullable=True),
+                            pa.field("boolean", pa.bool_(), nullable=True),
+                            pa.field("int", pa.int64(), nullable=True),
+                        ]
+                    ),
+                ),
             ]
         ),
     },
@@ -44,15 +55,16 @@ LAKE_CONFIGS = {
                 pa.field("animal", pa.string()),
                 pa.field("deployment", pa.string()),
                 pa.field("recording", pa.string()),
+                pa.field("group", pa.string()),
                 pa.field("event_key", pa.string()),
                 pa.field("datetime", pa.timestamp("us", tz="UTC")),
-                pa.field("short_description", pa.string()),
-                pa.field("long_description", pa.string()),
+                pa.field("short_description", pa.string(), nullable=True),
+                pa.field("long_description", pa.string(), nullable=True),
+                pa.field("event_data", pa.string()),
             ]
         ),
     },
     "STATE_EVENTS": {
-        # TODO: Support these in DataUploader
         "name": "StateEventsLake",
         "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/state_events",
         "schema": pa.schema(
@@ -60,11 +72,13 @@ LAKE_CONFIGS = {
                 pa.field("animal", pa.string()),
                 pa.field("deployment", pa.string()),
                 pa.field("recording", pa.string()),
+                pa.field("group", pa.string()),
                 pa.field("event_key", pa.string()),
                 pa.field("datetime_start", pa.timestamp("us", tz="UTC")),
                 pa.field("datetime_end", pa.timestamp("us", tz="UTC")),
                 pa.field("short_description", pa.string()),
                 pa.field("long_description", pa.string()),
+                pa.field("event_data", pa.string()),
             ]
         ),
     },
@@ -96,20 +110,20 @@ class DuckPond:
             if os.path.exists(lake_config["path"]):
                 self.conn.sql(
                     f"""
-                DROP VIEW IF EXISTS {lake_config['name']};
-                CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
-                """
+                    DROP VIEW IF EXISTS {lake_config['name']};
+                    CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
+                    """
                 )
         else:
             for lake in LAKES:
                 lake_config = LAKE_CONFIGS[lake]
-            if os.path.exists(lake_config["path"]):
-                self.conn.sql(
-                    f"""
-                DROP VIEW IF EXISTS {lake_config['name']};
-                CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
-                """
-                )
+                if os.path.exists(lake_config["path"]):
+                    self.conn.sql(
+                        f"""
+                        DROP VIEW IF EXISTS {lake_config['name']};
+                        CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
+                        """
+                    )
 
     def read_from_delta(self, query: str):
         """Read data from our delta lake"""
@@ -126,7 +140,7 @@ class DuckPond:
         schema_mode: str | None = None,
     ):
         """Write data to our delta lake"""
-        self.delta_lake = write_deltalake(
+        write_deltalake(
             table_or_uri=LAKE_CONFIGS[lake]["path"],
             data=data,
             schema=LAKE_CONFIGS[lake]["schema"],
@@ -148,115 +162,175 @@ class DuckPond:
 
     def get_delta_data(
         self,
-        signal_names: str | List[str] | None = None,
-        logger_ids: str | List[str] | None = None,
+        labels: str | List[str] | None = None,
+        class_names: str | List[str] | None = None,
         animal_ids: str | List[str] | None = None,
         deployment_ids: str | List[str] | None = None,
         recording_ids: str | List[str] | None = None,
+        groups: str | List[str] | None = None,
+        classes: str | List[str] | None = None,
         date_range: tuple[str, str] | None = None,
         frequency: int | None = None,
         limit: int | None = None,
-    ) -> pd.DataFrame | duckdb.DuckDBPyConnection:
+    ) -> pd.DataFrame | duckdb.DuckDBPyRelation:
         """
         Get data from the Delta Lake based on various filters.
 
-        Parameters:
-        - signal_names (str | List[str] | None): Filter by signal names.
-        - logger_ids (str | List[str] | None): Filter by logger IDs.
-        - animal_ids (str | List[str] | None): Filter by animal IDs.
-        - deployment_ids (str | List[str] | None): Filter by deployment IDs.
-        - recording_ids (str | List[str] | None): Filter by recording IDs.
-        - date_range (tuple[str, str] | None): Filter by date range (start_date, end_date).
-        - frequency (int | None): Filter by frequency (Hz)
-        - limit (int | None): Limit the number of rows returned.
-
         Returns:
         - If frequency is not None, returns a pd.DataFrame.
-        - If frequency is None, returns a DuckDBPyConnection object.
+        - If frequency is None, returns a DuckDBPyRelation object with pivoted data.
         """
         has_predicates = False
 
         def get_predicate_preface():
             nonlocal has_predicates
-            if has_predicates:
-                return " AND"
-            else:
-                has_predicates = True
-                return " WHERE"
+            return " AND" if has_predicates else " WHERE"
 
         def get_predicate_string(predicate: str, values: List[str]):
-            if len(values) == 0:
+            if not values:
                 return ""
             if len(values) == 1:
                 return f"{predicate} = '{values[0]}'"
-            return " OR ".join([f"{predicate} = '{value}'" for value in values])
+            quoted_values = ", ".join(f"'{value}'" for value in values)
+            return f"{predicate} IN ({quoted_values})"
 
-        if isinstance(signal_names, str):
-            signal_names = [signal_names]
-        if isinstance(animal_ids, str):
-            animal_ids = [animal_ids]
-        if isinstance(logger_ids, str):
-            logger_ids = [logger_ids]
+        # Convert single strings to lists
+        if isinstance(labels, str):
+            labels = [labels]
+        if isinstance(class_names, str):
+            class_names = [class_names]
         if isinstance(animal_ids, str):
             animal_ids = [animal_ids]
         if isinstance(deployment_ids, str):
             deployment_ids = [deployment_ids]
         if isinstance(recording_ids, str):
             recording_ids = [recording_ids]
+        if isinstance(groups, str):
+            groups = [groups]
+        if isinstance(classes, str):
+            classes = [classes]
 
-        query_string = "SELECT "
-        query_string += "signal_name, "
-        query_string += "datetime, values FROM DataLake"
+        # Build the initial SELECT query
+        base_query = f"""
+            SELECT
+                animal,
+                deployment,
+                recording,
+                "group",
+                class,
+                label,
+                datetime,
+                value.float AS float_value,
+                value.int AS int_value,
+                value.boolean AS boolean_value,
+                value.string AS string_value
+            FROM DataLake
+        """
 
-        if signal_names:
-            query_string += f"{get_predicate_preface()} {get_predicate_string('signal_name', signal_names)}"
-        if logger_ids:
-            query_string += f"{get_predicate_preface()} {get_predicate_string('logger', logger_ids)}"
+        # Build the WHERE clause
+        predicates = []
+        if labels:
+            predicates.append(get_predicate_string("label", labels))
+        if class_names:
+            predicates.append(get_predicate_string("class", class_names))
         if animal_ids:
-            query_string += f"{get_predicate_preface()} {get_predicate_string('animal', animal_ids)}"
+            predicates.append(get_predicate_string("animal", animal_ids))
         if deployment_ids:
-            query_string += f"{get_predicate_preface()} {get_predicate_string('deployment', deployment_ids)}"
+            predicates.append(get_predicate_string("deployment", deployment_ids))
         if recording_ids:
-            query_string += f"{get_predicate_preface()} {get_predicate_string('recording', recording_ids)}"
+            predicates.append(get_predicate_string("recording", recording_ids))
+        if groups:
+            predicates.append(get_predicate_string('"group"', groups))
+        if classes:
+            predicates.append(get_predicate_string("class", classes))
         if date_range:
-            query_string += f"{get_predicate_preface()} datetime >= '{date_range[0]}' AND datetime <= '{date_range[1]}'"
-        if limit:
-            query_string += f" LIMIT {limit}"
-
-        print("Running the following query:")
-        print(query_string)
-
-        results = self.conn.sql(query_string)
-
-        # Assuming the "values" column is the third item in result's tuple
-        if len(results.fetchone()[2]) == 1:
-            results = self.conn.sql(
-                f"""
-                SELECT signal_name, datetime, unnest(values) as value
-                FROM results
-                """
+            predicates.append(
+                f"datetime >= '{date_range[0]}' AND datetime <= '{date_range[1]}'"
             )
+
+        if predicates:
+            base_query += " WHERE " + " AND ".join(predicates)
+
+        if limit:
+            base_query += f" LIMIT {limit}"
+
+        # If labels are not specified, retrieve all distinct labels
+        if not labels:
+            labels = [
+                row[0]
+                for row in self.conn.sql(
+                    f"SELECT DISTINCT label FROM ({base_query}) AS sub_labels"
+                ).fetchall()
+            ]
+
+        # Perform pivoting in DuckDB, handling different value types
+        pivot_expressions = []
+        for label in labels:
+            pivot_expressions.append(
+                f"""
+                MAX(CASE WHEN label = '{label}' THEN float_value END) AS "{label}_float",
+                MAX(CASE WHEN label = '{label}' THEN int_value END) AS "{label}_int",
+                MAX(CASE WHEN label = '{label}' THEN boolean_value END) AS "{label}_bool",
+                MAX(CASE WHEN label = '{label}' THEN string_value END) AS "{label}_str"
+            """
+            )
+
+        pivot_query = f"""
+            SELECT
+                datetime,
+                {', '.join(pivot_expressions)}
+            FROM ({base_query}) AS sub
+            GROUP BY datetime
+            ORDER BY datetime
+        """
+
+        # Execute the pivot query
+        results = self.conn.sql(pivot_query)
+
+        # Determine the best column for each label based on the presence of NaNs
+        best_columns = []
+        for label in labels:
+            nan_counts_query = f"""
+                SELECT
+                    SUM(CASE WHEN "{label}_float" IS NULL THEN 1 ELSE 0 END) AS nan_count_float,
+                    SUM(CASE WHEN "{label}_int" IS NULL THEN 1 ELSE 0 END) AS nan_count_int,
+                    SUM(CASE WHEN "{label}_bool" IS NULL THEN 1 ELSE 0 END) AS nan_count_bool,
+                    SUM(CASE WHEN "{label}_str" IS NULL THEN 1 ELSE 0 END) AS nan_count_str
+                FROM ({pivot_query}) AS sub
+            """
+            nan_counts = self.conn.sql(nan_counts_query).fetchone()
+            nan_counts = [
+                count if count is not None else float("inf") for count in nan_counts
+            ]
+            best_column = min(
+                zip(["float", "int", "bool", "str"], nan_counts), key=lambda x: x[1]
+            )[0]
+            best_columns.append(f"{label}_{best_column} AS {label}")
+
+        # Keep only the best columns and the datetime column
+        final_query = f"""
+            SELECT datetime, {', '.join(best_columns)}
+            FROM ({pivot_query}) AS sub
+        """
+        results = self.conn.sql(final_query)
 
         if frequency:
-            # Get dfs for each signal name
+            # Pull data into memory for resampling
             df = results.df()
-            signal_dfs = {
-                signal_name: df[df["signal_name"] == signal_name]
-                for signal_name in signal_names
-            }
-            # Resample each df to the desired frequency
-            # TODO: Figure out why the new index is so wonky
-            for signal_name, df in signal_dfs.items():
-                df["datetime"] = pd.to_datetime(df["datetime"])
-                signal_dfs[signal_name] = resample(df, frequency)
-            # Concatenate the dfs
-            results = pd.concat(signal_dfs)
-            results = results.reset_index()
-            results = results.pivot_table(
-                index="datetime",
-                columns="signal_name",
-                values="value",
-            )
-            results = results.dropna().reset_index()
 
-        return results
+            # Ensure 'datetime' is in datetime format
+            df["datetime"] = pd.to_datetime(df["datetime"])
+
+            # Set 'datetime' as index for resampling
+            df.set_index("datetime", inplace=True)
+
+            # Resample the data
+            resample_period = pd.to_timedelta(1 / frequency, unit="s")
+            df_resampled = (
+                df.resample(resample_period).mean().dropna(how="all").reset_index()
+            )
+
+            return df_resampled
+        else:
+            # Return the DuckDB relation without pulling data into memory
+            return results
