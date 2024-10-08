@@ -287,7 +287,7 @@ class DataUploader:
 
             class FileWrapper:
                 def __init__(self, name):
-                    self.file = {"name": name}
+                    self.file = type("File", (object,), {"name": name})()
 
             file = FileWrapper("mock file name")
         else:
