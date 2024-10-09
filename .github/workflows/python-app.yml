@@ -19,6 +19,7 @@ jobs:
       POSTGRES_DB: "divedb"
       POSTGRES_USER: "divedbuser"
       POSTGRES_PASSWORD: "divedbpassword"
+      POSTGRES_HOST: "postgres"
       POSTGRES_PORT: 5432
       HOST_DELTA_LAKE_PATH: "./data/delta-lake"
       CONTAINER_DELTA_LAKE_PATH: "/data/delta-lake"
