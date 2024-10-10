@@ -8,7 +8,6 @@ version = "0.1.0"
 dependencies = [
   "black",
   "bs4",
-  "dash",
   "deltalake",
   "django",
   "django-storages",
