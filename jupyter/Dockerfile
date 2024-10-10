@@ -2,6 +2,9 @@
 FROM python:3.12
 WORKDIR /app
 
+# Install GDAL
+RUN apt update && apt install -y gdal-bin libgdal-dev
+
 COPY ./requirements.txt /app/requirements.txt
 RUN pip3 install -r requirements.txt
 

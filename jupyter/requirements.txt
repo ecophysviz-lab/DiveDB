@@ -40,3 +40,6 @@ wfdb
 
 xarray
 yasa
+
+geopandas
+contextily
