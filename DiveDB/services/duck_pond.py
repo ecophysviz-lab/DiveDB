@@ -21,7 +21,7 @@ if "S3_DELTA_LAKE_PATH" in os.environ:
     DELTA_LAKE_PATH = os.environ["S3_DELTA_LAKE_PATH"]
 else:
     DELTA_LAKE_PATH = os.environ["CONTAINER_DELTA_LAKE_PATH"]
-
+    
 LAKES = [
     "DATA",
     "POINT_EVENTS",
@@ -126,11 +126,11 @@ class DuckPond:
                     os.getenv("AWS_REGION"),
                     os.getenv("AWS_ACCESS_KEY_ID"),
                     os.getenv("AWS_SECRET_ACCESS_KEY"),
-                    os.getenv("AWS_ENDPOINT_URL"),
+                    os.getenv("AWS_ENDPOINT_URL").replace("https://", ""),
                 )
             )
 
-        # self._create_lake_views()
+        self._create_lake_views()
 
         if connect_to_postgres:
             logging.info("Connecting to PostgreSQL")
