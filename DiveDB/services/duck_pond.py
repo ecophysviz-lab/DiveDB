@@ -14,6 +14,9 @@ from DiveDB.services.utils.sampling import resample
 
 # flake8: noqa
 
+os.environ["AWS_ENDPOINT_URL"] = "object.cloud.sdsc.edu"
+os.environ["AWS_S3_ALLOW_UNSAFE_RENAME"] = "true"
+
 LAKES = [
     "DATA",
     "POINT_EVENTS",
@@ -93,8 +96,35 @@ class DuckPond:
     def __init__(self, delta_path: str | None = None, connect_to_postgres: bool = True):
         if delta_path:
             self.delta_path = delta_path
-        logging.info("Connecting to DuckDB")
         self.conn = duckdb.connect()
+
+        if os.getenv("CONTAINER_DELTA_LAKE_PATH").startswith("s3://"):
+            # Load HTTPFS extension for S3 support
+            self.conn.execute("INSTALL httpfs;")
+            self.conn.execute("LOAD httpfs;")
+
+            # Set S3 configurations
+            self.conn.execute(
+                "SET s3_url_style='path';"
+            )  # Important for OpenStack Swift
+            self.conn.execute("SET s3_use_ssl=true;")
+            self.conn.execute(
+                """
+                CREATE SECRET secret1 (
+                    TYPE S3,
+                    REGION '{}',
+                    KEY_ID '{}',
+                    SECRET '{}',
+                    ENDPOINT '{}'
+                );
+            """.format(
+                    os.getenv("AWS_REGION"),
+                    os.getenv("AWS_ACCESS_KEY_ID"),
+                    os.getenv("AWS_SECRET_ACCESS_KEY"),
+                    os.getenv("AWS_ENDPOINT_URL"),
+                )
+            )
+
         self._create_lake_views()
 
         if connect_to_postgres:
@@ -107,23 +137,34 @@ class DuckPond:
         """Create a view of the delta lake"""
         if lake:
             lake_config = LAKE_CONFIGS[lake]
-            if os.path.exists(lake_config["path"]):
-                self.conn.sql(
-                    f"""
-                    DROP VIEW IF EXISTS {lake_config['name']};
-                    CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
-                    """
-                )
-        else:
-            for lake in LAKES:
-                lake_config = LAKE_CONFIGS[lake]
-                if os.path.exists(lake_config["path"]):
+            if lake_config["path"].startswith("s3://") or os.path.exists(
+                lake_config["path"]
+            ):
+                try:
                     self.conn.sql(
                         f"""
                         DROP VIEW IF EXISTS {lake_config['name']};
                         CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
                         """
                     )
+                except Exception as e:
+                    print(e)
+        else:
+            for lake in LAKES:
+                lake_config = LAKE_CONFIGS[lake]
+                print(lake_config["path"])
+                if lake_config["path"].startswith("s3://") or os.path.exists(
+                    lake_config["path"]
+                ):
+                    try:
+                        self.conn.sql(
+                            f"""
+                        DROP VIEW IF EXISTS {lake_config['name']};
+                        CREATE VIEW {lake_config['name']} AS SELECT * FROM delta_scan('{lake_config['path']}');
+                        """
+                        )
+                    except Exception as e:
+                        print(e)
 
     def read_from_delta(self, query: str):
         """Read data from our delta lake"""
@@ -150,7 +191,6 @@ class DuckPond:
             description=description,
             schema_mode=schema_mode,
         )
-        self._create_lake_views(lake)
 
     def get_db_schema(self):
         """View all tables in the database"""
@@ -284,8 +324,8 @@ class DuckPond:
             ORDER BY datetime
         """
 
-        # Execute the pivot query
-        results = self.conn.sql(pivot_query)
+        # Execute the pivot query and materialize the results
+        self.conn.execute(f"CREATE TEMPORARY TABLE pivot_results AS {pivot_query}")
 
         # Determine the best column for each label based on the presence of NaNs
         best_columns = []
@@ -296,21 +336,21 @@ class DuckPond:
                     SUM(CASE WHEN "{label}_int" IS NULL THEN 1 ELSE 0 END) AS nan_count_int,
                     SUM(CASE WHEN "{label}_bool" IS NULL THEN 1 ELSE 0 END) AS nan_count_bool,
                     SUM(CASE WHEN "{label}_str" IS NULL THEN 1 ELSE 0 END) AS nan_count_str
-                FROM ({pivot_query}) AS sub
+                FROM pivot_results
             """
-            nan_counts = self.conn.sql(nan_counts_query).fetchone()
+            nan_counts = self.conn.execute(nan_counts_query).fetchone()
             nan_counts = [
                 count if count is not None else float("inf") for count in nan_counts
             ]
-            best_column = min(
+            best_type = min(
                 zip(["float", "int", "bool", "str"], nan_counts), key=lambda x: x[1]
             )[0]
-            best_columns.append(f"{label}_{best_column} AS {label}")
+            best_columns.append(f"{label}_{best_type} AS {label}")
 
         # Keep only the best columns and the datetime column
         final_query = f"""
             SELECT datetime, {', '.join(best_columns)}
-            FROM ({pivot_query}) AS sub
+            FROM pivot_results
         """
         results = self.conn.sql(final_query)
 

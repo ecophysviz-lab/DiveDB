@@ -47,6 +47,11 @@ def convert_to_formatted_dataset(
 
         for group in rootgrp.groups:
             with xr.open_dataset(input_file_path, group=group) as ds:
+                # Check if DATE array is empty or contains only empty strings
+                if ds["DATE"].size == 0 or np.all(ds["DATE"].values == ""):
+                    print(f"No valid dates in group {group}. SKIPPING GROUP.")
+                    continue
+
                 # Check if datetime is in MATLAB datenum format by checking if dtype is float
                 if ds["DATE"].dtype == np.float64 and np.all(
                     ds["DATE"].values < 800000
@@ -55,9 +60,25 @@ def convert_to_formatted_dataset(
                         ds["DATE"].values
                     )
                 else:
-                    datetime_coord = np.array(pd.to_datetime(ds["DATE"].values)).astype(
-                        "datetime64[ns]"
-                    )
+                    try:
+                        # Check the format of the first date string to determine the correct format
+                        first_date_str = ds["DATE"].values[0]
+                        if ":" in first_date_str.split()[0]:  # Check if time is first
+                            datetime_coord = np.array(
+                                pd.to_datetime(
+                                    ds["DATE"].values, format="%H:%M:%S %d-%b-%Y"
+                                )
+                            ).astype("datetime64[ns]")
+                        else:  # Assume date is first
+                            datetime_coord = np.array(
+                                pd.to_datetime(
+                                    ds["DATE"].values, format="%d-%b-%Y %H:%M:%S"
+                                )
+                            ).astype("datetime64[ns]")
+                    except Exception as e:
+                        print(f"Error converting dates in group {group}: {e}")
+                        print(ds["DATE"].values)
+                        continue
 
                 datetime_coord = datetime_coord[
                     ~np.isnat(datetime_coord) & (datetime_coord != np.datetime64(""))

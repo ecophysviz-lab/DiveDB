@@ -17,6 +17,7 @@ dependencies = [
   "importlib-metadata==4.8.3",
   "load_dotenv",
   "mne",
+  "netcdf4",
   "notion_client",
   "pandas",
   "pre-commit",

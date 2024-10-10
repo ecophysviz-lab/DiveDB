@@ -28,7 +28,14 @@ os.environ.setdefault(
 )
 django.setup()
 
-from DiveDB.server.metadata.models import Files, Recordings  # noqa: E402
+from DiveDB.server.metadata.models import (
+    Files,
+    Recordings,
+    Deployments,
+    Animals,
+    AnimalDeployments,
+    Loggers,
+)  # noqa: E402
 
 
 @dataclass
@@ -181,7 +188,7 @@ class DataUploader:
                     [metadata["animal"]] * len(values), type=pa.string()
                 ),
                 "deployment": pa.array(
-                    [metadata["deployment"]] * len(values), type=pa.string()
+                    [str(metadata["deployment"])] * len(values), type=pa.string()
                 ),
                 "recording": pa.array(
                     [metadata["recording"]] * len(values), type=pa.string()
@@ -263,7 +270,11 @@ class DataUploader:
         gc.collect()
 
     def upload_netcdf(
-        self, netcdf_file_path: str, metadata: dict, batch_size: int = 1000000
+        self,
+        netcdf_file_path: str,
+        metadata: dict,
+        batch_size: int = 1000000,
+        rename_map: dict = None,
     ):
         """
         Uploads a netCDF file to the database and DuckPond.
@@ -276,8 +287,62 @@ class DataUploader:
                 - deployment: Deployment Name (str)
                 - recording: Recording Name (str)
         batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
+        rename_map (dict, optional): A dictionary mapping original variable names to new names.
         """
+
         ds = xr.open_dataset(netcdf_file_path)
+
+        # Apply renaming if rename_map is provided
+        if rename_map:
+            # Convert all data variable names to lowercase
+            lower_case_rename_map = {k.lower(): v for k, v in rename_map.items()}
+            ds = ds.rename(
+                {
+                    var: lower_case_rename_map.get(var.lower(), var)
+                    for var in ds.data_vars
+                }
+            )
+
+        # Check if the animal exists, if not, create it
+        animal, created = Animals.objects.get_or_create(
+            id=metadata["animal"],
+            defaults={
+                "project_id": metadata[
+                    "animal"
+                ],  # Replace with actual default or metadata value
+                "common_name": ds.attrs[
+                    "Animal_Species_CommonName"
+                ],  # Replace with actual default or metadata value
+                "scientific_name": ds.attrs[
+                    "Animal_Species"
+                ],  # Replace with actual default or metadata value
+            },
+        )
+
+        # Check if the deployment exists, if not, create it
+        deployment, created = Deployments.objects.get_or_create(
+            id=metadata["deployment"],
+            defaults={
+                "deployment_name": metadata["deployment"],
+                "rec_date": datetime.now().date(),  # Replace with actual default or metadata value
+                "animal": animal.id,
+                "timezone": "UTC",  # Replace with actual default or metadata value
+            },
+        )
+
+        # Check if the recording exists, if not, create it
+        animal_deployment, created = AnimalDeployments.objects.get_or_create(
+            animal=animal, deployment=deployment
+        )
+
+        recording, created = Recordings.objects.get_or_create(
+            name=metadata["recording"],
+            animal_deployment=animal_deployment,
+            defaults={
+                "logger": Loggers.objects.first(),  # Replace with actual default or metadata value
+                "start_time": datetime.now(),  # Replace with actual default or metadata value
+            },
+        )
 
         print(
             f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
@@ -287,14 +352,14 @@ class DataUploader:
 
             class FileWrapper:
                 def __init__(self, name):
-                    self.file = {"name": name}
+                    self.file = type("File", (object,), {"name": name})()
 
             file = FileWrapper("mock file name")
         else:
             with open(netcdf_file_path, "rb") as f:
                 file_object = File(f, name=os.path.basename(netcdf_file_path))
                 file = Files.objects.create(
-                    recording=Recordings.objects.get(name=metadata["recording"]),
+                    recording=recording,
                     file=file_object,
                     extension="nc",
                     type="data",
@@ -359,7 +424,7 @@ class DataUploader:
 
                                 group = var_data.attrs.get("group", "ungrouped")
                                 class_name = var_name
-                                label = sub_var_name
+                                label = rename_map.get(sub_var_name, sub_var_name)
 
                                 values = var_data.values[start:end, var_index]
                                 self._write_data_to_duckpond(
@@ -393,6 +458,7 @@ class DataUploader:
                                 if "variable" in var_data.attrs
                                 else var_name
                             )
+                            label = rename_map.get(label, label)
 
                             values = var_data.values[start:end]
                             self._write_data_to_duckpond(
