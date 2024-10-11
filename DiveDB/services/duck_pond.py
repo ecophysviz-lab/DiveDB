@@ -14,7 +14,6 @@ from DiveDB.services.utils.sampling import resample
 
 # flake8: noqa
 
-os.environ["AWS_ENDPOINT_URL"] = "object.cloud.sdsc.edu"
 os.environ["AWS_S3_ALLOW_UNSAFE_RENAME"] = "true"
 
 LAKES = [
@@ -152,7 +151,6 @@ class DuckPond:
         else:
             for lake in LAKES:
                 lake_config = LAKE_CONFIGS[lake]
-                print(lake_config["path"])
                 if lake_config["path"].startswith("s3://") or os.path.exists(
                     lake_config["path"]
                 ):
