@@ -48,6 +48,8 @@ services:
     volumes:
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
       - ./DiveDB:/app/DiveDB
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./setup.py:/app/setup.py
       - ./data:/app/data
       - ./pyologger:/app/pyologger
       - ./scripts:/app/scripts

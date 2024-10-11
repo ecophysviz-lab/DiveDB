@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY ./requirements.txt /app/requirements.txt
 RUN pip3 install -r requirements.txt
+RUN pip3 install .
 
 COPY . /app
 COPY ./jupyter_notebook_config.py /root/.jupyter/jupyter_notebook_config.py
