@@ -15,6 +15,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!three_js_orientation/src/lib
 lib64/
 parts/
 sdist/

@@ -1,0 +1,11 @@
+include three_js_orientation/three_js_orientation.min.js
+include three_js_orientation/three_js_orientation.min.js.map
+include three_js_orientation/async-*.js
+include three_js_orientation/async-*.js.map
+include three_js_orientation/*-shared.js
+include three_js_orientation/*-shared.js.map
+include three_js_orientation/metadata.json
+include three_js_orientation/package-info.json
+include README.md
+include LICENSE
+include package.json

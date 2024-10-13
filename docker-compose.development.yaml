@@ -6,10 +6,14 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
-      - ${HOST_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
+      # - ${HOST_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
       - ${HOST_FILE_STORAGE_PATH}:${CONTAINER_FILE_STORAGE_PATH}
     ports:
       - "8000:8000"
+      - "8050:8050"
+      - "8051:8051"
+      - "8052:8052"
+      - "8053:8053"
     env_file:
       - .env
     depends_on:
@@ -39,17 +43,11 @@ services:
       context: ./jupyter
     ports:
       - "8888:8888"
-      - "8050:8050"
-      - "8051:8051"
-      - "8052:8052"
-      - "8053:8053"
     env_file:
       - .env
     volumes:
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
       - ./DiveDB:/app/DiveDB
-      - ./pyproject.toml:/app/pyproject.toml
-      - ./setup.py:/app/setup.py
       - ./data:/app/data
       - ./pyologger:/app/pyologger
       - ./scripts:/app/scripts
