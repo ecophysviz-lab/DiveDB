@@ -1,33 +1,22 @@
 import os
-import sys
 import xarray as xr
 from google.cloud import storage
-from DiveDB.services.data_uploader import DataUploader
-import importlib
 import pandas as pd
-
-# Add the directory containing your local module to the Python path
-local_module_path = os.path.abspath("DiveDB/services/utils/netcdf_conversions.py")
-if local_module_path not in sys.path:
-    sys.path.insert(0, local_module_path)
-
-import DiveDB.services.utils.netcdf_conversions
-
-importlib.reload(DiveDB.services.utils.netcdf_conversions)
+from DiveDB.services.data_uploader import DataUploader
 from DiveDB.services.utils.netcdf_conversions import convert_to_formatted_dataset
 
 # Initialize the Google Cloud Storage client
 client = storage.Client()
 
 # Define the bucket and prefix
-bucket_name = "dive_db"
-prefix = "female_elephant_seal_raw/"
+bucket_name = "female_elephant_seal_netcdfs"
+# prefix = "female_elephant_seal_raw/"
 
 # Get the bucket
 bucket = client.get_bucket(bucket_name)
 
 # List all blobs in the specified bucket with the given prefix
-blobs = bucket.list_blobs(prefix=prefix)
+blobs = bucket.list_blobs()
 
 # Load the CSV file
 metadata_df = pd.read_csv("scripts/metadata/11_Restimates_ALL_DailyActivity.csv")

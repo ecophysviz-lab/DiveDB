@@ -28,14 +28,13 @@ os.environ.setdefault(
 )
 django.setup()
 
-from DiveDB.server.metadata.models import (
+from DiveDB.server.metadata.models import (  # noqa: E402
     Files,
     Recordings,
     Deployments,
     Animals,
     AnimalDeployments,
-    Loggers,
-)  # noqa: E402
+)
 
 
 @dataclass
@@ -243,7 +242,7 @@ class DataUploader:
                     [metadata["animal"]] * len(event_keys), type=pa.string()
                 ),
                 "deployment": pa.array(
-                    [metadata["deployment"]] * len(event_keys), type=pa.string()
+                    [str(metadata["deployment"])] * len(event_keys), type=pa.string()
                 ),
                 "recording": pa.array(
                     [metadata["recording"]] * len(event_keys), type=pa.string()
@@ -268,6 +267,63 @@ class DataUploader:
         )
         del batch_table
         gc.collect()
+
+    def get_metadata(self, metadata: dict):
+        """Retrieve metadata from Postgres."""
+        animal = Animals.objects.filter(id=metadata["animal"]).first()
+        deployment = Deployments.objects.filter(id=metadata["deployment"]).first()
+        animal_deployment = (
+            AnimalDeployments.objects.filter(
+                animal=animal, deployment=deployment
+            ).first()
+            if animal and deployment
+            else None
+        )
+        recording = (
+            Recordings.objects.filter(
+                name=metadata["recording"], animal_deployment=animal_deployment
+            ).first()
+            if animal_deployment
+            else None
+        )
+
+        return animal, deployment, animal_deployment, recording
+
+    def get_or_create_metadata(self, metadata: dict, attrs: dict):
+        """Helper function to get or create metadata in Postgres and Notion"""
+        animal, deployment, animal_deployment, recording = self.get_metadata(metadata)
+
+        if not animal:
+            animal = Animals.objects.create(
+                id=metadata["animal"],
+                project_id=metadata["animal"],
+                common_name=attrs["Animal_Species_CommonName"],
+                scientific_name=attrs["Animal_Species"],
+            )
+
+        if not deployment:
+            deployment = Deployments.objects.create(
+                id=metadata["deployment"],
+                deployment_name=metadata["deployment"],
+                rec_date=datetime.now().date(),
+                animal=animal.id,
+                timezone="UTC",
+            )
+
+        if not animal_deployment:
+            animal_deployment = AnimalDeployments.objects.create(
+                animal=animal, deployment=deployment
+            )
+
+        if not recording:
+            recording = Recordings.objects.create(
+                name=metadata["recording"],
+                animal_deployment=animal_deployment,
+                logger=attrs["Logger_ID"],
+                start_time=datetime.now(),
+            )
+
+        return animal, deployment, animal_deployment, recording
 
     def upload_netcdf(
         self,
@@ -303,45 +359,8 @@ class DataUploader:
                 }
             )
 
-        # Check if the animal exists, if not, create it
-        animal, created = Animals.objects.get_or_create(
-            id=metadata["animal"],
-            defaults={
-                "project_id": metadata[
-                    "animal"
-                ],  # Replace with actual default or metadata value
-                "common_name": ds.attrs[
-                    "Animal_Species_CommonName"
-                ],  # Replace with actual default or metadata value
-                "scientific_name": ds.attrs[
-                    "Animal_Species"
-                ],  # Replace with actual default or metadata value
-            },
-        )
-
-        # Check if the deployment exists, if not, create it
-        deployment, created = Deployments.objects.get_or_create(
-            id=metadata["deployment"],
-            defaults={
-                "deployment_name": metadata["deployment"],
-                "rec_date": datetime.now().date(),  # Replace with actual default or metadata value
-                "animal": animal.id,
-                "timezone": "UTC",  # Replace with actual default or metadata value
-            },
-        )
-
-        # Check if the recording exists, if not, create it
-        animal_deployment, created = AnimalDeployments.objects.get_or_create(
-            animal=animal, deployment=deployment
-        )
-
-        recording, created = Recordings.objects.get_or_create(
-            name=metadata["recording"],
-            animal_deployment=animal_deployment,
-            defaults={
-                "logger": Loggers.objects.first(),  # Replace with actual default or metadata value
-                "start_time": datetime.now(),  # Replace with actual default or metadata value
-            },
+        animal, deployment, animal_deployment, recording = self.get_or_create_metadata(
+            metadata, ds.attrs
         )
 
         print(
@@ -402,7 +421,7 @@ class DataUploader:
                         group=coord.replace("_samples", ""),
                         event_keys=event_keys,
                         event_data=event_data,
-                        file_name=file.file["name"],
+                        file_name=file.file.name,
                     )
                 for var_name, var_data in ds[variables_with_coord].items():
                     if (
