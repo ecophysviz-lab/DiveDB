@@ -14,7 +14,6 @@ from DiveDB.services.utils.sampling import resample
 
 # flake8: noqa
 
-
 os.environ["AWS_S3_ALLOW_UNSAFE_RENAME"] = "true"
 
 if "S3_DELTA_LAKE_PATH" in os.environ:

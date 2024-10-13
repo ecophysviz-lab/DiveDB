@@ -1,78 +1,90 @@
 import os
-import requests
-from bs4 import BeautifulSoup
-import csv
-
+import xarray as xr
+from google.cloud import storage
+import pandas as pd
 from DiveDB.services.data_uploader import DataUploader
 from DiveDB.services.utils.netcdf_conversions import convert_to_formatted_dataset
 
-# flake8: noqa
+# Initialize the Google Cloud Storage client
+client = storage.Client()
 
-base_url = "https://datadryad.org"
-hash_value = os.getenv("DRYAD_HASH", "default_hash_value")
-page_url = f"https://datadryad.org/stash/share/{hash_value}"
+# Define the bucket and prefix
+bucket_name = "female_elephant_seal_netcdfs"
+# prefix = "female_elephant_seal_raw/"
 
-response = requests.get(page_url)
-soup = BeautifulSoup(response.text, "html.parser")
+# Get the bucket
+bucket = client.get_bucket(bucket_name)
 
-ul = soup.find("ul", class_="c-file-group__list")
-li_elements = ul.find_all("li")
+# List all blobs in the specified bucket with the given prefix
+blobs = bucket.list_blobs()
 
-# Total number of files
-total_files = len(li_elements)
-
-# Index of the second-to-last file (CSV file)
-csv_idx = total_files - 2
-
-# Extract the CSV file first
-csv_li = li_elements[csv_idx]
-a_tag = csv_li.find("a")
-csv_file_name = a_tag.get("title")
-csv_download_href = a_tag.get("href")
-csv_download_url = base_url + csv_download_href
-
-print(f"Downloading CSV file: {csv_file_name} from {csv_download_url}")
-
-# Download and parse the Metdata CSV file
-csv_response = requests.get(csv_download_url)
-with open(csv_file_name, "wb") as f:
-    f.write(csv_response.content)
-with open(csv_file_name, "r", newline="", encoding="utf-8") as csvfile:
-    csvreader = csv.reader(csvfile)
-    for row in csvreader:
-        print(row)
+# Load the CSV file
+metadata_df = pd.read_csv("scripts/metadata/11_Restimates_ALL_DailyActivity.csv")
 
 data_uploader = DataUploader()
 
-# Loop through each file, excluding the last one and the CSV file
-for idx, li in enumerate(li_elements):
-    if idx == total_files - 1 or idx == csv_idx:
+os.environ["SKIP_OPENSTACK_UPLOAD"] = "true"
+
+# Loop through each blob
+for idx, blob in enumerate(blobs):
+    # Skip directories
+    if blob.name.endswith("/"):
         continue
 
-    a_tag = li.find("a")
-    file_name = a_tag.get("title")
-    download_href = a_tag.get("href")
-    download_url = base_url + download_href
+    file_name = blob.name.split("/")[-1]
+    print(f"Processing file: {file_name}")
 
-    print(f"Downloading {file_name} from {download_url}")
-
+    # Download the blob to a local file
     temp_dir = "temp"
     os.makedirs(temp_dir, exist_ok=True)
     temp_file_path = os.path.join(temp_dir, file_name)
-    file_response = requests.get(download_url)
-    with open(temp_file_path, "wb") as f:
-        f.write(file_response.content)
+    blob.download_to_filename(temp_file_path)
 
+    # Convert the file
     converted_file_path = f"./data/processed_{idx}.nc"
     converts_ds = convert_to_formatted_dataset(
         temp_file_path, output_file_path=converted_file_path
     )
 
-    # TODO: Get metadata from csvreader
-    metadata = {
-        "animal": "oror-002",
-        "deployment": "2024-01-16_oror-002a",
-        "recording": "2024-01-16_oror-002a_UF-01_001",
-    }
+    with xr.open_dataset(converted_file_path) as ds:
+        # Find the row in the CSV where "TOPPID" matches "Deployment_ID"
+        deployment_id = int(ds.attrs["Deployment_ID"])
+        logger_id = ds.attrs["Tags_TDR1_Model"] + "_" + ds.attrs["Tags_TDR1_ID"]
+        filtered_df = metadata_df[metadata_df["TOPPID"] == deployment_id]
 
-    data_uploader.upload_netcdf(converted_file_path, metadata)
+        if filtered_df.empty:
+            print(f"No matching row found for Deployment_ID: {deployment_id}")
+            continue  # Skip to the next blob if no match is found
+
+        matching_row = filtered_df.iloc[0]
+
+        # Use "SEALID" from the matching row as the animal
+        metadata = {
+            "animal": matching_row["SEALID"],
+            "deployment": deployment_id,
+            "recording": f"{deployment_id}_{matching_row['SEALID']}_{logger_id}",
+        }
+
+    # Upload the converted file
+    data_uploader.upload_netcdf(
+        converted_file_path,
+        metadata,
+        rename_map={
+            "depth": "sensor_data_pressure",
+            "corr_depth": "derived_data_depth",
+            "lat": "derived_data_latitude",
+            "lon": "derived_data_longitude",
+            "loc_class": "derived_data_location_class",
+            "light": "sensor_data_light",
+            "exernal_temp": "sensor_data_exernal_temp",
+        },
+    )
+
+    # Clean up temporary files
+    os.remove(temp_file_path)
+    os.remove(converted_file_path)
+
+    print(f"Uploaded {file_name}")
+    print(f"Processed {idx} files")
+
+print("Processing complete.")

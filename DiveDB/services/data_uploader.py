@@ -28,7 +28,13 @@ os.environ.setdefault(
 )
 django.setup()
 
-from DiveDB.server.metadata.models import Files, Recordings  # noqa: E402
+from DiveDB.server.metadata.models import (  # noqa: E402
+    Files,
+    Recordings,
+    Deployments,
+    Animals,
+    AnimalDeployments,
+)
 
 
 @dataclass
@@ -181,7 +187,7 @@ class DataUploader:
                     [metadata["animal"]] * len(values), type=pa.string()
                 ),
                 "deployment": pa.array(
-                    [metadata["deployment"]] * len(values), type=pa.string()
+                    [str(metadata["deployment"])] * len(values), type=pa.string()
                 ),
                 "recording": pa.array(
                     [metadata["recording"]] * len(values), type=pa.string()
@@ -236,7 +242,7 @@ class DataUploader:
                     [metadata["animal"]] * len(event_keys), type=pa.string()
                 ),
                 "deployment": pa.array(
-                    [metadata["deployment"]] * len(event_keys), type=pa.string()
+                    [str(metadata["deployment"])] * len(event_keys), type=pa.string()
                 ),
                 "recording": pa.array(
                     [metadata["recording"]] * len(event_keys), type=pa.string()
@@ -262,8 +268,69 @@ class DataUploader:
         del batch_table
         gc.collect()
 
+    def get_metadata(self, metadata: dict):
+        """Retrieve metadata from Postgres."""
+        animal = Animals.objects.filter(id=metadata["animal"]).first()
+        deployment = Deployments.objects.filter(id=metadata["deployment"]).first()
+        animal_deployment = (
+            AnimalDeployments.objects.filter(
+                animal=animal, deployment=deployment
+            ).first()
+            if animal and deployment
+            else None
+        )
+        recording = (
+            Recordings.objects.filter(
+                name=metadata["recording"], animal_deployment=animal_deployment
+            ).first()
+            if animal_deployment
+            else None
+        )
+
+        return animal, deployment, animal_deployment, recording
+
+    def get_or_create_metadata(self, metadata: dict, attrs: dict):
+        """Helper function to get or create metadata in Postgres and Notion"""
+        animal, deployment, animal_deployment, recording = self.get_metadata(metadata)
+
+        if not animal:
+            animal = Animals.objects.create(
+                id=metadata["animal"],
+                project_id=metadata["animal"],
+                common_name=attrs["Animal_Species_CommonName"],
+                scientific_name=attrs["Animal_Species"],
+            )
+
+        if not deployment:
+            deployment = Deployments.objects.create(
+                id=metadata["deployment"],
+                deployment_name=metadata["deployment"],
+                rec_date=datetime.now().date(),
+                animal=animal.id,
+                timezone="UTC",
+            )
+
+        if not animal_deployment:
+            animal_deployment = AnimalDeployments.objects.create(
+                animal=animal, deployment=deployment
+            )
+
+        if not recording:
+            recording = Recordings.objects.create(
+                name=metadata["recording"],
+                animal_deployment=animal_deployment,
+                logger=attrs["Logger_ID"],
+                start_time=datetime.now(),
+            )
+
+        return animal, deployment, animal_deployment, recording
+
     def upload_netcdf(
-        self, netcdf_file_path: str, metadata: dict, batch_size: int = 1000000
+        self,
+        netcdf_file_path: str,
+        metadata: dict,
+        batch_size: int = 1000000,
+        rename_map: dict = None,
     ):
         """
         Uploads a netCDF file to the database and DuckPond.
@@ -276,8 +343,25 @@ class DataUploader:
                 - deployment: Deployment Name (str)
                 - recording: Recording Name (str)
         batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
+        rename_map (dict, optional): A dictionary mapping original variable names to new names.
         """
+
         ds = xr.open_dataset(netcdf_file_path)
+
+        # Apply renaming if rename_map is provided
+        if rename_map:
+            # Convert all data variable names to lowercase
+            lower_case_rename_map = {k.lower(): v for k, v in rename_map.items()}
+            ds = ds.rename(
+                {
+                    var: lower_case_rename_map.get(var.lower(), var)
+                    for var in ds.data_vars
+                }
+            )
+
+        animal, deployment, animal_deployment, recording = self.get_or_create_metadata(
+            metadata, ds.attrs
+        )
 
         print(
             f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
@@ -294,7 +378,7 @@ class DataUploader:
             with open(netcdf_file_path, "rb") as f:
                 file_object = File(f, name=os.path.basename(netcdf_file_path))
                 file = Files.objects.create(
-                    recording=Recordings.objects.get(name=metadata["recording"]),
+                    recording=recording,
                     file=file_object,
                     extension="nc",
                     type="data",
@@ -337,7 +421,7 @@ class DataUploader:
                         group=coord.replace("_samples", ""),
                         event_keys=event_keys,
                         event_data=event_data,
-                        file_name=file.file["name"],
+                        file_name=file.file.name,
                     )
                 for var_name, var_data in ds[variables_with_coord].items():
                     if (
@@ -359,7 +443,7 @@ class DataUploader:
 
                                 group = var_data.attrs.get("group", "ungrouped")
                                 class_name = var_name
-                                label = sub_var_name
+                                label = rename_map.get(sub_var_name, sub_var_name)
 
                                 values = var_data.values[start:end, var_index]
                                 self._write_data_to_duckpond(
@@ -393,6 +477,7 @@ class DataUploader:
                                 if "variable" in var_data.attrs
                                 else var_name
                             )
+                            label = rename_map.get(label, label)
 
                             values = var_data.values[start:end]
                             self._write_data_to_duckpond(
