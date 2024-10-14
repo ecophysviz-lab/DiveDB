@@ -20,6 +20,12 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
 
   const [currentPRH, setCurrentPRH] = useState({ pitch: 0, roll: 0, heading: 0 });
 
+  // Add a ref to store the target quaternion
+  const targetQuaternionRef = useRef(new THREE.Quaternion());
+
+  // Sprites for cardinal direction labels
+  const directionLabelsRef = useRef([]);
+
   // Initialize the scene only once
   useEffect(() => {
     const mount = mountRef.current;
@@ -62,8 +68,8 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
       (fbx) => {
         modelRef.current = fbx;
 
-        // Adjust the model's orientation
-        fbx.rotation.y = Math.PI / 2; // Rotate model to align nose with positive X-axis
+        // Adjust the model's orientation to align nose with positive X-axis
+        fbx.rotation.y = Math.PI / 2;
 
         // Center the model
         const box = new THREE.Box3().setFromObject(fbx);
@@ -71,12 +77,12 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
         fbx.position.sub(center);
 
         // Add axes helper to the model
-        const axesHelper = new THREE.AxesHelper(20); // Adjust size as needed
-        fbx.add(axesHelper); // Attach axes helper to the model
+        const axesHelper = new THREE.AxesHelper(20);
+        fbx.add(axesHelper);
 
         // Adjust the camera to fit the model
         const size = box.getSize(new THREE.Vector3()).length();
-        const fitDistance = size / (2 * Math.atan((Math.PI * camera.fov) / 360));
+        const fitDistance = size / Math.atan((Math.PI * camera.fov) / 360);
         camera.position.set(0, 0, fitDistance * 1.2);
         camera.updateProjectionMatrix();
 
@@ -93,20 +99,23 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
 
         // Calculate model's height
         const modelHeight = box.max.y - box.min.y;
-        const gridOffset = modelHeight * 2; // Adjust this multiplier as needed
+        const gridOffset = modelHeight * 2;
 
         // Add grid helper below the model
         const gridSize = 100;
         const gridDivisions = 100;
 
         const gridHelperBelow = new THREE.GridHelper(gridSize, gridDivisions);
-        gridHelperBelow.position.y = box.min.y - gridOffset; // Position below
+        gridHelperBelow.position.y = box.min.y - gridOffset;
         scene.add(gridHelperBelow);
 
         // Add grid helper above the model
         const gridHelperAbove = new THREE.GridHelper(gridSize, gridDivisions);
-        gridHelperAbove.position.y = box.max.y + gridOffset; // Position above
+        gridHelperAbove.position.y = box.max.y + gridOffset;
         scene.add(gridHelperAbove);
+
+        // Add cardinal direction labels to the lower grid
+        addDirectionLabels(scene, gridHelperBelow.position.y, gridSize / 2);
 
         // Setup animation mixer if animations are present
         if (fbx.animations && fbx.animations.length) {
@@ -117,16 +126,16 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
       },
       (xhr) => {
         const percentLoaded = (xhr.loaded / xhr.total) * 100;
-        const loadThresholds = [0, 25, 50, 75, 100]; // Define loading thresholds
+        const loadThresholds = [0, 25, 50, 75, 100];
         loadThresholds.forEach((threshold, index) => {
-          if (loadStatus.current === loadThresholds[index-1] && percentLoaded >= threshold) {
+          if (loadStatus.current === loadThresholds[index - 1] && percentLoaded >= threshold) {
             console.log(`${threshold}% loaded`);
             loadStatus.current = threshold;
           }
         });
       },
       (error) => {
-        console.error('An error occurred during FBX loading:', error);
+        console.error("An error occurred during FBX loading:", error);
       }
     );
 
@@ -138,6 +147,14 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
       if (mixerRef.current) {
         mixerRef.current.update(delta);
       }
+
+      // Interpolate the model's orientation
+      if (modelRef.current) {
+        modelRef.current.quaternion.slerp(targetQuaternionRef.current, 0.05);
+      }
+
+      // Update direction labels rotation based on model's heading
+      updateDirectionLabels();
 
       controls.update();
       renderer.render(scene, camera);
@@ -153,12 +170,12 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
 
     // Cleanup on unmount
     return () => {
       cancelAnimationFrame(requestIDRef.current);
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("resize", handleResize);
       controls.dispose();
       if (modelRef.current) {
         scene.remove(modelRef.current);
@@ -175,17 +192,12 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
       try {
         dataframe = JSON.parse(data);
       } catch (e) {
-        console.error('Invalid data format:', e);
+        console.error("Invalid data format:", e);
         return;
       }
 
-      console.log(dataframe);
-
       const timestamps = dataframe.index.map((t) => new Date(t).getTime());
       const activeTimestamp = new Date(activeTime).getTime();
-
-      console.log(timestamps.map((t) => new Date(t).toISOString()));
-      console.log(new Date(activeTime).toISOString());
 
       // Find the nearest timestamp
       let nearestIndex = 0;
@@ -199,23 +211,18 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
         }
       }
 
-      console.log(nearestIndex);
-
       // Map columns to indices
       const columnIndices = dataframe.columns.reduce((acc, col, idx) => {
         acc[col] = idx;
         return acc;
       }, {});
 
-      // Get pitch, roll, heading
+      // Get the pitch, roll, and heading from the nearest timestamp
       const rowData = dataframe.data[nearestIndex];
       const pitch = rowData[columnIndices.pitch];
       const roll = rowData[columnIndices.roll];
       const heading = rowData[columnIndices.heading];
 
-      console.log(pitch, roll, heading);
-
-      // Store current PRH values
       setCurrentPRH({ pitch, roll, heading });
 
       // Convert to radians
@@ -223,16 +230,14 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
       const rollRad = roll * (Math.PI / 180);
       const headingRad = heading * (Math.PI / 180);
 
-      // Apply rotations
-      if (modelRef.current) {
-        // Adjust rotation order if necessary
-        modelRef.current.rotation.order = 'ZYX';
+      // Create a new quaternion for the target orientation
+      const targetQuaternion = new THREE.Quaternion();
+      targetQuaternion.setFromEuler(
+        new THREE.Euler(pitchRad, headingRad + Math.PI / 2, rollRad, "ZYX")
+      );
 
-        // Apply rotations considering the initial rotation applied upon loading
-        modelRef.current.rotation.x = pitchRad;
-        modelRef.current.rotation.y = headingRad + Math.PI / 2; // Add initial rotation
-        modelRef.current.rotation.z = rollRad;
-      }
+      // Store the target quaternion
+      targetQuaternionRef.current.copy(targetQuaternion);
     };
 
     updateModel();
@@ -252,25 +257,81 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
     }
   };
 
+  // Function to add direction labels
+  const addDirectionLabels = (scene, yPosition, distance) => {
+    const labels = ["N", "S", "E", "W"];
+    const positions = [
+      new THREE.Vector3(0, yPosition, -distance), // North
+      new THREE.Vector3(0, yPosition, distance), // South
+      new THREE.Vector3(distance, yPosition, 0), // East
+      new THREE.Vector3(-distance, yPosition, 0), // West
+    ];
+
+    labels.forEach((label, index) => {
+      const sprite = createTextSprite(label);
+      sprite.position.copy(positions[index]);
+      scene.add(sprite);
+      directionLabelsRef.current.push(sprite);
+    });
+  };
+
+  // Function to create a text sprite
+  const createTextSprite = (message) => {
+    const fontface = "Arial";
+    const fontsize = 82;
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 128;
+    const context = canvas.getContext("2d");
+    context.font = `${fontsize}px ${fontface}`;
+    context.fillStyle = "white";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(message, canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+
+    const spriteMaterial = new THREE.SpriteMaterial({
+      map: texture,
+      depthTest: false,
+      depthWrite: false,
+    });
+
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(20, 10, 1); // Adjust size as needed
+    return sprite;
+  };
+
+  // Function to update direction labels rotation based on heading
+  const updateDirectionLabels = () => {
+    if (directionLabelsRef.current.length > 0) {
+      const headingRad = currentPRH.heading * (Math.PI / 180);
+      directionLabelsRef.current.forEach((sprite) => {
+        sprite.rotation.y = -headingRad;
+      });
+    }
+  };
+
   return (
     <div
       id={id}
-      style={{ position: 'relative', width: '100%', height: '100%', ...style }}
+      style={{ position: "relative", width: "100%", height: "100%", ...style }}
       ref={mountRef}
     >
-      {/* Overlay for displaying pitch, roll, heading */}
+      {/* Overlay for displaying pitch, roll, heading values */}
       <div
         style={{
-          position: 'absolute',
-          top: '10px',
-          left: '10px',
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
-          padding: '10px',
-          borderRadius: '5px',
-          fontSize: '14px',
+          position: "absolute",
+          top: "10px",
+          left: "10px",
+          backgroundColor: "rgba(255, 255, 255, 0.5)",
+          padding: "10px",
+          borderRadius: "5px",
+          fontSize: "14px",
         }}
       >
-        <ul style={{ listStyleType: 'none', margin: 0, padding: 0 }}>
+        <ul style={{ listStyleType: "none", margin: 0, padding: 0 }}>
           <li>
             <strong>Pitch:</strong> {currentPRH.pitch.toFixed(2)}°
           </li>
@@ -287,12 +348,12 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
       <button
         onClick={resetCamera}
         style={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          padding: '10px',
-          fontSize: '14px',
-          cursor: 'pointer',
+          position: "absolute",
+          top: "10px",
+          right: "10px",
+          padding: "10px",
+          fontSize: "14px",
+          cursor: "pointer",
         }}
       >
         Reset View
