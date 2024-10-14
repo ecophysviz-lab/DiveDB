@@ -5,10 +5,12 @@ FROM python:3.12
 WORKDIR /app
 
 # Copy the rest of the application code into the container
-COPY . /app/
+COPY ./setup.py /app/setup.py
 
 # Install the dependencies
 RUN pip install .
+
+COPY . /app/
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1

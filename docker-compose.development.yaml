@@ -49,5 +49,6 @@ services:
       - ./scripts:/app/scripts
       - ./pyproject.toml:/app/pyproject.toml
       - ./setup.py:/app/setup.py
+      - ${HOME}/.config/gcloud:/root/.config/gcloud
     depends_on:
       - metadata_database
