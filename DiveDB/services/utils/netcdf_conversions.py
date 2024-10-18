@@ -61,16 +61,12 @@ def convert_to_formatted_dataset(
                     )
                 else:
                     try:
-                        # Check the format of the first date string to determine the correct format
-                        first_date_str = ds["DATE"].values[0]
-                        if ":" in first_date_str.split()[0]:  # Check if time is first
-                            datetime_coord = np.array(
-                                pd.to_datetime(ds["DATE"].values)
-                            ).astype("datetime64[ns]")
-                        else:  # Assume date is first
-                            datetime_coord = np.array(
-                                pd.to_datetime(ds["DATE"].values)
-                            ).astype("datetime64[ns]")
+                        # Use 'mixed' format to allow flexible date parsing
+                        datetime_coord = np.array(
+                            pd.to_datetime(
+                                ds["DATE"].values, format="mixed", dayfirst=True
+                            )
+                        ).astype("datetime64[ns]")
                     except Exception as e:
                         print(f"Error converting dates in group {group}: {e}")
                         print(ds["DATE"].values)

@@ -33,6 +33,7 @@ from DiveDB.server.metadata.models import (  # noqa: E402
     Recordings,
     Deployments,
     Animals,
+    Loggers,
     AnimalDeployments,
 )
 
@@ -120,15 +121,15 @@ class DataUploader:
             lambda x: (float(x) if isinstance(x, (int, float)) else np.nan)
         )(values)
 
-        # Determine if any value has a decimal place
-        if np.any(numeric_values % 1 != 0):
-            float_values = np.where(np.isfinite(numeric_values), numeric_values, None)
-            int_values = None
-        else:
+        # Check if the data type is integer
+        if np.issubdtype(numeric_values.dtype, np.integer):
             float_values = None
             int_values = np.where(
                 np.isfinite(numeric_values), numeric_values.astype(int), None
             )
+        else:
+            float_values = np.where(np.isfinite(numeric_values), numeric_values, None)
+            int_values = None
 
         string_values = np.where(
             ~np.isin(values, [True, False])
@@ -187,7 +188,9 @@ class DataUploader:
                     [metadata["animal"]] * len(values), type=pa.string()
                 ),
                 "deployment": pa.array(
-                    [str(metadata["deployment"])] * len(values), type=pa.string()
+                    # This fix isn't working, make it a string
+                    [str(metadata["deployment"])] * len(values),
+                    type=pa.string(),
                 ),
                 "recording": pa.array(
                     [metadata["recording"]] * len(values), type=pa.string()
@@ -268,62 +271,77 @@ class DataUploader:
         del batch_table
         gc.collect()
 
-    def get_metadata(self, metadata: dict):
-        """Retrieve metadata from Postgres."""
-        animal = Animals.objects.filter(id=metadata["animal"]).first()
-        deployment = Deployments.objects.filter(id=metadata["deployment"]).first()
-        animal_deployment = (
-            AnimalDeployments.objects.filter(
-                animal=animal, deployment=deployment
-            ).first()
-            if animal and deployment
-            else None
+    def get_or_create_logger(self, logger_data):
+        logger, created = Loggers.objects.get_or_create(
+            id=logger_data["logger_id"],
+            defaults={
+                "manufacturer": logger_data.get("manufacturer"),
+                "manufacturer_name": logger_data.get("manufacturer_name"),
+                "serial_no": logger_data.get("serial_no"),
+                "ptt": logger_data.get("ptt"),
+                "type": logger_data.get("type"),
+                "notes": logger_data.get("notes"),
+            },
         )
-        recording = (
-            Recordings.objects.filter(
-                name=metadata["recording"], animal_deployment=animal_deployment
-            ).first()
-            if animal_deployment
-            else None
+        return logger, created
+
+    def get_or_create_recording(self, recording_data):
+        animal_deployment, _ = AnimalDeployments.objects.get_or_create(
+            animal=recording_data["animal"], deployment=recording_data["deployment"]
         )
+        recording, created = Recordings.objects.get_or_create(
+            id=recording_data["recording_id"],
+            defaults={
+                "name": recording_data.get("name"),
+                "animal_deployment": animal_deployment,
+                "logger": recording_data.get("logger"),
+                "start_time": recording_data.get("start_time"),
+                "end_time": recording_data.get("end_time"),
+                "timezone": recording_data.get("timezone"),
+                "quality": recording_data.get("quality"),
+                "attachment_location": recording_data.get("attachment_location"),
+                "attachment_type": recording_data.get("attachment_type"),
+            },
+        )
+        return recording, created
 
-        return animal, deployment, animal_deployment, recording
+    def get_or_create_deployment(self, deployment_data):
+        deployment, created = Deployments.objects.get_or_create(
+            id=deployment_data["deployment_id"],
+            defaults={
+                "domain_deployment_id": deployment_data.get("domain_deployment_id"),
+                "animal_age_class": deployment_data.get("animal_age_class"),
+                "animal_age": deployment_data.get("animal_age"),
+                "deployment_type": deployment_data.get("deployment_type"),
+                "deployment_name": deployment_data.get("deployment_name"),
+                "rec_date": deployment_data.get("rec_date"),
+                "deployment_latitude": deployment_data.get("deployment_latitude"),
+                "deployment_longitude": deployment_data.get("deployment_longitude"),
+                "deployment_location": deployment_data.get("deployment_location"),
+                "departure_datetime": deployment_data.get("departure_datetime"),
+                "recovery_latitude": deployment_data.get("recovery_latitude"),
+                "recovery_longitude": deployment_data.get("recovery_longitude"),
+                "recovery_location": deployment_data.get("recovery_location"),
+                "arrival_datetime": deployment_data.get("arrival_datetime"),
+                "notes": deployment_data.get("notes"),
+            },
+        )
+        return deployment, created
 
-    def get_or_create_metadata(self, metadata: dict, attrs: dict):
-        """Helper function to get or create metadata in Postgres and Notion"""
-        animal, deployment, animal_deployment, recording = self.get_metadata(metadata)
-
-        if not animal:
-            animal = Animals.objects.create(
-                id=metadata["animal"],
-                project_id=metadata["animal"],
-                common_name=attrs["Animal_Species_CommonName"],
-                scientific_name=attrs["Animal_Species"],
-            )
-
-        if not deployment:
-            deployment = Deployments.objects.create(
-                id=metadata["deployment"],
-                deployment_name=metadata["deployment"],
-                rec_date=datetime.now().date(),
-                animal=animal.id,
-                timezone="UTC",
-            )
-
-        if not animal_deployment:
-            animal_deployment = AnimalDeployments.objects.create(
-                animal=animal, deployment=deployment
-            )
-
-        if not recording:
-            recording = Recordings.objects.create(
-                name=metadata["recording"],
-                animal_deployment=animal_deployment,
-                logger=attrs["Logger_ID"],
-                start_time=datetime.now(),
-            )
-
-        return animal, deployment, animal_deployment, recording
+    def get_or_create_animal(self, animal_data):
+        animal, created = Animals.objects.get_or_create(
+            id=animal_data["animal_id"],
+            defaults={
+                "project_id": animal_data.get("project_id"),
+                "common_name": animal_data.get("common_name"),
+                "scientific_name": animal_data.get("scientific_name"),
+                "lab_id": animal_data.get("lab_id"),
+                "birth_year": animal_data.get("birth_year"),
+                "sex": animal_data.get("sex"),
+                "domain_ids": animal_data.get("domain_ids"),
+            },
+        )
+        return animal, created
 
     def upload_netcdf(
         self,
@@ -359,10 +377,6 @@ class DataUploader:
                 }
             )
 
-        animal, deployment, animal_deployment, recording = self.get_or_create_metadata(
-            metadata, ds.attrs
-        )
-
         print(
             f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
         )
@@ -378,7 +392,7 @@ class DataUploader:
             with open(netcdf_file_path, "rb") as f:
                 file_object = File(f, name=os.path.basename(netcdf_file_path))
                 file = Files.objects.create(
-                    recording=recording,
+                    recording=Recordings.objects.get(name=metadata["recording"]),
                     file=file_object,
                     extension="nc",
                     type="data",
@@ -443,7 +457,9 @@ class DataUploader:
 
                                 group = var_data.attrs.get("group", "ungrouped")
                                 class_name = var_name
-                                label = rename_map.get(sub_var_name, sub_var_name)
+                                label = rename_map.get(
+                                    sub_var_name.lower(), sub_var_name
+                                )
 
                                 values = var_data.values[start:end, var_index]
                                 self._write_data_to_duckpond(
@@ -477,7 +493,7 @@ class DataUploader:
                                 if "variable" in var_data.attrs
                                 else var_name
                             )
-                            label = rename_map.get(label, label)
+                            label = rename_map.get(label.lower(), label)
 
                             values = var_data.values[start:end]
                             self._write_data_to_duckpond(

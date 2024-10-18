@@ -103,9 +103,7 @@ class DuckPond:
             self.conn.execute("LOAD httpfs;")
 
             # Set S3 configurations
-            self.conn.execute(
-                "SET s3_url_style='path';"
-            )  # Important for OpenStack Swift
+            self.conn.execute("SET s3_url_style='path';")
             self.conn.execute("SET s3_use_ssl=true;")
             self.conn.execute(
                 """
@@ -120,7 +118,7 @@ class DuckPond:
                     os.getenv("AWS_REGION"),
                     os.getenv("AWS_ACCESS_KEY_ID"),
                     os.getenv("AWS_SECRET_ACCESS_KEY"),
-                    os.getenv("AWS_ENDPOINT_URL"),
+                    os.getenv("AWS_ENDPOINT_URL").replace("https://", ""),
                 )
             )
 
@@ -218,11 +216,6 @@ class DuckPond:
         - If frequency is not None, returns a pd.DataFrame.
         - If frequency is None, returns a DuckDBPyRelation object with pivoted data.
         """
-        has_predicates = False
-
-        def get_predicate_preface():
-            nonlocal has_predicates
-            return " AND" if has_predicates else " WHERE"
 
         def get_predicate_string(predicate: str, values: List[str]):
             if not values:
