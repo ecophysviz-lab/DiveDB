@@ -110,7 +110,7 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
         scene.add(gridHelperBelow);
 
         // Add grid helper above the model
-        const gridHelperAbove = new THREE.GridHelper(gridSize, gridDivisions);
+        const gridHelperAbove = new THREE.GridHelper(gridSize, gridDivisions, 0x5a5a8a, 0x5a5a8a); // Blue-gray color
         gridHelperAbove.position.y = box.max.y + gridOffset;
         scene.add(gridHelperAbove);
 
@@ -197,7 +197,7 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
       }
 
       const timestamps = dataframe.index.map((t) => new Date(t).getTime());
-      const activeTimestamp = new Date(activeTime).getTime();
+      const activeTimestamp = activeTime
 
       // Find the nearest timestamp
       let nearestIndex = 0;
@@ -325,21 +325,21 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
           position: "absolute",
           top: "10px",
           left: "10px",
-          backgroundColor: "rgba(255, 255, 255, 0.5)",
+          backgroundColor: "rgba(255, 255, 255, 0.8)",
           padding: "10px",
           borderRadius: "5px",
           fontSize: "14px",
         }}
       >
         <ul style={{ listStyleType: "none", margin: 0, padding: 0 }}>
-          <li>
-            <strong>Pitch:</strong> {currentPRH.pitch.toFixed(2)}°
+        <li>
+            <strong>Pitch:</strong> {currentPRH.pitch !== null ? currentPRH.pitch.toFixed(2) + "°" : "null"}
           </li>
           <li>
-            <strong>Roll:</strong> {currentPRH.roll.toFixed(2)}°
+            <strong>Roll:</strong> {currentPRH.roll !== null ? currentPRH.roll.toFixed(2) + "°" : "null"}
           </li>
           <li>
-            <strong>Heading:</strong> {currentPRH.heading.toFixed(2)}°
+            <strong>Heading:</strong> {currentPRH.heading !== null ? currentPRH.heading.toFixed(2) + "°" : "null"}
           </li>
         </ul>
       </div>
@@ -367,7 +367,7 @@ ThreeJsOrientation.defaultProps = {};
 ThreeJsOrientation.propTypes = {
   id: PropTypes.string,
   data: PropTypes.string.isRequired, // JSON stringified DataFrame
-  activeTime: PropTypes.string.isRequired, // ISO formatted datetime string
+  activeTime: PropTypes.number.isRequired, // ISO formatted datetime string
   fbxFile: PropTypes.string.isRequired, // URL or path to the .fbx file
   style: PropTypes.object,
 };

@@ -20,7 +20,7 @@
       },
       "activeTime": {
         "type": {
-          "name": "string"
+          "name": "number"
         },
         "required": true,
         "description": ""

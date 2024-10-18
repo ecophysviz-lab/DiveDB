@@ -17,7 +17,7 @@ style=NULL)
 \arguments{
 \item{id}{Character. }
 
-\item{activeTime}{Character. }
+\item{activeTime}{Numeric. }
 
 \item{data}{Character. }
 

@@ -9,7 +9,7 @@ A ThreeJsOrientation component.
 
 Keyword arguments:
 - `id` (String; optional)
-- `activeTime` (String; required)
+- `activeTime` (Real; required)
 - `data` (String; required)
 - `fbxFile` (String; required)
 - `style` (Dict; optional)

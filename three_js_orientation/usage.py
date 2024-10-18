@@ -1,23 +1,28 @@
+import os
 import dash
 from dash import html, dcc
 import pytz
 import pandas as pd
 import three_js_orientation
 from dash.dependencies import Input, Output
+from DiveDB.services.duck_pond import DuckPond
 
 app = dash.Dash(__name__)
 
+os.environ["S3_DELTA_LAKE_PATH"] = "/data/delta-2"
+os.environ["CONTAINER_DELTA_LAKE_PATH"] = "/data/delta-2"
+os.environ["DELTA_LAKE_PATH"] = "/data/delta-2"
+
 # Create sample data
-dates = pd.date_range(start="2021-01-01", periods=10, freq="T")
-data = {
-    "pitch": [i * 5 for i in range(10)],
-    "roll": [i * 3 for i in range(10)],
-    "heading": [i * 10 for i in range(10)],
-}
-df = pd.DataFrame(data, index=dates)
+duckpond = DuckPond()
+dff = duckpond.get_delta_data(
+    animal_ids="oror-002",
+    frequency=1,
+    labels=["derived_data_depth", "sensor_data_ecg", "sensor_data_temperature", "sensor_data_light", "pitch", "roll", "heading"],
+)
 
 # Convert DataFrame to JSON
-data_json = df.to_json(orient="split")
+data_json = dff[['datetime', 'pitch', 'roll', 'heading']].to_json(orient="split")
 
 app.layout = html.Div(
     [
@@ -39,8 +44,8 @@ app.layout = html.Div(
     Output("three-d-model", "activeTime"), [Input("interval-component", "n_intervals")]
 )
 def update_active_time(n_intervals):
-    next_time_index = n_intervals % len(df.index)
-    next_time = df.index[next_time_index]
+    next_time_index = n_intervals % len(dff.index)
+    next_time = dff.index[next_time_index]
     return next_time.tz_localize(pytz.UTC).isoformat()
 
 

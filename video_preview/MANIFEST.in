@@ -1,0 +1,11 @@
+include video_preview/video_preview.min.js
+include video_preview/video_preview.min.js.map
+include video_preview/async-*.js
+include video_preview/async-*.js.map
+include video_preview/*-shared.js
+include video_preview/*-shared.js.map
+include video_preview/metadata.json
+include video_preview/package-info.json
+include README.md
+include LICENSE
+include package.json

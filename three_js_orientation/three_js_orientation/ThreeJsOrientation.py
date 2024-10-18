@@ -11,7 +11,7 @@ Keyword arguments:
 
 - id (string; optional)
 
-- activeTime (string; required)
+- activeTime (number; required)
 
 - data (string; required)
 
