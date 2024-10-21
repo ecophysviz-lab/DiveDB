@@ -21,7 +21,7 @@ if "S3_DELTA_LAKE_PATH" in os.environ:
     DELTA_LAKE_PATH = os.environ["S3_DELTA_LAKE_PATH"]
 else:
     DELTA_LAKE_PATH = os.environ["CONTAINER_DELTA_LAKE_PATH"]
-    
+
 LAKES = [
     "DATA",
     "POINT_EVENTS",
@@ -329,6 +329,7 @@ class DuckPond:
         """
 
         # Execute the pivot query and materialize the results
+        self.conn.execute("DROP TABLE IF EXISTS pivot_results")
         self.conn.execute(f"CREATE TEMPORARY TABLE pivot_results AS {pivot_query}")
 
         # Determine the best column for each label based on the presence of NaNs
