@@ -1,22 +1,11 @@
 import os
+import uuid
 import xarray as xr
 from google.cloud import storage
 import pandas as pd
 from DiveDB.services.data_uploader import DataUploader
 from DiveDB.services.utils.netcdf_conversions import convert_to_formatted_dataset
 import datetime
-
-valid_files_names = [
-    "2017001",
-    "2017002",
-    "2017003",
-    "2017004",
-    "2017005",
-    "2017006",
-    "2017007",
-    "2017008",
-    "2017009",
-]
 
 # Initialize the Google Cloud Storage client
 client = storage.Client()
@@ -33,30 +22,32 @@ blobs = bucket.list_blobs()
 blobs_list = list(blobs)
 
 # Load the CSV file
-metadata_df = pd.read_csv("scripts/metadata/11_Restimates_ALL_DailyActivity.csv")
+metadata_df = pd.read_csv("scripts/metadata/11_Restimates_ALL_SealsUsed.csv")
 
 data_uploader = DataUploader()
 
 os.environ["SKIP_OPENSTACK_UPLOAD"] = "true"
 
 
-def upload_file(file_path, idx):
-    # Convert the file
+def convert_file(file_path, idx):
+    # Convert the file if it doesn't already exist
     converted_file_path = f"./data/processed_{idx}.nc"
-    convert_to_formatted_dataset(file_path, output_file_path=converted_file_path)
+    if not os.path.exists(converted_file_path):
+        convert_to_formatted_dataset(file_path, output_file_path=converted_file_path)
+    return converted_file_path
 
+
+def upload_file(converted_file_path, idx):
     with xr.open_dataset(converted_file_path) as ds:
         # Extract necessary data from the dataset
         deployment_id = int(ds.attrs["Deployment_ID"])
         logger_id = ds.attrs["Tags_TDR1_Model"] + "_" + ds.attrs["Tags_TDR1_ID"]
         filtered_df = metadata_df[metadata_df["TOPPID"] == deployment_id]
-
-        if filtered_df.empty:
-            print(f"No matching row found for Deployment_ID: {deployment_id}")
-            os.remove(converted_file_path)
-            return
-
-        matching_row = filtered_df.iloc[0]
+        seal_id = (
+            filtered_df.iloc[0]["SEALID"]
+            if not filtered_df.empty
+            else str(uuid.uuid4())
+        )
 
         # Convert date strings to the correct format
         arrival_datetime_str = ds.attrs.get("Deployment_Arrival_Datetime")
@@ -76,12 +67,16 @@ def upload_file(file_path, idx):
 
         # Prepare data for each model
         animal_data = {
-            "animal_id": matching_row["SEALID"],
+            "animal_id": seal_id,
             "project_id": ds.attrs.get("Animal_ID"),
             "scientific_name": ds.attrs.get("Animal_Species"),
             "common_name": ds.attrs.get("Animal_Species_CommonName"),
             "lab_id": ds.attrs.get("Animal_ID"),
-            "birth_year": ds.attrs.get("Animal_BirthYear"),
+            "birth_year": (
+                ds.attrs.get("Animal_BirthYear")
+                if not pd.isna(ds.attrs.get("Animal_BirthYear"))
+                else 0
+            ),
             "sex": ds.attrs.get("Animal_Sex"),
             "domain_ids": str(ds.attrs.get("Animal_OtherDeployments")),
         }
@@ -90,8 +85,11 @@ def upload_file(file_path, idx):
             "deployment_id": ds.attrs.get("Deployment_ID"),
             "domain_deployment_id": ds.attrs.get("Deployment_ID"),
             "animal_age_class": ds.attrs.get("Animal_AgeClass"),
-            "animal_age": ds.attrs.get("Deployment_Year")
-            - ds.attrs.get("Animal_BirthYear"),
+            "animal_age": (
+                ds.attrs.get("Deployment_Year") - ds.attrs.get("Animal_BirthYear")
+                if not pd.isna(ds.attrs.get("Animal_BirthYear"))
+                else 0
+            ),
             "deployment_type": ds.attrs.get("Deployment_Trip"),
             "deployment_name": ds.attrs.get("Deployment_ID"),
             "rec_date": departure_datetime.strftime("%Y-%m-%d"),
@@ -122,7 +120,7 @@ def upload_file(file_path, idx):
         deployment, _ = data_uploader.get_or_create_deployment(deployment_data)
 
         recording_data = {
-            "recording_id": f"{deployment_id}_{matching_row['SEALID']}_{logger_id}",
+            "recording_id": f"{deployment_id}_{seal_id}_{logger_id}",
             "name": f"Recording {idx}",
             "animal": animal,
             "deployment": deployment,
@@ -159,25 +157,28 @@ def upload_file(file_path, idx):
 
     os.remove(converted_file_path)
 
-    print(f"Uploaded {file_name}")
+    print(f"Uploaded {converted_file_path}")
 
 
 files_with_errors = []
-# Loop through each blob
+converted_files = []
+
+# First, convert all files
 for idx, blob in enumerate(blobs_list):
     # Skip directories
     if blob.name.endswith("/"):
         continue
 
-    # Filter blobs to only those with "Processed" in the file name
-    if "Processed" in blob.name:
+    file_name = blob.name.split("/")[-1]
+    converted_file_path = f"./data/processed_{idx}.nc"
+
+    # Check if the converted file already exists
+    if os.path.exists(converted_file_path):
+        print(f"Skipping conversion for {file_name}, already processed.")
+        converted_files.append((converted_file_path, idx))
         continue
 
-    # if not any(valid_file in blob.name for valid_file in valid_files_names):
-    #     continue
-
-    file_name = blob.name.split("/")[-1]
-    print(f"Processing file: {file_name}")
+    print(f"Converting file: {file_name}")
 
     # Download the blob to a local file
     temp_dir = "temp"
@@ -185,15 +186,23 @@ for idx, blob in enumerate(blobs_list):
     temp_file_path = os.path.join(temp_dir, file_name)
     blob.download_to_filename(temp_file_path)
     try:
-        upload_file(temp_file_path, idx)
+        converted_file_path = convert_file(temp_file_path, idx)
+        converted_files.append((converted_file_path, idx))
     except Exception as e:
-        print(f"Error uploading file: {e}")
+        print(f"Error converting file: {e}")
         files_with_errors.append(file_name)
     os.remove(temp_file_path)
 
-    print(f"\n ** Processed {idx + 1} of {len(blobs_list)} files**\n")
+# Then, upload all converted files
+for converted_file_path, idx in converted_files:
+    try:
+        upload_file(converted_file_path, idx)
+    except Exception as e:
+        print(f"Error uploading file: {e}")
+        files_with_errors.append(converted_file_path)
 
 print(files_with_errors)
+
 # data_directory = "data/files"
 # for idx, file_name in enumerate(os.listdir(data_directory)):
 #     file_path = os.path.join(data_directory, file_name)

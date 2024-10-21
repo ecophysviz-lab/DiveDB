@@ -14,6 +14,7 @@ dependencies = [
   "duckdb",
   "edfio",
   "flake8",
+  "google-cloud-storage",
   "importlib-metadata==4.8.3",
   "load_dotenv",
   "mne",

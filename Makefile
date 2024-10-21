@@ -1,7 +1,7 @@
 .PHONY: up down build migrate createsuperuser shell bash test
 
 up:
-	docker compose -f docker-compose.development.yaml --env-file .env up --build
+	docker compose -f docker-compose.development.yaml --env-file .env up
 
 down:
 	docker compose -f docker-compose.development.yaml down

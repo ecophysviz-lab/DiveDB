@@ -2,6 +2,7 @@ import netCDF4 as nc
 import xarray as xr
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
 
 def matlab_datenum_to_datetime_vectorized(
@@ -29,6 +30,39 @@ def matlab_datenum_to_datetime_vectorized(
     return converted_dates
 
 
+possible_formats = [
+    "%H:%M:%S %d-%b-%Y",  # e.g., "00:11:12 21-Feb-2017"
+    "%Y-%m-%d %H:%M:%S",  # e.g., "2017-02-21 00:11:12"
+    "%d/%m/%Y %H:%M",  # e.g., "21/02/2017 00:11"
+    "%m/%d/%Y %I:%M:%S %p",  # e.g., "02/21/2017 12:11:12 AM"
+]
+
+
+def infer_date_format(date_str, possible_formats=possible_formats):
+    """
+    Infers the date format of a date string from a list of possible formats.
+
+    Parameters:
+    - date_str (str): The date string to parse.
+    - possible_formats (list): A list of date format strings.
+
+    Returns:
+    - str: The matching date format string.
+
+    Raises:
+    - ValueError: If no matching format is found.
+    """
+    if date_str is None:
+        return None
+
+    for fmt in possible_formats:
+        try:
+            datetime.strptime(date_str, fmt)
+            return fmt
+        except ValueError:
+            continue
+
+
 def convert_to_formatted_dataset(
     input_file_path: str,
     output_file_path: str = None,
@@ -47,11 +81,6 @@ def convert_to_formatted_dataset(
 
         for group in rootgrp.groups:
             with xr.open_dataset(input_file_path, group=group) as ds:
-                # Check if DATE array is empty or contains only empty strings
-                if ds["DATE"].size == 0 or np.all(ds["DATE"].values == ""):
-                    print(f"No valid dates in group {group}. SKIPPING GROUP.")
-                    continue
-
                 # Check if datetime is in MATLAB datenum format by checking if dtype is float
                 if ds["DATE"].dtype == np.float64 and np.all(
                     ds["DATE"].values < 800000
@@ -60,17 +89,16 @@ def convert_to_formatted_dataset(
                         ds["DATE"].values
                     )
                 else:
-                    try:
-                        # Use 'mixed' format to allow flexible date parsing
-                        datetime_coord = np.array(
-                            pd.to_datetime(
-                                ds["DATE"].values, format="mixed", dayfirst=True
-                            )
-                        ).astype("datetime64[ns]")
-                    except Exception as e:
-                        print(f"Error converting dates in group {group}: {e}")
-                        print(ds["DATE"].values)
-                        continue
+                    first_date_str = (
+                        ds["DATE"].values[0] if len(ds["DATE"].values) > 0 else None
+                    )
+                    date_format = infer_date_format(first_date_str, possible_formats)
+                    datetime_coord = np.array(
+                        pd.to_datetime(
+                            ds["DATE"].values,
+                            format=date_format if date_format else "mixed",
+                        )
+                    ).astype("datetime64[ns]")
 
                 datetime_coord = datetime_coord[
                     ~np.isnat(datetime_coord) & (datetime_coord != np.datetime64(""))
