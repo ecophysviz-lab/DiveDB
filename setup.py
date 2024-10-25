@@ -9,6 +9,8 @@ setup(
     install_requires=[
         "black",
         "bs4",
+        "dash",
+        "dask",
         "deltalake",
         "django",
         "django-storages",
