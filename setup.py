@@ -10,6 +10,7 @@ setup(
         "black",
         "bs4",
         "dash",
+        "dash[testing]",
         "dask",
         "deltalake",
         "django",
