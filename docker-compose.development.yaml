@@ -6,7 +6,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
-      # - ${HOST_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
+      - ${HOST_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
       - ${HOST_FILE_STORAGE_PATH}:${CONTAINER_FILE_STORAGE_PATH}
     ports:
       - "8000:8000"
