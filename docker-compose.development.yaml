@@ -47,5 +47,7 @@ services:
       - ./data:/app/data
       - ./pyologger:/app/pyologger
       - ./scripts:/app/scripts
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./setup.py:/app/setup.py
     depends_on:
       - metadata_database

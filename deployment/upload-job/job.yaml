@@ -1,0 +1,111 @@
+# job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: divedb-uploader-job
+  labels:
+    app: divedb-uploader-job
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+      - name: ghcr-login-ecophysviz
+      containers:
+      - name: divedb-uploader-job
+        image: ghcr.io/ecophysviz-lab/uploader-job:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "256Gi"
+            cpu: "64"
+          limits:
+            memory: "256Gi"
+            cpu: "64"
+        volumeMounts:
+        - name: divedb-uploader-data-storage
+          mountPath: /data
+        env:
+        - name: DJANGO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key: DJANGO_SECRET_KEY
+        - name: POSTGRES_HOST
+          value: divedb-pg-service  # Updated to match the service name
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key: POSTGRES_PASSWORD
+        - name: OPENSTACK_AUTH_URL
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key:  OPENSTACK_AUTH_URL
+        - name: OPENSTACK_APPLICATION_CREDENTIAL_ID
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key:  OPENSTACK_APPLICATION_CREDENTIAL_ID
+        - name: OPENSTACK_APPLICATION_CREDENTIAL_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key:  OPENSTACK_APPLICATION_CREDENTIAL_SECRET
+        - name: OPENSTACK_FILE_STORAGE_CONTAINER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key:  OPENSTACK_FILE_STORAGE_CONTAINER_NAME
+        - name: OPENSTACK_USER_ID
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key:  OPENSTACK_USER_ID
+        - name: OPENSTACK_PROJECT_NAME
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key:  OPENSTACK_PROJECT_NAME
+        - name: OPENSTACK_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key:  OPENSTACK_PROJECT_ID
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key: AWS_SECRET_ACCESS_KEY
+        - name: AWS_REGION
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key: AWS_REGION
+        - name: AWS_ENDPOINT_URL
+          valueFrom:
+            secretKeyRef:
+              name: divedb-credentials
+              key: AWS_ENDPOINT_URL
+      restartPolicy: Never
+      volumes:
+      - name: divedb-uploader-data-storage
+        persistentVolumeClaim:
+          claimName: divedb-uploader-data-storage

@@ -38,6 +38,8 @@ class Loggers(models.Model):
     icon_url = models.URLField(max_length=1000, null=True, blank=True)
     serial_no = models.CharField(null=True, blank=True)
     manufacturer = models.CharField(null=True, blank=True)
+    manufacturer_name = models.CharField(null=True, blank=True)
+    ptt = models.CharField(null=True, blank=True)
     type = models.CharField(null=True, blank=True)
     type_name = models.CharField(null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
@@ -59,6 +61,10 @@ class Animals(models.Model):
     project_id = models.CharField()
     common_name = models.CharField()
     scientific_name = models.CharField()
+    lab_id = models.CharField(null=True, blank=True)
+    birth_year = models.IntegerField(null=True, blank=True)
+    sex = models.CharField(null=True, blank=True)
+    domain_ids = models.CharField(null=True, blank=True)
 
     class Meta:
         db_table = "Animals"
@@ -81,8 +87,20 @@ class Deployments(models.Model):
     ]
 
     id = models.CharField(primary_key=True)
+    domain_deployment_id = models.CharField(null=True, blank=True)
+    animal_age_class = models.CharField(null=True, blank=True)
+    animal_age = models.IntegerField(null=True, blank=True)
+    deployment_type = models.CharField(null=True, blank=True)
     deployment_name = models.CharField()
     rec_date = models.DateField()
+    deployment_latitude = models.FloatField(null=True, blank=True)
+    deployment_longitude = models.FloatField(null=True, blank=True)
+    deployment_location = models.CharField(null=True, blank=True)
+    departure_datetime = models.DateTimeField(null=True, blank=True)
+    recovery_latitude = models.FloatField(null=True, blank=True)
+    recovery_longitude = models.FloatField(null=True, blank=True)
+    recovery_location = models.CharField(null=True, blank=True)
+    arrival_datetime = models.DateTimeField(null=True, blank=True)
     animal = models.CharField()
     start_time = models.DateTimeField(null=True, blank=True)
     start_time_precision = models.TextField(null=True, blank=True)
@@ -130,6 +148,10 @@ class Recordings(models.Model):
     start_time_precision = models.CharField(
         null=True, blank=True, choices=PRECISION_CHOICES
     )
+    timezone = models.CharField(max_length=32, null=True, blank=True)
+    quality = models.CharField(null=True, blank=True)
+    attachment_location = models.CharField(null=True, blank=True)
+    attachment_type = models.CharField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} ({self.id})"

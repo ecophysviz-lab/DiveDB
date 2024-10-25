@@ -167,3 +167,5 @@ cython_debug/
 data
 .DS_Store
 .env.*
+
+brave-sonar-390402-7644b983ce44.json
