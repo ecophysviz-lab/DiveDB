@@ -19,8 +19,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from DiveDB.services.utils.openstack import SwiftClient
 
-duckpond = DuckPond()
-swift_client = SwiftClient()
 
 django_prefix = os.environ.get("DJANGO_PREFIX", "DiveDB")
 os.environ.setdefault(
@@ -56,6 +54,11 @@ class SignalData:
 
 class DataUploader:
     """Data Uploader"""
+
+    def __init__(self, duckpond: DuckPond = None, swift_client: SwiftClient = None):
+        """Initialize DataUploader with optional DuckPond and SwiftClient instances."""
+        self.duckpond = duckpond or DuckPond()
+        self.swift_client = swift_client or SwiftClient()
 
     def _read_edf_signal(self, edf: edfio.Edf, label: str):
         """Function to read a single signal from an EDF file."""
@@ -203,7 +206,7 @@ class DataUploader:
             },
             schema=LAKE_CONFIGS["DATA"]["schema"],
         )
-        duckpond.write_to_delta(
+        self.duckpond.write_to_delta(
             data=batch_table,
             lake="DATA",
             mode="append",
@@ -260,7 +263,7 @@ class DataUploader:
             },
             schema=LAKE_CONFIGS["STATE_EVENTS"]["schema"],
         )
-        duckpond.write_to_delta(
+        self.duckpond.write_to_delta(
             data=batch_table,
             lake="STATE_EVENTS",
             mode="append",

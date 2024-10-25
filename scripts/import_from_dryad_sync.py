@@ -5,6 +5,7 @@ from google.cloud import storage
 import pandas as pd
 from DiveDB.services.data_uploader import DataUploader
 from DiveDB.services.utils.netcdf_conversions import convert_to_formatted_dataset
+from DiveDB.services.duck_pond import DuckPond
 import datetime
 
 # Initialize the Google Cloud Storage client
@@ -19,12 +20,15 @@ bucket = client.get_bucket(bucket_name)
 
 # List all blobs in the specified bucket with the given prefix
 blobs = bucket.list_blobs()
-blobs_list = list(blobs)
+blobs_list = [blob for blob in blobs if "20170" in blob.name]
+
+print(f"Found {len(blobs_list)} files")
 
 # Load the CSV file
 metadata_df = pd.read_csv("scripts/metadata/11_Restimates_ALL_SealsUsed.csv")
 
-data_uploader = DataUploader()
+duckpond = DuckPond()
+data_uploader = DataUploader(duckpond=duckpond)
 
 os.environ["SKIP_OPENSTACK_UPLOAD"] = "true"
 
@@ -155,8 +159,6 @@ def upload_file(converted_file_path, idx):
             },
         )
 
-    os.remove(converted_file_path)
-
     print(f"Uploaded {converted_file_path}")
 
 
@@ -181,7 +183,7 @@ for idx, blob in enumerate(blobs_list):
     print(f"Converting file: {file_name}")
 
     # Download the blob to a local file
-    temp_dir = "temp"
+    temp_dir = "data/temp"
     os.makedirs(temp_dir, exist_ok=True)
     temp_file_path = os.path.join(temp_dir, file_name)
     blob.download_to_filename(temp_file_path)

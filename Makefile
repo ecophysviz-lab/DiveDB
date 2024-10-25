@@ -29,3 +29,9 @@ test:
 
 importmetadata:
 	docker compose -f docker-compose.development.yaml exec web python scripts/import_from_notion.py
+
+build-uploader:
+	docker buildx build --platform linux/amd64 -t ghcr.io/ecophysviz-lab/uploader-job:latest --push -f upload.Dockerfile .
+
+build-django:
+	docker buildx build --platform linux/amd64 -t ghcr.io/ecophysviz-lab/divedb-django:latest --push -f Dockerfile .
