@@ -5,10 +5,13 @@ FROM python:3.12
 WORKDIR /app
 
 # Copy the rest of the application code into the container
-COPY . /app/
+COPY ./pyproject.toml /app/pyproject.toml
 
 # Install the dependencies
 RUN pip install .
+
+# Copy the rest of the application code into the container
+COPY . /app/
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1

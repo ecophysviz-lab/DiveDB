@@ -2,6 +2,7 @@
 # pyologger
 antropy
 black
+dash
 dask
 deltalake
 django

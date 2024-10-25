@@ -15,6 +15,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!**/src/lib
 lib64/
 parts/
 sdist/
@@ -168,4 +169,5 @@ data
 .DS_Store
 .env.*
 
+*.mp4
 brave-sonar-390402-7644b983ce44.json

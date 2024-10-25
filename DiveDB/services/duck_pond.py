@@ -16,6 +16,11 @@ from DiveDB.services.utils.sampling import resample
 
 os.environ["AWS_S3_ALLOW_UNSAFE_RENAME"] = "true"
 
+if "S3_DELTA_LAKE_PATH" in os.environ:
+    DELTA_LAKE_PATH = os.environ["S3_DELTA_LAKE_PATH"]
+else:
+    DELTA_LAKE_PATH = os.environ["CONTAINER_DELTA_LAKE_PATH"]
+
 LAKES = [
     "DATA",
     "POINT_EVENTS",
@@ -25,7 +30,7 @@ LAKES = [
 LAKE_CONFIGS = {
     "DATA": {
         "name": "DataLake",
-        "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/data",
+        "path": os.path.join(DELTA_LAKE_PATH, "data"),
         "schema": pa.schema(
             [
                 pa.field("animal", pa.string()),
@@ -51,7 +56,7 @@ LAKE_CONFIGS = {
     },
     "POINT_EVENTS": {
         "name": "PointEventsLake",
-        "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/point_events",
+        "path": os.path.join(DELTA_LAKE_PATH, "point_events"),
         "schema": pa.schema(
             [
                 pa.field("animal", pa.string()),
@@ -68,7 +73,7 @@ LAKE_CONFIGS = {
     },
     "STATE_EVENTS": {
         "name": "StateEventsLake",
-        "path": os.getenv("CONTAINER_DELTA_LAKE_PATH") + "/state_events",
+        "path": os.path.join(DELTA_LAKE_PATH, "state_events"),
         "schema": pa.schema(
             [
                 pa.field("animal", pa.string()),
@@ -97,7 +102,7 @@ class DuckPond:
             self.delta_path = delta_path
         self.conn = duckdb.connect()
 
-        if os.getenv("CONTAINER_DELTA_LAKE_PATH").startswith("s3://"):
+        if DELTA_LAKE_PATH.startswith("s3://"):
             # Load HTTPFS extension for S3 support
             self.conn.execute("INSTALL httpfs;")
             self.conn.execute("LOAD httpfs;")
@@ -316,6 +321,7 @@ class DuckPond:
         """
 
         # Execute the pivot query and materialize the results
+        self.conn.execute("DROP TABLE IF EXISTS pivot_results")
         self.conn.execute(f"CREATE TEMPORARY TABLE pivot_results AS {pivot_query}")
 
         # Determine the best column for each label based on the presence of NaNs
