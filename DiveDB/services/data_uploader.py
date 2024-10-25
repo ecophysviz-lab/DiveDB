@@ -19,8 +19,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from DiveDB.services.utils.openstack import SwiftClient
 
-duckpond = DuckPond()
-swift_client = SwiftClient()
 
 django_prefix = os.environ.get("DJANGO_PREFIX", "DiveDB")
 os.environ.setdefault(
@@ -28,7 +26,14 @@ os.environ.setdefault(
 )
 django.setup()
 
-from DiveDB.server.metadata.models import Files, Recordings  # noqa: E402
+from DiveDB.server.metadata.models import (  # noqa: E402
+    Files,
+    Recordings,
+    Deployments,
+    Animals,
+    Loggers,
+    AnimalDeployments,
+)
 
 
 @dataclass
@@ -46,9 +51,19 @@ class SignalData:
     data: np.ndarray
     signal_length: int
 
+class NetCDFValidationError(Exception):
+    """Custom exception for NetCDF validation errors."""
+
+    pass
+
 
 class DataUploader:
     """Data Uploader"""
+
+    def __init__(self, duckpond: DuckPond = None, swift_client: SwiftClient = None):
+        """Initialize DataUploader with optional DuckPond and SwiftClient instances."""
+        self.duckpond = duckpond or DuckPond()
+        self.swift_client = swift_client or SwiftClient()
 
     def _read_edf_signal(self, edf: edfio.Edf, label: str):
         """Function to read a single signal from an EDF file."""
@@ -114,15 +129,15 @@ class DataUploader:
             lambda x: (float(x) if isinstance(x, (int, float)) else np.nan)
         )(values)
 
-        # Determine if any value has a decimal place
-        if np.any(numeric_values % 1 != 0):
-            float_values = np.where(np.isfinite(numeric_values), numeric_values, None)
-            int_values = None
-        else:
+        # Check if the data type is integer
+        if np.issubdtype(numeric_values.dtype, np.integer):
             float_values = None
             int_values = np.where(
                 np.isfinite(numeric_values), numeric_values.astype(int), None
             )
+        else:
+            float_values = np.where(np.isfinite(numeric_values), numeric_values, None)
+            int_values = None
 
         string_values = np.where(
             ~np.isin(values, [True, False])
@@ -181,7 +196,9 @@ class DataUploader:
                     [metadata["animal"]] * len(values), type=pa.string()
                 ),
                 "deployment": pa.array(
-                    [metadata["deployment"]] * len(values), type=pa.string()
+                    # This fix isn't working, make it a string
+                    [str(metadata["deployment"])] * len(values),
+                    type=pa.string(),
                 ),
                 "recording": pa.array(
                     [metadata["recording"]] * len(values), type=pa.string()
@@ -194,7 +211,7 @@ class DataUploader:
             },
             schema=LAKE_CONFIGS["DATA"]["schema"],
         )
-        duckpond.write_to_delta(
+        self.duckpond.write_to_delta(
             data=batch_table,
             lake="DATA",
             mode="append",
@@ -236,7 +253,7 @@ class DataUploader:
                     [metadata["animal"]] * len(event_keys), type=pa.string()
                 ),
                 "deployment": pa.array(
-                    [metadata["deployment"]] * len(event_keys), type=pa.string()
+                    [str(metadata["deployment"])] * len(event_keys), type=pa.string()
                 ),
                 "recording": pa.array(
                     [metadata["recording"]] * len(event_keys), type=pa.string()
@@ -251,7 +268,7 @@ class DataUploader:
             },
             schema=LAKE_CONFIGS["STATE_EVENTS"]["schema"],
         )
-        duckpond.write_to_delta(
+        self.duckpond.write_to_delta(
             data=batch_table,
             lake="STATE_EVENTS",
             mode="append",
@@ -261,9 +278,173 @@ class DataUploader:
         )
         del batch_table
         gc.collect()
+    def _validate_netcdf(self, ds: xr.Dataset):
+        """
+        Validates netCDF file before upload.
+
+        Dimensions:
+            - Sampling: Must have suffix "_samples". Array of datetime64.
+            - Labeling: Must have suffix "_variables". Array of str.
+
+        Data variables:
+            - Must be associated with sampling dim, and maybe labeling dim.
+            - If flat array (ndim=1), should have attribute "variable" with str.
+            - If nested list (ndim=2), should have attribute "variables" with list of str.
+
+        Args:
+            ds (xr.Dataset): A formatted (no groups) netCDF dataset.
+
+        Raises:
+            NetCDFValidationError: Generic exception for validation errors. Provides details in msg.
+
+
+        Returns:
+            bool: True if dataset passes all checks.
+        """
+        required_dimensions_suffix = ["_samples", "_variables"]
+
+        if not ds.dims:
+            raise NetCDFValidationError(
+                "Dataset does not have any dimensions. This may be due to formatting issues."
+            )
+
+        if not ds.data_vars:
+            raise NetCDFValidationError(
+                "Dataset does not have any data variables. This may be due to formatting issues."
+            )
+
+        for dim in ds.dims:
+            if not any(dim.endswith(suffix) for suffix in required_dimensions_suffix):
+                raise NetCDFValidationError(
+                    f"Dimension '{dim}' does not match the required suffixes: {required_dimensions_suffix}."
+                )
+
+        sample_dimensions = [dim for dim in ds.dims if dim.endswith("_samples")]
+        for dim in sample_dimensions:
+            if not np.isdtype(ds[dim].dtype, np.datetime64):
+                raise NetCDFValidationError(
+                    f"Dimension '{dim}' must contain datetime64 values."
+                )
+
+        label_dimensions = [dim for dim in ds.dims if dim.endswith("_variables")]
+        for dim in label_dimensions:
+            if not np.issubdtype(ds[dim].dtype, np.str_):
+                raise NetCDFValidationError(
+                    f"Dimension '{dim}' must contain string values."
+                )
+
+        for var_name, var in ds.data_vars.items():
+            if var.ndim == 1:
+                if var.dims[0] not in sample_dimensions:
+                    raise NetCDFValidationError(
+                        f"1D Variable '{var_name}' must have a dimension in '{sample_dimensions}', found '{var.dims[0]}'."
+                    )
+                if "variable" not in var.attrs:
+                    found = list(var.attrs.keys())
+                    raise NetCDFValidationError(
+                        f"Variable '{var_name}' must have a 'variable' attribute for flat arrays. Found '{found}'."
+                    )
+
+            elif var.ndim > 1:
+                dim_set = set(var.dims)
+                # not sure if order will always be sample, label in dims
+                if not (
+                    dim_set & set(sample_dimensions) and dim_set & set(label_dimensions)
+                ):
+                    raise NetCDFValidationError(
+                        f"2D Variable '{var_name}' must have one dimension in '{sample_dimensions}' and the other in '{label_dimensions}'. "
+                        f"Found dimensions: {var.dims}."
+                    )
+                if "variables" not in var.attrs:
+                    found = list(var.attrs.keys())
+                    raise NetCDFValidationError(
+                        f"Variable '{var_name}' must have a 'variables' attribute for nested arrays. Found '{found}'"
+                    )
+
+            else:
+                raise NetCDFValidationError(
+                    f"Variable '{var_name}' has an unsupported number of dimensions: {var.ndim}"
+                )
+        return True
+
+    def get_or_create_logger(self, logger_data):
+        logger, created = Loggers.objects.get_or_create(
+            id=logger_data["logger_id"],
+            defaults={
+                "manufacturer": logger_data.get("manufacturer"),
+                "manufacturer_name": logger_data.get("manufacturer_name"),
+                "serial_no": logger_data.get("serial_no"),
+                "ptt": logger_data.get("ptt"),
+                "type": logger_data.get("type"),
+                "notes": logger_data.get("notes"),
+            },
+        )
+        return logger, created
+
+    def get_or_create_recording(self, recording_data):
+        animal_deployment, _ = AnimalDeployments.objects.get_or_create(
+            animal=recording_data["animal"], deployment=recording_data["deployment"]
+        )
+        recording, created = Recordings.objects.get_or_create(
+            id=recording_data["recording_id"],
+            defaults={
+                "name": recording_data.get("name"),
+                "animal_deployment": animal_deployment,
+                "logger": recording_data.get("logger"),
+                "start_time": recording_data.get("start_time"),
+                "end_time": recording_data.get("end_time"),
+                "timezone": recording_data.get("timezone"),
+                "quality": recording_data.get("quality"),
+                "attachment_location": recording_data.get("attachment_location"),
+                "attachment_type": recording_data.get("attachment_type"),
+            },
+        )
+        return recording, created
+
+    def get_or_create_deployment(self, deployment_data):
+        deployment, created = Deployments.objects.get_or_create(
+            id=deployment_data["deployment_id"],
+            defaults={
+                "domain_deployment_id": deployment_data.get("domain_deployment_id"),
+                "animal_age_class": deployment_data.get("animal_age_class"),
+                "animal_age": deployment_data.get("animal_age"),
+                "deployment_type": deployment_data.get("deployment_type"),
+                "deployment_name": deployment_data.get("deployment_name"),
+                "rec_date": deployment_data.get("rec_date"),
+                "deployment_latitude": deployment_data.get("deployment_latitude"),
+                "deployment_longitude": deployment_data.get("deployment_longitude"),
+                "deployment_location": deployment_data.get("deployment_location"),
+                "departure_datetime": deployment_data.get("departure_datetime"),
+                "recovery_latitude": deployment_data.get("recovery_latitude"),
+                "recovery_longitude": deployment_data.get("recovery_longitude"),
+                "recovery_location": deployment_data.get("recovery_location"),
+                "arrival_datetime": deployment_data.get("arrival_datetime"),
+                "notes": deployment_data.get("notes"),
+            },
+        )
+        return deployment, created
+
+    def get_or_create_animal(self, animal_data):
+        animal, created = Animals.objects.get_or_create(
+            id=animal_data["animal_id"],
+            defaults={
+                "project_id": animal_data.get("project_id"),
+                "common_name": animal_data.get("common_name"),
+                "scientific_name": animal_data.get("scientific_name"),
+                "lab_id": animal_data.get("lab_id"),
+                "birth_year": animal_data.get("birth_year"),
+                "sex": animal_data.get("sex"),
+                "domain_ids": animal_data.get("domain_ids"),
+            },
+        )
+        return animal, created
 
     def upload_netcdf(
-        self, netcdf_file_path: str, metadata: dict, batch_size: int = 1000000
+        self,
+        netcdf_file_path: str,
+        metadata: dict,
+        batch_size: int = 1000000,
+        rename_map: dict = None,
     ):
         """
         Uploads a netCDF file to the database and DuckPond.
@@ -276,8 +457,21 @@ class DataUploader:
                 - deployment: Deployment Name (str)
                 - recording: Recording Name (str)
         batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
+        rename_map (dict, optional): A dictionary mapping original variable names to new names.
         """
+
         ds = xr.open_dataset(netcdf_file_path)
+
+        # Apply renaming if rename_map is provided
+        if rename_map:
+            # Convert all data variable names to lowercase
+            lower_case_rename_map = {k.lower(): v for k, v in rename_map.items()}
+            ds = ds.rename(
+                {
+                    var: lower_case_rename_map.get(var.lower(), var)
+                    for var in ds.data_vars
+                }
+            )
 
         print(
             f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
@@ -337,7 +531,7 @@ class DataUploader:
                         group=coord.replace("_samples", ""),
                         event_keys=event_keys,
                         event_data=event_data,
-                        file_name=file.file["name"],
+                        file_name=file.file.name,
                     )
                 for var_name, var_data in ds[variables_with_coord].items():
                     if (
@@ -359,7 +553,9 @@ class DataUploader:
 
                                 group = var_data.attrs.get("group", "ungrouped")
                                 class_name = var_name
-                                label = sub_var_name
+                                label = rename_map.get(
+                                    sub_var_name.lower(), sub_var_name
+                                )
 
                                 values = var_data.values[start:end, var_index]
                                 self._write_data_to_duckpond(
@@ -393,6 +589,7 @@ class DataUploader:
                                 if "variable" in var_data.attrs
                                 else var_name
                             )
+                            label = rename_map.get(label.lower(), label)
 
                             values = var_data.values[start:end]
                             self._write_data_to_duckpond(

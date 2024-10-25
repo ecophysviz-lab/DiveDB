@@ -14,7 +14,6 @@ from DiveDB.services.utils.sampling import resample
 
 # flake8: noqa
 
-
 os.environ["AWS_S3_ALLOW_UNSAFE_RENAME"] = "true"
 
 if "S3_DELTA_LAKE_PATH" in os.environ:
@@ -109,9 +108,7 @@ class DuckPond:
             self.conn.execute("LOAD httpfs;")
 
             # Set S3 configurations
-            self.conn.execute(
-                "SET s3_url_style='path';"
-            )  # Important for OpenStack Swift
+            self.conn.execute("SET s3_url_style='path';")
             self.conn.execute("SET s3_use_ssl=true;")
             self.conn.execute(
                 """
@@ -224,11 +221,6 @@ class DuckPond:
         - If frequency is not None, returns a pd.DataFrame.
         - If frequency is None, returns a DuckDBPyRelation object with pivoted data.
         """
-        has_predicates = False
-
-        def get_predicate_preface():
-            nonlocal has_predicates
-            return " AND" if has_predicates else " WHERE"
 
         def get_predicate_string(predicate: str, values: List[str]):
             if not values:

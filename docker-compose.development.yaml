@@ -52,5 +52,7 @@ services:
       - ./pyologger:/app/pyologger
       - ./scripts:/app/scripts
       - ./threejs_model:/app/threejs_model
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./setup.py:/app/setup.py
     depends_on:
       - metadata_database
