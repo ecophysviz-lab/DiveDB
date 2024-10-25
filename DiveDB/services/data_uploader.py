@@ -51,6 +51,11 @@ class SignalData:
     data: np.ndarray
     signal_length: int
 
+class NetCDFValidationError(Exception):
+    """Custom exception for NetCDF validation errors."""
+
+    pass
+
 
 class DataUploader:
     """Data Uploader"""
@@ -273,6 +278,94 @@ class DataUploader:
         )
         del batch_table
         gc.collect()
+    def _validate_netcdf(self, ds: xr.Dataset):
+        """
+        Validates netCDF file before upload.
+
+        Dimensions:
+            - Sampling: Must have suffix "_samples". Array of datetime64.
+            - Labeling: Must have suffix "_variables". Array of str.
+
+        Data variables:
+            - Must be associated with sampling dim, and maybe labeling dim.
+            - If flat array (ndim=1), should have attribute "variable" with str.
+            - If nested list (ndim=2), should have attribute "variables" with list of str.
+
+        Args:
+            ds (xr.Dataset): A formatted (no groups) netCDF dataset.
+
+        Raises:
+            NetCDFValidationError: Generic exception for validation errors. Provides details in msg.
+
+
+        Returns:
+            bool: True if dataset passes all checks.
+        """
+        required_dimensions_suffix = ["_samples", "_variables"]
+
+        if not ds.dims:
+            raise NetCDFValidationError(
+                "Dataset does not have any dimensions. This may be due to formatting issues."
+            )
+
+        if not ds.data_vars:
+            raise NetCDFValidationError(
+                "Dataset does not have any data variables. This may be due to formatting issues."
+            )
+
+        for dim in ds.dims:
+            if not any(dim.endswith(suffix) for suffix in required_dimensions_suffix):
+                raise NetCDFValidationError(
+                    f"Dimension '{dim}' does not match the required suffixes: {required_dimensions_suffix}."
+                )
+
+        sample_dimensions = [dim for dim in ds.dims if dim.endswith("_samples")]
+        for dim in sample_dimensions:
+            if not np.isdtype(ds[dim].dtype, np.datetime64):
+                raise NetCDFValidationError(
+                    f"Dimension '{dim}' must contain datetime64 values."
+                )
+
+        label_dimensions = [dim for dim in ds.dims if dim.endswith("_variables")]
+        for dim in label_dimensions:
+            if not np.issubdtype(ds[dim].dtype, np.str_):
+                raise NetCDFValidationError(
+                    f"Dimension '{dim}' must contain string values."
+                )
+
+        for var_name, var in ds.data_vars.items():
+            if var.ndim == 1:
+                if var.dims[0] not in sample_dimensions:
+                    raise NetCDFValidationError(
+                        f"1D Variable '{var_name}' must have a dimension in '{sample_dimensions}', found '{var.dims[0]}'."
+                    )
+                if "variable" not in var.attrs:
+                    found = list(var.attrs.keys())
+                    raise NetCDFValidationError(
+                        f"Variable '{var_name}' must have a 'variable' attribute for flat arrays. Found '{found}'."
+                    )
+
+            elif var.ndim > 1:
+                dim_set = set(var.dims)
+                # not sure if order will always be sample, label in dims
+                if not (
+                    dim_set & set(sample_dimensions) and dim_set & set(label_dimensions)
+                ):
+                    raise NetCDFValidationError(
+                        f"2D Variable '{var_name}' must have one dimension in '{sample_dimensions}' and the other in '{label_dimensions}'. "
+                        f"Found dimensions: {var.dims}."
+                    )
+                if "variables" not in var.attrs:
+                    found = list(var.attrs.keys())
+                    raise NetCDFValidationError(
+                        f"Variable '{var_name}' must have a 'variables' attribute for nested arrays. Found '{found}'"
+                    )
+
+            else:
+                raise NetCDFValidationError(
+                    f"Variable '{var_name}' has an unsupported number of dimensions: {var.ndim}"
+                )
+        return True
 
     def get_or_create_logger(self, logger_data):
         logger, created = Loggers.objects.get_or_create(
