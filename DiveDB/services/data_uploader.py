@@ -3,10 +3,9 @@ Data Uploader
 """
 
 import os
-import edfio
 import django
 from django.core.files import File
-from DiveDB.services.duck_pond import DuckPond, LAKE_CONFIGS
+
 import numpy as np
 import gc
 import pyarrow as pa
@@ -15,8 +14,7 @@ import xarray as xr
 import json
 import math
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
+from DiveDB.services.duck_pond import DuckPond, LAKE_CONFIGS
 from DiveDB.services.utils.openstack import SwiftClient
 
 
@@ -36,22 +34,6 @@ from DiveDB.server.metadata.models import (  # noqa: E402
 )
 
 
-@dataclass
-class SignalMetadata:
-    label: str
-    frequency: float
-    start_time: str
-    end_time: str
-
-
-@dataclass
-class SignalData:
-    label: str
-    time: pa.Array
-    data: np.ndarray
-    signal_length: int
-
-
 class NetCDFValidationError(Exception):
     """Custom exception for NetCDF validation errors."""
 
@@ -65,32 +47,6 @@ class DataUploader:
         """Initialize DataUploader with optional DuckPond and SwiftClient instances."""
         self.duckpond = duckpond or DuckPond(os.environ["CONTAINER_DELTA_LAKE_PATH"])
         self.swift_client = swift_client or SwiftClient()
-
-    def _read_edf_signal(self, edf: edfio.Edf, label: str):
-        """Function to read a single signal from an EDF file."""
-        signal = edf.get_signal(label)
-        data = signal.data
-        start_datetime_str = f"{edf.startdate}T{edf.starttime}"
-        start_time = np.datetime64(start_datetime_str).astype("datetime64[us]")
-        freq = signal.sampling_frequency
-        data_indices = np.arange(len(data)) / float(freq)
-        timedelta_array = (data_indices * 1000000).astype("timedelta64[us]")
-        times = pa.array(
-            start_time + timedelta_array, type=pa.timestamp("us", tz="UTC")
-        )
-        end_time = times[-1].as_py().replace(tzinfo=timezone.utc)
-
-        return (
-            SignalData(label=label, time=times, data=data, signal_length=len(data)),
-            SignalMetadata(
-                label=label,
-                frequency=freq,
-                start_time=start_time.astype(datetime)
-                .replace(tzinfo=timezone.utc)
-                .isoformat(),
-                end_time=end_time.isoformat(),
-            ),
-        )
 
     def _get_datetime_type(self, time_data_array: xr.DataArray):
         """Function to get the datetime type from a PyArrow array."""
@@ -197,7 +153,6 @@ class DataUploader:
                     [metadata["animal"]] * len(values), type=pa.string()
                 ),
                 "deployment": pa.array(
-                    # This fix isn't working, make it a string
                     [str(metadata["deployment"])] * len(values),
                     type=pa.string(),
                 ),
