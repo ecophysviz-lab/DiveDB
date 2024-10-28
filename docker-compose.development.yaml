@@ -6,7 +6,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
-      # - ${HOST_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
+      - ${HOST_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
       - ${HOST_FILE_STORAGE_PATH}:${CONTAINER_FILE_STORAGE_PATH}
     ports:
       - "8000:8000"
@@ -27,16 +27,6 @@ services:
       - .env
     ports:
       - "5432:5432"
-  
-  # prefect:
-  #   build:
-  #     context: ./prefect
-  #   ports:
-  #     - "4200:4200"
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
 
   jupyter:
     build:

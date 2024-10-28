@@ -1,8 +1,0 @@
-*.zarr
-__pycache__
-.pytest_cache
-data
-*.gpkg
-crl_datacube.egg-info
-dist
-build

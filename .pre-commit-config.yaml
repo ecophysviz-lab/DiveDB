@@ -18,6 +18,5 @@ repos:
           exclude: |
             (?x)^(
                 jupyter/.*\.py$|
-                pyologger/.*\.py$|
-                threejs_model/.*\.py$|
+                dash/.*\.py$|
             )$
