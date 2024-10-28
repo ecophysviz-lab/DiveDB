@@ -1,20 +1,14 @@
-import os
 import dash
 from dash import html, dcc
 import pytz
-import pandas as pd
 import three_js_orientation
 from dash.dependencies import Input, Output
 from DiveDB.services.duck_pond import DuckPond
 
 app = dash.Dash(__name__)
 
-os.environ["S3_DELTA_LAKE_PATH"] = "/data/delta-2"
-os.environ["CONTAINER_DELTA_LAKE_PATH"] = "/data/delta-2"
-os.environ["DELTA_LAKE_PATH"] = "/data/delta-2"
-
 # Create sample data
-duckpond = DuckPond()
+duckpond = DuckPond("/data/delta-2")
 dff = duckpond.get_delta_data(
     animal_ids="oror-002",
     frequency=1,

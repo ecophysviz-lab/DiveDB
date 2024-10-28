@@ -14,95 +14,89 @@ from DiveDB.services.utils.sampling import resample
 
 # flake8: noqa
 
-os.environ["AWS_S3_ALLOW_UNSAFE_RENAME"] = "true"
-
-if "S3_DELTA_LAKE_PATH" in os.environ:
-    DELTA_LAKE_PATH = os.environ["S3_DELTA_LAKE_PATH"]
-else:
-    DELTA_LAKE_PATH = os.environ["CONTAINER_DELTA_LAKE_PATH"]
-
-LAKES = [
-    "DATA",
-    "POINT_EVENTS",
-    "STATE_EVENTS",
-]
-
-LAKE_CONFIGS = {
-    "DATA": {
-        "name": "DataLake",
-        "path": os.path.join(DELTA_LAKE_PATH, "data"),
-        "schema": pa.schema(
-            [
-                pa.field("animal", pa.string()),
-                pa.field("deployment", pa.string()),
-                pa.field("recording", pa.string()),
-                pa.field("group", pa.string()),
-                pa.field("class", pa.string()),
-                pa.field("label", pa.string()),
-                pa.field("datetime", pa.timestamp("us", tz="UTC")),
-                pa.field(
-                    "value",
-                    pa.struct(
-                        [
-                            pa.field("float", pa.float64(), nullable=True),
-                            pa.field("string", pa.string(), nullable=True),
-                            pa.field("boolean", pa.bool_(), nullable=True),
-                            pa.field("int", pa.int64(), nullable=True),
-                        ]
-                    ),
-                ),
-            ]
-        ),
-    },
-    "POINT_EVENTS": {
-        "name": "PointEventsLake",
-        "path": os.path.join(DELTA_LAKE_PATH, "point_events"),
-        "schema": pa.schema(
-            [
-                pa.field("animal", pa.string()),
-                pa.field("deployment", pa.string()),
-                pa.field("recording", pa.string()),
-                pa.field("group", pa.string()),
-                pa.field("event_key", pa.string()),
-                pa.field("datetime", pa.timestamp("us", tz="UTC")),
-                pa.field("short_description", pa.string(), nullable=True),
-                pa.field("long_description", pa.string(), nullable=True),
-                pa.field("event_data", pa.string()),
-            ]
-        ),
-    },
-    "STATE_EVENTS": {
-        "name": "StateEventsLake",
-        "path": os.path.join(DELTA_LAKE_PATH, "state_events"),
-        "schema": pa.schema(
-            [
-                pa.field("animal", pa.string()),
-                pa.field("deployment", pa.string()),
-                pa.field("recording", pa.string()),
-                pa.field("group", pa.string()),
-                pa.field("event_key", pa.string()),
-                pa.field("datetime_start", pa.timestamp("us", tz="UTC")),
-                pa.field("datetime_end", pa.timestamp("us", tz="UTC")),
-                pa.field("short_description", pa.string()),
-                pa.field("long_description", pa.string()),
-                pa.field("event_data", pa.string()),
-            ]
-        ),
-    },
-}
-
 
 class DuckPond:
     """Delta Lake Manager"""
 
     delta_lakes: dict[str, DeltaTable] = {}
 
-    def __init__(self, delta_path: str | None = None, connect_to_postgres: bool = True):
-        if delta_path:
-            self.delta_path = delta_path
+    def __init__(self, delta_path: str, connect_to_postgres: bool = True):
+        self.delta_path = delta_path
         self.conn = duckdb.connect()
 
-        if DELTA_LAKE_PATH.startswith("s3://"):
+        self.lakes = [
+            "DATA",
+            "POINT_EVENTS",
+            "STATE_EVENTS",
+        ]
+
+        self.LAKE_CONFIGS = {
+            "DATA": {
+                "name": "DataLake",
+                "path": os.path.join(self.delta_path, "data"),
+                "schema": pa.schema(
+                    [
+                        pa.field("animal", pa.string()),
+                        pa.field("deployment", pa.string()),
+                        pa.field("recording", pa.string()),
+                        pa.field("group", pa.string()),
+                        pa.field("class", pa.string()),
+                        pa.field("label", pa.string()),
+                        pa.field("datetime", pa.timestamp("us", tz="UTC")),
+                        pa.field(
+                            "value",
+                            pa.struct(
+                                [
+                                    pa.field("float", pa.float64(), nullable=True),
+                                    pa.field("string", pa.string(), nullable=True),
+                                    pa.field("boolean", pa.bool_(), nullable=True),
+                                    pa.field("int", pa.int64(), nullable=True),
+                                ]
+                            ),
+                        ),
+                    ]
+                ),
+            },
+            "POINT_EVENTS": {
+                "name": "PointEventsLake",
+                "path": os.path.join(self.delta_path, "point_events"),
+                "schema": pa.schema(
+                    [
+                        pa.field("animal", pa.string()),
+                        pa.field("deployment", pa.string()),
+                        pa.field("recording", pa.string()),
+                        pa.field("group", pa.string()),
+                        pa.field("event_key", pa.string()),
+                        pa.field("datetime", pa.timestamp("us", tz="UTC")),
+                        pa.field("short_description", pa.string(), nullable=True),
+                        pa.field("long_description", pa.string(), nullable=True),
+                        pa.field("event_data", pa.string()),
+                    ]
+                ),
+            },
+            "STATE_EVENTS": {
+                "name": "StateEventsLake",
+                "path": os.path.join(self.delta_path, "state_events"),
+                "schema": pa.schema(
+                    [
+                        pa.field("animal", pa.string()),
+                        pa.field("deployment", pa.string()),
+                        pa.field("recording", pa.string()),
+                        pa.field("group", pa.string()),
+                        pa.field("event_key", pa.string()),
+                        pa.field("datetime_start", pa.timestamp("us", tz="UTC")),
+                        pa.field("datetime_end", pa.timestamp("us", tz="UTC")),
+                        pa.field("short_description", pa.string()),
+                        pa.field("long_description", pa.string()),
+                        pa.field("event_data", pa.string()),
+                    ]
+                ),
+            },
+        }
+
+        if self.delta_path.startswith("s3://"):
+            os.environ["AWS_S3_ALLOW_UNSAFE_RENAME"] = "true"
+
             # Load HTTPFS extension for S3 support
             self.conn.execute("INSTALL httpfs;")
             self.conn.execute("LOAD httpfs;")
@@ -138,7 +132,7 @@ class DuckPond:
     def _create_lake_views(self, lake: str | None = None):
         """Create a view of the delta lake"""
         if lake:
-            lake_config = LAKE_CONFIGS[lake]
+            lake_config = self.LAKE_CONFIGS[lake]
             if lake_config["path"].startswith("s3://") or os.path.exists(
                 lake_config["path"]
             ):
@@ -152,8 +146,8 @@ class DuckPond:
                 except Exception as e:
                     print(e)
         else:
-            for lake in LAKES:
-                lake_config = LAKE_CONFIGS[lake]
+            for lake in self.lakes:
+                lake_config = self.LAKE_CONFIGS[lake]
                 if lake_config["path"].startswith("s3://") or os.path.exists(
                     lake_config["path"]
                 ):
@@ -183,9 +177,9 @@ class DuckPond:
     ):
         """Write data to our delta lake"""
         write_deltalake(
-            table_or_uri=LAKE_CONFIGS[lake]["path"],
+            table_or_uri=self.LAKE_CONFIGS[lake]["path"],
             data=data,
-            schema=LAKE_CONFIGS[lake]["schema"],
+            schema=self.LAKE_CONFIGS[lake]["schema"],
             partition_by=partition_by,
             mode=mode,
             name=name,

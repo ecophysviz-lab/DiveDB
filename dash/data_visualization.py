@@ -1,3 +1,4 @@
+import os
 import dash
 from dash import dcc, html, Output, Input, State
 import plotly.graph_objs as go
@@ -8,7 +9,7 @@ import three_js_orientation
 import video_preview
 from DiveDB.services.duck_pond import DuckPond
 
-duckpond = DuckPond()
+duckpond = DuckPond(os.environ["CONTAINER_DELTA_LAKE_PATH"])
 
 app = dash.Dash(__name__)
 

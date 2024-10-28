@@ -97,10 +97,10 @@ To create a local analysis environment, follow these steps:
    ```
 
 1. **To run tests:**
-  ```sh
-  # Run in Docker
-  make test
-  # or run natively
-  pip install -r requirements.txt
-  pytest
-  ```
+   ```sh
+   # Run in Docker
+   make test
+   # or run natively
+   pip install -r requirements.txt
+   pytest
+   ```

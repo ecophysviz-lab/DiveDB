@@ -1,4 +1,3 @@
-import os
 import dash
 from dash import dcc, html, Output, Input, State
 import plotly.graph_objs as go
@@ -11,11 +10,7 @@ import video_preview
 # importlib.reload(DiveDB.services.duck_pond)
 from DiveDB.services.duck_pond import DuckPond
 
-os.environ["S3_DELTA_LAKE_PATH"] = "/data/delta-2"
-os.environ["CONTAINER_DELTA_LAKE_PATH"] = "/data/delta-2"
-os.environ["DELTA_LAKE_PATH"] = "/data/delta-2"
-
-duckpond = DuckPond()
+duckpond = DuckPond("/data/delta-2")
 
 app = dash.Dash(__name__)
 

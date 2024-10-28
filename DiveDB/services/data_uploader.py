@@ -51,6 +51,7 @@ class SignalData:
     data: np.ndarray
     signal_length: int
 
+
 class NetCDFValidationError(Exception):
     """Custom exception for NetCDF validation errors."""
 
@@ -62,7 +63,7 @@ class DataUploader:
 
     def __init__(self, duckpond: DuckPond = None, swift_client: SwiftClient = None):
         """Initialize DataUploader with optional DuckPond and SwiftClient instances."""
-        self.duckpond = duckpond or DuckPond()
+        self.duckpond = duckpond or DuckPond(os.environ["CONTAINER_DELTA_LAKE_PATH"])
         self.swift_client = swift_client or SwiftClient()
 
     def _read_edf_signal(self, edf: edfio.Edf, label: str):
@@ -278,6 +279,7 @@ class DataUploader:
         )
         del batch_table
         gc.collect()
+
     def _validate_netcdf(self, ds: xr.Dataset):
         """
         Validates netCDF file before upload.
