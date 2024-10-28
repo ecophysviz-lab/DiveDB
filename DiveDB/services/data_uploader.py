@@ -235,7 +235,7 @@ class DataUploader:
         del batch_table
         gc.collect()
 
-    def _validate_netcdf(self, ds: xr.Dataset):
+    def validate_netcdf(self, ds: xr.Dataset):
         """
         Validates netCDF file before upload.
 

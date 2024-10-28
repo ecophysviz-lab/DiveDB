@@ -35,7 +35,7 @@ def valid_netcdf_dataset():
 def test_validate_data_valid(valid_netcdf_dataset):
     uploader = DataUploader()
     ds = valid_netcdf_dataset
-    assert uploader._validate_netcdf(ds)
+    assert uploader.validate_netcdf(ds)
 
 
 def test_validate_data_invalid(valid_netcdf_dataset):
@@ -44,4 +44,4 @@ def test_validate_data_invalid(valid_netcdf_dataset):
     ds = ds.rename({"sensor_samples": "sensor"})
 
     with pytest.raises(NetCDFValidationError):
-        uploader._validate_netcdf(ds)
+        uploader.validate_netcdf(ds)

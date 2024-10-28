@@ -116,6 +116,9 @@ For any files to be uploaded to the data lake, they must be in netCDF format and
   Requires a labeling dimension.
   Attribute: variables with the variables' names (duplicates the dimension).
 
+**Validation:**
+- We have a validation function in `DataUploader.validate_netcdf` that checks if a netCDF file meets the above requirements and provides helpful error messages if not. See [validate_netcdf in data_uploader.py](DiveDB/services/data_uploader.py).
+
 **Example:**
 - A sample netCDF file is included in the repository: `oror-002_2024-01-16.nc` that meets the above requirements and can be used as a template for your own data.
 
