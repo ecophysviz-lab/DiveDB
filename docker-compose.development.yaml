@@ -2,7 +2,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: django.Dockerfile
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
@@ -14,6 +14,8 @@ services:
       - "8051:8051"
       - "8052:8052"
       - "8053:8053"
+    environment:
+      - POSTGRES_HOST=metadata_database
     env_file:
       - .env
     depends_on:
@@ -33,6 +35,8 @@ services:
       context: ./jupyter
     ports:
       - "8888:8888"
+    environment:
+      - POSTGRES_HOST=metadata_database
     env_file:
       - .env
     volumes:

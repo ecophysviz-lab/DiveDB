@@ -1,14 +1,11 @@
-import importlib
 import dash
 from dash import dcc, html, Output, Input, State
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 import pandas as pd
+
 import three_js_orientation
 import video_preview
-
-import DiveDB.services.duck_pond
-importlib.reload(DiveDB.services.duck_pond)
 from DiveDB.services.duck_pond import DuckPond
 
 duckpond = DuckPond()
@@ -18,7 +15,15 @@ app = dash.Dash(__name__)
 dff = duckpond.get_delta_data(
     animal_ids="oror-002",
     frequency=1,
-    labels=["derived_data_depth", "sensor_data_ecg", "sensor_data_temperature", "sensor_data_light", "pitch", "roll", "heading"],
+    labels=[
+        "derived_data_depth",
+        "sensor_data_ecg",
+        "sensor_data_temperature",
+        "sensor_data_light",
+        "pitch",
+        "roll",
+        "heading",
+    ],
 )
 
 # Convert datetime to timestamp (seconds since epoch) for slider control
@@ -84,6 +89,7 @@ def generate_random_color():
 
     def r():
         return random.randint(100, 255)
+
     return f"#{r():02x}{r():02x}{r():02x}"
 
 
@@ -120,7 +126,7 @@ def plot_tag_data_interactive5(
     if sensors is None:
         sensors = list(data_pkl.sensor_data.keys())
 
-    if derived_data_signals is None and 'derived_data' in data_pkl:
+    if derived_data_signals is None and "derived_data" in data_pkl:
         derived_data_signals = list(data_pkl["derived_data"].keys())
 
     # Combine sensors and derived data
@@ -198,9 +204,9 @@ def plot_tag_data_interactive5(
 
     # Iterate through both sensor data and derived data and plot
     for signal in signals_sorted:
-        if signal in data_pkl['sensor_data']:
-            signal_data = data_pkl['sensor_data'][signal]
-            signal_info = data_pkl['sensor_info'][signal]
+        if signal in data_pkl["sensor_data"]:
+            signal_data = data_pkl["sensor_data"][signal]
+            signal_info = data_pkl["sensor_info"][signal]
 
             plot_signal_data(signal, signal_data, signal_info)
 
@@ -219,9 +225,9 @@ def plot_tag_data_interactive5(
                 )  # Hide tick labels
                 row_counter += 1  # Skip to the next row after the blank plot
 
-        elif signal in data_pkl['derived_data']:
-            signal_data = data_pkl['derived_data'][signal]
-            signal_info = data_pkl['derived_info'][signal]
+        elif signal in data_pkl["derived_data"]:
+            signal_data = data_pkl["derived_data"][signal]
+            signal_info = data_pkl["derived_info"][signal]
 
             plot_signal_data(signal, signal_data, signal_info)
 
@@ -351,26 +357,21 @@ def plot_tag_data_interactive5(
 # Replace the existing figure creation with a call to the new function
 fig = plot_tag_data_interactive5(
     data_pkl={
-        'sensor_data': {
-            'ecg': dff[['datetime', 'sensor_data_ecg']],
-            'light': dff[['datetime', 'sensor_data_light']],
-            'temperature': dff[['datetime', 'sensor_data_temperature']],
+        "sensor_data": {
+            "ecg": dff[["datetime", "sensor_data_ecg"]],
+            "light": dff[["datetime", "sensor_data_light"]],
+            "temperature": dff[["datetime", "sensor_data_temperature"]],
         },
-        'derived_data': {
-            'derived_data_depth': dff[['datetime', 'derived_data_depth']],
-            'pitch': dff[['datetime', 'pitch']],
-            'roll': dff[['datetime', 'roll']],
-            'heading': dff[['datetime', 'heading']],
+        "derived_data": {
+            "derived_data_depth": dff[["datetime", "derived_data_depth"]],
+            "pitch": dff[["datetime", "pitch"]],
+            "roll": dff[["datetime", "roll"]],
+            "heading": dff[["datetime", "heading"]],
         },
-        'sensor_info': {
-            'ecg': {
-                'channels': ['sensor_data_ecg'],
-                'metadata': {
-                    'sensor_data_ecg': {
-                        'original_name': 'ECG',
-                        'unit': 'mV'
-                    }
-                }
+        "sensor_info": {
+            "ecg": {
+                "channels": ["sensor_data_ecg"],
+                "metadata": {"sensor_data_ecg": {"original_name": "ECG", "unit": "mV"}},
             },
             "light": {
                 "channels": ["sensor_data_light"],
@@ -391,7 +392,7 @@ fig = plot_tag_data_interactive5(
                 },
             },
         },
-        'derived_info': {
+        "derived_info": {
             "derived_data_depth": {
                 "channels": ["derived_data_depth"],
                 "metadata": {
@@ -430,7 +431,7 @@ fig = plot_tag_data_interactive5(
             },
         },
     },
-    sensors=['ecg', 'light', 'temperature'],
+    sensors=["ecg", "light", "temperature"],
 )
 
 # Set x-axis range to data range and set uirevision
@@ -440,7 +441,7 @@ fig.update_layout(
 )
 
 # Convert DataFrame to JSON
-data_json = dff[['datetime', 'pitch', 'roll', 'heading']].to_json(orient="split")
+data_json = dff[["datetime", "pitch", "roll", "heading"]].to_json(orient="split")
 print(data_json)
 
 # Define the app layout
@@ -491,8 +492,7 @@ app.layout = html.Div(
 
 
 @app.callback(
-    Output("three-d-model", "activeTime"),
-    [Input("playhead-slider", "value")]
+    Output("three-d-model", "activeTime"), [Input("playhead-slider", "value")]
 )
 def update_active_time(slider_value):
     # Find the nearest datetime to the slider value
@@ -577,4 +577,3 @@ def update_graph(playhead_timestamp, existing_fig):
 
 if __name__ == "__main__":
     app.run_server(debug=True)
-
