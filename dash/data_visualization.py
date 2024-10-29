@@ -117,6 +117,7 @@ app.layout = html.Div(
                 ),
                 video_preview.VideoPreview(
                     id="video-trimmer",
+                    # Video file must be downloaded from https://figshare.com/ndownloader/files/50061327
                     videoSrc="/assets/fixed_video_output_00001_excerpt.mp4",
                     activeTime=0,
                     playheadTime=dff["timestamp"].min(),

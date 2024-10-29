@@ -30,6 +30,7 @@ DiveDB is currently in active development, and we welcome feedback and contribut
   - [Recordings Model](#6-recordings-model)
   - [Files Model](#7-files-model)
   - [MediaUpdates Model](#8-mediaupdates-model)
+- [Creating Django Migrations](#creating-django-migrations)
 - [Uploading Files to the Data Lake](#uploading-files-to-the-data-lake)
 - [Reading Files from the Data Lake](#reading-files-from-the-data-lake)
 - [Using Dash to Visualize DiveDB Data](#using-dash-to-visualize-divedb-data)
@@ -274,6 +275,44 @@ The `MediaUpdates` model represents an update to a media file. It includes:
 
 These models are defined using Django's ORM and are used to manage the metadata and relationships between different entities in the DiveDB application.
 
+## Creating Django Migrations
+
+Django migrations are a way of propagating changes you make to your models (adding a field, deleting a model, etc.) into your database schema. Follow these steps to create and apply migrations:
+
+1. **Make Changes to Your Models:**
+   Modify your Django models in the `models.py` file as needed.
+
+2. **Create Migrations:**
+   After making changes to your models, create a new migration file by running the following command:
+   ```sh
+   make makemigrations
+   ```
+   This command will generate a migration file in the `migrations` directory of the app where changes were made.
+
+3. **Apply Migrations:**
+   To apply the migrations and update your database schema, run:
+   ```sh
+   make migrate
+   ```
+   This command will apply all unapplied migrations to your database.
+
+4. **Check Migration Status:**
+   To see which migrations have been applied and which are pending, use:
+   ```sh
+   make bash
+   python manage.py showmigrations
+   ```
+
+5. **Rollback Migrations (if needed):**
+   If you need to undo a migration, you can roll back to a previous state by specifying the migration name:
+   ```sh
+   make bash
+   python manage.py migrate <app_name> <migration_name>
+   ```
+   Replace `<app_name>` with the name of your app and `<migration_name>` with the name of the migration you want to roll back to.
+
+By following these steps, you can effectively manage changes to your database schema using Django's migration system.
+
 ## Uploading Files to the Data Lake
 
 To see how to upload files to the data lake, refer to the [visualization_docs.ipynb](docs/visualization_docs.ipynb) notebook.
@@ -312,7 +351,7 @@ For any files to be uploaded to the data lake, they must be in netCDF format and
 - We have a validation function in `DataUploader.validate_netcdf` that checks if a netCDF file meets the above requirements and provides helpful error messages if not. See [validate_netcdf in data_uploader.py](DiveDB/services/data_uploader.py).
 
 **Example:**
-- A sample netCDF file is included in the repository: `files/example_data.nc` that meets the above requirements and can be used as a template for your own data.
+- An example netCDF file can be downloaded here: [https://figshare.com/ndownloader/files/50061330](https://figshare.com/ndownloader/files/50061330) that meets the above requirements and can be used as a template for your own data.
 
 ## Reading Files from the Data Lake
 
@@ -333,13 +372,17 @@ DiveDB provides a powerful visualization tool using [Dash](https://dash.plotly.c
 
 1. **Set Up Environment**: Ensure that your environment is configured with the necessary dependencies. You can use Docker to maintain a consistent setup.
 
-2. **Run the Dash Application**: Execute the `data_visualization.py` script to start the Dash server. This will launch a web application accessible via your browser.
+1. **Upload Example Data**: Upload the example netCDF file to the data lake using the steps in the [Uploading Files to the Data Lake](#uploading-files-to-the-data-lake) section.
+
+1. **Download Example Video**: Download the example video from [here](https://figshare.com/ndownloader/files/50061327).
+
+1. **Run the Dash Application**: Execute the `data_visualization.py` script to start the Dash server. This will launch a web application accessible via your browser.
 
    ```sh
    python dash/data_visualization.py
    ```
 
-3. **Explore the Data**: Once the application is running, you can interact with the following components:
+1. **Explore the Data**: Once the application is running, you can interact with the following components:
 
    - **3D Model Viewer**: The `three_js_orientation` component displays a 3D model of the animal. It uses data from the DiveDB to animate the model's orientation in real-time. You can adjust the active time using the playhead slider to see how the orientation changes over time.
 
@@ -347,13 +390,15 @@ DiveDB provides a powerful visualization tool using [Dash](https://dash.plotly.c
 
    - **Interactive Plots**: The application includes a series of interactive plots generated using Plotly. These plots display various sensor and derived data signals, such as ECG, temperature, and depth. You can zoom into specific time ranges and explore the data in detail.
 
-4. **Control Playback**: Use the play and pause buttons to control the playback of the data and video. The playhead slider allows you to navigate through the data timeline.
+1. **Control Playback**: Use the play and pause buttons to control the playback of the data and video. The playhead slider allows you to navigate through the data timeline.
 
-5. **Customize Visualization**: The script is designed to be flexible. You can modify the data sources, add new sensors, or change the visualization parameters to suit your needs.
+1. **Customize Visualization**: The script is designed to be flexible. You can modify the data sources, add new sensors, or change the visualization parameters to suit your needs.
 
 ### Example Data
 
 The script uses example data from the DiveDB, specifically focusing on the animal with ID "apfo-001a". Ensure that your data is structured similarly to leverage the full capabilities of the visualization tool.
+
+The example netCDF file can be downloaded here: [https://figshare.com/ndownloader/files/50061330](https://figshare.com/ndownloader/files/50061330). Follow the steps in the [Uploading Files to the Data Lake](#uploading-files-to-the-data-lake) section to upload the file to the data lake and then visualize it using the steps above.
 
 By following these steps, you can effectively use Dash to visualize and analyze biologging data from DiveDB, gaining insights into the behavior and environment of marine mammals.
 

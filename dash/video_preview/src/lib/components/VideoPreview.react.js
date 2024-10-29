@@ -53,7 +53,6 @@ const VideoPreview = ({
   }, [isPlaying]);
 
   const handleLoadedMetadata = () => {
-    console.log("handleLoadedMetadata", videoRef.current);
     const videoDuration = videoRef.current.duration;
     setDuration(videoDuration);
 
