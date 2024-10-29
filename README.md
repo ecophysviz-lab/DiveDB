@@ -11,6 +11,41 @@ Built entirely using open-source dependencies, DiveDB is designed to be a flexib
 
 DiveDB is currently in active development, and we welcome feedback and contributions. Please open an issue or submit a pull request if you have any suggestions or encounter any bugs.
 
+## Table of Contents
+- [A Note on Docker 🐳](#a-note-on-docker-)
+- [Getting Started](#getting-started)
+  - [Clone the Repository](#clone-the-repository)
+  - [Set Up the Environment Variables](#set-up-the-environment-variables)
+  - [Start the Docker Daemon](#start-the-docker-daemon)
+  - [Start the PostgreSQL Service](#start-the-postgresql-service)
+  - [Create the Local PostgreSQL Database and User](#create-the-local-postgresql-database-and-user)
+  - [Start the Application](#start-the-application)
+  - [Run Migrations](#run-migrations)
+  - [Create a Superuser](#create-a-superuser)
+  - [Access the Application](#access-the-application)
+- [Where to Store Your Data Lake](#where-to-store-your-data-lake)
+- [Delta Lake Schemas in DiveDB](#delta-lake-schemas-in-divedb)
+  - [DataLake Schema](#datalake-schema)
+  - [PointEventsLake Schema](#pointeventslake-schema)
+  - [StateEventsLake Schema](#stateeventslake-schema)
+- [Metadata Models in DiveDB](#metadata-models-in-divedb)
+  - [LoggersWiki Model](#loggerswiki-model)
+  - [Loggers Model](#loggers-model)
+  - [Animals Model](#animals-model)
+  - [Deployments Model](#deployments-model)
+  - [AnimalDeployments Model](#animaldeployments-model)
+  - [Recordings Model](#recordings-model)
+  - [Files Model](#files-model)
+  - [MediaUpdates Model](#mediaupdates-model)
+- [Uploading Files to the Data Lake](#uploading-files-to-the-data-lake)
+- [Reading Files from the Data Lake](#reading-files-from-the-data-lake)
+- [Using Dash to Visualize DiveDB Data](#using-dash-to-visualize-divedb-data)
+  - [Key Components](#key-components)
+  - [How to Use](#how-to-use)
+  - [Example Data](#example-data)
+- [Additional Commands](#additional-commands)
+- [Additional Steps for Development of DiveDB](#additional-steps-for-development-of-divedb)
+
 ## A Note on Docker 🐳
 
 This project uses Docker to facilitate a consistent development and production environment. Docker allows you to package applications and their dependencies into a container, which can then be run on any system that has Docker installed. This helps in avoiding issues related to environment setup and dependency management. For more information on getting started with Docker, visit [Docker's official getting started guide](https://docs.docker.com/get-started/).
