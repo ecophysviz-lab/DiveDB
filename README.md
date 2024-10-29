@@ -11,18 +11,11 @@ Built entirely using open-source dependencies, DiveDB is designed to be a flexib
 
 DiveDB is currently in active development, and we welcome feedback and contributions. Please open an issue or submit a pull request if you have any suggestions or encounter any bugs.
 
+<img width="1430" alt="Screenshot 2024-10-29 at 9 45 04 AM" src="https://github.com/user-attachments/assets/84841ce3-a86f-47dc-b2bb-28097287797b">
+
 ## Table of Contents
 - [A Note on Docker 🐳](#a-note-on-docker-)
 - [Getting Started](#getting-started)
-  - [Clone the Repository](#clone-the-repository)
-  - [Set Up the Environment Variables](#set-up-the-environment-variables)
-  - [Start the Docker Daemon](#start-the-docker-daemon)
-  - [Start the PostgreSQL Service](#start-the-postgresql-service)
-  - [Create the Local PostgreSQL Database and User](#create-the-local-postgresql-database-and-user)
-  - [Start the Application](#start-the-application)
-  - [Run Migrations](#run-migrations)
-  - [Create a Superuser](#create-a-superuser)
-  - [Access the Application](#access-the-application)
 - [Where to Store Your Data Lake](#where-to-store-your-data-lake)
 - [Delta Lake Schemas in DiveDB](#delta-lake-schemas-in-divedb)
   - [DataLake Schema](#datalake-schema)
