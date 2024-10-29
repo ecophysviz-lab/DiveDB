@@ -15,9 +15,11 @@ class ThreeJsOrientation(Component):
 
     - data (string; required)
 
-    - fbxFile (string; required)
+    - objFile (string; required)
 
-    - style (dict; optional)"""
+    - style (dict; optional)
+
+    - textureFile (string; optional)"""
 
     _children_props = []
     _base_nodes = ["children"]
@@ -30,20 +32,35 @@ class ThreeJsOrientation(Component):
         id=Component.UNDEFINED,
         data=Component.REQUIRED,
         activeTime=Component.REQUIRED,
-        fbxFile=Component.REQUIRED,
+        objFile=Component.REQUIRED,
+        textureFile=Component.UNDEFINED,
         style=Component.UNDEFINED,
         **kwargs,
     ):
-        self._prop_names = ["id", "activeTime", "data", "fbxFile", "style"]
+        self._prop_names = [
+            "id",
+            "activeTime",
+            "data",
+            "objFile",
+            "style",
+            "textureFile",
+        ]
         self._valid_wildcard_attributes = []
-        self.available_properties = ["id", "activeTime", "data", "fbxFile", "style"]
+        self.available_properties = [
+            "id",
+            "activeTime",
+            "data",
+            "objFile",
+            "style",
+            "textureFile",
+        ]
         self.available_wildcard_properties = []
         _explicit_args = kwargs.pop("_explicit_args")
         _locals = locals()
         _locals.update(kwargs)  # For wildcard attrs and excess named props
         args = {k: _locals[k] for k in _explicit_args}
 
-        for k in ["activeTime", "data", "fbxFile"]:
+        for k in ["activeTime", "data", "objFile"]:
             if k not in args:
                 raise TypeError("Required argument `" + k + "` was not specified.")
 

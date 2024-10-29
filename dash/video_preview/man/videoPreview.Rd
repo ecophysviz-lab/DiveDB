@@ -10,14 +10,14 @@
 }
 
 \usage{
-videoPreview(id=NULL, activeTime=NULL, endTime=NULL, isPlaying=NULL,
+videoPreview(id=NULL, currentTime=NULL, endTime=NULL, isPlaying=NULL,
 playheadTime=NULL, startTime=NULL, style=NULL, videoSrc=NULL)
 }
 
 \arguments{
 \item{id}{Character. }
 
-\item{activeTime}{Numeric. }
+\item{currentTime}{Numeric. }
 
 \item{endTime}{Numeric. }
 

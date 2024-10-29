@@ -11,7 +11,7 @@ class VideoPreview(Component):
 
     - id (string; optional)
 
-    - activeTime (number; default 0)
+    - currentTime (number; default 0)
 
     - endTime (number; optional)
 
@@ -35,17 +35,17 @@ class VideoPreview(Component):
         self,
         id=Component.UNDEFINED,
         videoSrc=Component.REQUIRED,
-        activeTime=Component.UNDEFINED,
         startTime=Component.UNDEFINED,
         endTime=Component.UNDEFINED,
         style=Component.UNDEFINED,
         playheadTime=Component.UNDEFINED,
         isPlaying=Component.UNDEFINED,
+        currentTime=Component.UNDEFINED,
         **kwargs,
     ):
         self._prop_names = [
             "id",
-            "activeTime",
+            "currentTime",
             "endTime",
             "isPlaying",
             "playheadTime",
@@ -56,7 +56,7 @@ class VideoPreview(Component):
         self._valid_wildcard_attributes = []
         self.available_properties = [
             "id",
-            "activeTime",
+            "currentTime",
             "endTime",
             "isPlaying",
             "playheadTime",

@@ -1,3 +1,5 @@
 files/example_data.nc filter=lfs diff=lfs merge=lfs -text
 dash/assets/PenguinSwim.fbx filter=lfs diff=lfs merge=lfs -text
 dash/assets/fixed_video_output_00001_excerpt.mp4 filter=lfs diff=lfs merge=lfs -text
+dash/assets/PenguinSwim.obj filter=lfs diff=lfs merge=lfs -text
+dash/assets/PenguinSwim.png filter=lfs diff=lfs merge=lfs -text

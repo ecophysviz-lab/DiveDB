@@ -25,11 +25,18 @@
         "required": true,
         "description": ""
       },
-      "fbxFile": {
+      "objFile": {
         "type": {
           "name": "string"
         },
         "required": true,
+        "description": ""
+      },
+      "textureFile": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
         "description": ""
       },
       "style": {

@@ -5,7 +5,6 @@ import { Range, getTrackBackground } from "react-range";
 const VideoPreview = ({
   id,
   videoSrc,
-  activeTime,
   startTime: propStartTime,
   endTime: propEndTime,
   setProps,
@@ -18,31 +17,35 @@ const VideoPreview = ({
   const [startTime, setStartTime] = useState(propStartTime || 0);
   const [endTime, setEndTime] = useState(propEndTime || 0);
   const pastPlayheadTime = useRef(0);
-
-  const tolerance = 1.1; // Define a small tolerance
+  const initialPlayheadTime = useRef(null); // Store the initial playheadTime
 
   useEffect(() => {
-    if (videoRef.current) {
-      if (
-        Math.abs(playheadTime - pastPlayheadTime.current) < tolerance ){
-        console.log("maintaing seting playheadTime", playheadTime);
+    if (videoRef.current && playheadTime != null) {
+      if (initialPlayheadTime.current === null) {
+        // Store the first playheadTime as the reference point
+        initialPlayheadTime.current = playheadTime;
+      }
+
+      // Calculate the time difference from the initial playheadTime
+      const timeDiff =
+        new Date(playheadTime) - new Date(initialPlayheadTime.current);
+      if (Math.abs(videoRef.current.currentTime - timeDiff) > 1) {
+        // Adjust the threshold as needed
+        videoRef.current.currentTime = timeDiff;
         pastPlayheadTime.current = playheadTime;
-      } else if (playheadTime) {
-        console.log({
-          playheadTime,
-          pastPlayheadTime: pastPlayheadTime.current,
-        });
-        videoRef.current.currentTime = playheadTime;
-        pastPlayheadTime.current = playheadTime;
+
+        if (isPlaying) {
+          videoRef.current.play();
+        }
       }
     }
-    console.log("videoRef.current", videoRef.current, playheadTime);
-  }, [playheadTime, isPlaying]);
+  }, [playheadTime]);
 
   useEffect(() => {
     if (videoRef.current) {
       if (isPlaying) {
         videoRef.current.play();
+        pastPlayheadTime.current = playheadTime;
       } else {
         videoRef.current.pause();
       }
@@ -170,19 +173,19 @@ const VideoPreview = ({
 VideoPreview.propTypes = {
   id: PropTypes.string,
   videoSrc: PropTypes.string.isRequired,
-  activeTime: PropTypes.number,
   startTime: PropTypes.number,
   endTime: PropTypes.number,
   setProps: PropTypes.func,
   style: PropTypes.object,
   playheadTime: PropTypes.number,
   isPlaying: PropTypes.bool, // New prop type
+  currentTime: PropTypes.number,
 };
 
 VideoPreview.defaultProps = {
-  activeTime: 0,
   style: {},
   isPlaying: false, // Default to not playing
+  currentTime: 0,
 };
 
 export default VideoPreview;

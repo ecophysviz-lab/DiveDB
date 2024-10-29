@@ -23,11 +23,12 @@ dff = duckpond.get_delta_data(
         "roll",
         "heading",
     ],
+    date_range=("2019-11-07T20:33:11", "2019-11-07T20:39:30"),
 )
 
 # Convert datetime to timestamp (seconds since epoch) for slider control
 dff["timestamp"] = dff["datetime"].apply(lambda x: x.timestamp())
-
+dff["depth"] = dff["derived_data_depth"].apply(lambda x: x * -1)
 
 # Replace the existing figure creation with a call to the new function
 fig = plot_tag_data_interactive5(
@@ -37,10 +38,8 @@ fig = plot_tag_data_interactive5(
             "temperature": dff[["datetime", "sensor_data_temperature"]],
         },
         "derived_data": {
-            "derived_data_depth": dff[["datetime", "derived_data_depth"]],
-            "pitch": dff[["datetime", "pitch"]],
-            "roll": dff[["datetime", "roll"]],
-            "heading": dff[["datetime", "heading"]],
+            "prh": dff[["datetime", "pitch", "roll", "heading"]],
+            "depth": dff[["datetime", "depth"]],
         },
         "sensor_info": {
             "light": {
@@ -56,47 +55,37 @@ fig = plot_tag_data_interactive5(
                 "channels": ["sensor_data_temperature"],
                 "metadata": {
                     "sensor_data_temperature": {
-                        "original_name": "Temperature",
+                        "original_name": "Temperature (imu)",
                         "unit": "°C",
                     }
                 },
             },
         },
         "derived_info": {
-            "derived_data_depth": {
-                "channels": ["derived_data_depth"],
+            "depth": {
+                "channels": ["depth"],
                 "metadata": {
-                    "derived_data_depth": {
-                        "original_name": "Depth",
+                    "depth": {
+                        "original_name": "Corrected Depth",
                         "unit": "m",
                     }
                 },
             },
-            "pitch": {
-                "channels": ["pitch"],
+            "prh": {
+                "channels": ["pitch", "roll", "heading"],
                 "metadata": {
                     "pitch": {
                         "original_name": "Pitch",
                         "unit": "°",
-                    }
-                },
-            },
-            "roll": {
-                "channels": ["roll"],
-                "metadata": {
+                    },
                     "roll": {
                         "original_name": "Roll",
                         "unit": "°",
-                    }
-                },
-            },
-            "heading": {
-                "channels": ["heading"],
-                "metadata": {
+                    },
                     "heading": {
                         "original_name": "Heading",
                         "unit": "°",
-                    }
+                    },
                 },
             },
         },
@@ -112,7 +101,6 @@ fig.update_layout(
 
 # Convert DataFrame to JSON
 data_json = dff[["datetime", "pitch", "roll", "heading"]].to_json(orient="split")
-print(data_json)
 
 # Define the app layout
 app.layout = html.Div(
@@ -123,42 +111,76 @@ app.layout = html.Div(
                     id="three-d-model",
                     data=data_json,
                     activeTime=0,
-                    fbxFile="/assets/PenguinSwim.fbx",
+                    objFile="/assets/PenguinSwim.obj",
+                    textureFile="/assets/PenguinSwim.png",
                     style={"width": "50vw", "height": "40vw"},
                 ),
                 video_preview.VideoPreview(
                     id="video-trimmer",
                     videoSrc="/assets/fixed_video_output_00001_excerpt.mp4",
-                    activeTime=5,
+                    activeTime=0,
+                    playheadTime=dff["timestamp"].min(),
+                    isPlaying=False,
                     style={"width": "50vw", "height": "40vw"},
                 ),
             ],
             style={"display": "flex"},
         ),
-        dcc.Graph(id="graph-content", figure=fig),
+        html.Div(
+            "Playhead Control",
+            style={
+                "margin-top": "32px",
+                "margin-right": "10px",
+                "font-weight": "bold",
+                "font-family": "sans-serif",
+            },
+        ),
         html.Div(
             [
-                html.Button("Play", id="play-button", n_clicks=0),
-                dcc.Slider(
-                    id="playhead-slider",
-                    min=dff["timestamp"].min(),
-                    max=dff["timestamp"].max(),
-                    value=dff["timestamp"].min(),
-                    marks=None,
-                    tooltip={"placement": "bottom"},
+                html.Button(
+                    "Play", id="play-button", n_clicks=0, style={"margin-right": "10px"}
                 ),
-                dcc.Interval(
-                    id="interval-component",
-                    interval=1 * 1000,  # Base interval of 1 second
-                    n_intervals=0,
-                    disabled=True,  # Start with the interval disabled
+                html.Div(
+                    dcc.Slider(
+                        id="playhead-slider",
+                        min=dff["timestamp"].min(),
+                        max=dff["timestamp"].max(),
+                        value=dff["timestamp"].min(),
+                        marks=None,
+                        tooltip={"placement": "bottom"},
+                    ),
+                    style={
+                        "flex": "1",
+                        "align-items": "center",
+                        "margin-top": "25px",
+                        "margin-right": "180px",
+                    },
                 ),
-                dcc.Store(id="playhead-time", data=dff["timestamp"].min()),
-                dcc.Store(id="is-playing", data=False),
-            ]
+            ],
+            style={"display": "flex", "align-items": "center", "width": "100%"},
         ),
+        dcc.Interval(
+            id="interval-component",
+            interval=1 * 1000,  # Base interval of 1 second
+            n_intervals=0,
+            disabled=True,  # Start with the interval disabled
+        ),
+        dcc.Store(id="playhead-time", data=dff["timestamp"].min()),
+        dcc.Store(id="is-playing", data=False),
+        dcc.Graph(id="graph-content", figure=fig),
     ]
 )
+
+
+# Callback to update VideoPreview props
+@app.callback(
+    Output("video-trimmer", "playheadTime"),
+    Output("video-trimmer", "isPlaying"),
+    Input("playhead-time", "data"),
+    Input("is-playing", "data"),
+)
+def update_video_preview(playhead_time, is_playing):
+    return playhead_time, is_playing
 
 
 @app.callback(
@@ -210,7 +232,7 @@ def update_playhead(n_intervals, slider_value, is_playing):
         # Find the current index based on the slider value
         current_idx = dff["timestamp"].sub(slider_value).abs().idxmin()
         next_idx = (
-            current_idx + 5 if current_idx + 5 < len(dff) else 0
+            current_idx + 1 if current_idx + 1 < len(dff) else 0
         )  # Loop back to start
         new_time = dff["timestamp"].iloc[next_idx]
         return new_time, new_time

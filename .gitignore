@@ -170,7 +170,6 @@ data/*
 .DS_Store
 .env.*
 
-*.mp4
 brave-sonar-390402-7644b983ce44.json
 files/*
 !files/.gitkeep

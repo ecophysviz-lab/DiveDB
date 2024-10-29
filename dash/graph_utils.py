@@ -37,6 +37,7 @@ def plot_tag_data_interactive5(
 
     # Default sensor and derived data order
     default_order = [
+        "depth",
         "ecg",
         "pressure",
         "accelerometer",

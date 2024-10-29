@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import * as THREE from "three";
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
-const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
+const ThreeJsOrientation = ({
+  id,
+  data,
+  activeTime,
+  objFile,
+  textureFile,
+  style,
+}) => {
   const mountRef = useRef(null);
   const sceneRef = useRef();
   const cameraRef = useRef();
@@ -18,7 +25,11 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
   const initialCameraPositionRef = useRef();
   const initialControlsTargetRef = useRef();
 
-  const [currentPRH, setCurrentPRH] = useState({ pitch: 0, roll: 0, heading: 0 });
+  const [currentPRH, setCurrentPRH] = useState({
+    pitch: 0,
+    roll: 0,
+    heading: 0,
+  });
 
   // Add a ref to store the target quaternion
   const targetQuaternionRef = useRef(new THREE.Quaternion());
@@ -61,29 +72,49 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
     controls.dampingFactor = 0.05;
     controlsRef.current = controls;
 
-    // Load the FBX model
-    const loader = new FBXLoader();
+    const loader = new OBJLoader();
     loader.load(
-      fbxFile,
-      (fbx) => {
-        modelRef.current = fbx;
+      objFile,
+      (obj) => {
+        modelRef.current = obj;
 
-        // Adjust the model's orientation to align nose with positive X-axis
-        fbx.rotation.y = Math.PI / 2;
+        // Create an animation mixer for the model
+        mixerRef.current = new THREE.AnimationMixer(obj);
 
-        // Center the model
-        const box = new THREE.Box3().setFromObject(fbx);
+        // Assuming animations are part of the model, load and play them
+        if (obj.animations && obj.animations.length > 0) {
+          obj.animations.forEach((clip) => {
+            mixerRef.current.clipAction(clip).play();
+          });
+        }
+
+        // Scale the model to 1/10th of its original size
+        obj.scale.set(0.1, 0.1, 0.1);
+
+        if (textureFile) {
+          const textureLoader = new THREE.TextureLoader();
+          const texture = textureLoader.load(textureFile, () => {
+            obj.traverse((child) => {
+              if (child.isMesh) {
+                child.material.map = texture;
+                child.material.needsUpdate = true;
+              }
+            });
+          });
+        }
+
+        const box = new THREE.Box3().setFromObject(obj);
         const center = box.getCenter(new THREE.Vector3());
-        fbx.position.sub(center);
+        obj.position.sub(center);
 
         // Add axes helper to the model
-        const axesHelper = new THREE.AxesHelper(20);
-        fbx.add(axesHelper);
+        const axesHelper = new THREE.AxesHelper(300);
+        obj.add(axesHelper);
 
         // Adjust the camera to fit the model
         const size = box.getSize(new THREE.Vector3()).length();
         const fitDistance = size / Math.atan((Math.PI * camera.fov) / 360);
-        camera.position.set(0, 0, fitDistance * 1.2);
+        camera.position.set(0, 0, fitDistance * 2);
         camera.updateProjectionMatrix();
 
         // Store initial camera position and controls target
@@ -94,12 +125,11 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
         controls.target.copy(center);
         controls.update();
 
-        // Add model to scene
-        scene.add(fbx);
+        scene.add(obj);
 
         // Calculate model's height
         const modelHeight = box.max.y - box.min.y;
-        const gridOffset = modelHeight * 2;
+        const gridOffset = modelHeight * 5;
 
         // Add grid helper below the model
         const gridSize = 100;
@@ -109,33 +139,33 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
         gridHelperBelow.position.y = box.min.y - gridOffset;
         scene.add(gridHelperBelow);
 
-        // Add grid helper above the model
-        const gridHelperAbove = new THREE.GridHelper(gridSize, gridDivisions, 0x5a5a8a, 0x5a5a8a); // Blue-gray color
+        const gridHelperAbove = new THREE.GridHelper(
+          gridSize,
+          gridDivisions,
+          0x5a5a8a,
+          0x5a5a8a
+        );
         gridHelperAbove.position.y = box.max.y + gridOffset;
         scene.add(gridHelperAbove);
 
         // Add cardinal direction labels to the lower grid
         addDirectionLabels(scene, gridHelperBelow.position.y, gridSize / 2);
-
-        // Setup animation mixer if animations are present
-        if (fbx.animations && fbx.animations.length) {
-          const mixer = new THREE.AnimationMixer(fbx);
-          mixer.clipAction(fbx.animations[0]).play();
-          mixerRef.current = mixer;
-        }
       },
       (xhr) => {
         const percentLoaded = (xhr.loaded / xhr.total) * 100;
         const loadThresholds = [0, 25, 50, 75, 100];
         loadThresholds.forEach((threshold, index) => {
-          if (loadStatus.current === loadThresholds[index - 1] && percentLoaded >= threshold) {
+          if (
+            loadStatus.current === loadThresholds[index - 1] &&
+            percentLoaded >= threshold
+          ) {
             console.log(`${threshold}% loaded`);
             loadStatus.current = threshold;
           }
         });
       },
       (error) => {
-        console.error("An error occurred during FBX loading:", error);
+        console.error("An error occurred during OBJ loading:", error);
       }
     );
 
@@ -183,7 +213,7 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
       mount.removeChild(renderer.domElement);
       renderer.dispose();
     };
-  }, [fbxFile]);
+  }, [objFile, textureFile]);
 
   // Update the model's rotation whenever data or activeTime changes
   useEffect(() => {
@@ -197,7 +227,7 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
       }
 
       const timestamps = dataframe.index.map((t) => new Date(t).getTime());
-      const activeTimestamp = activeTime
+      const activeTimestamp = activeTime;
 
       // Find the nearest timestamp
       let nearestIndex = 0;
@@ -332,14 +362,23 @@ const ThreeJsOrientation = ({ id, data, activeTime, fbxFile, style }) => {
         }}
       >
         <ul style={{ listStyleType: "none", margin: 0, padding: 0 }}>
-        <li>
-            <strong>Pitch:</strong> {currentPRH.pitch !== null ? currentPRH.pitch.toFixed(2) + "°" : "null"}
+          <li>
+            <strong>Pitch:</strong>{" "}
+            {currentPRH.pitch !== null
+              ? currentPRH.pitch.toFixed(2) + "°"
+              : "null"}
           </li>
           <li>
-            <strong>Roll:</strong> {currentPRH.roll !== null ? currentPRH.roll.toFixed(2) + "°" : "null"}
+            <strong>Roll:</strong>{" "}
+            {currentPRH.roll !== null
+              ? currentPRH.roll.toFixed(2) + "°"
+              : "null"}
           </li>
           <li>
-            <strong>Heading:</strong> {currentPRH.heading !== null ? currentPRH.heading.toFixed(2) + "°" : "null"}
+            <strong>Heading:</strong>{" "}
+            {currentPRH.heading !== null
+              ? currentPRH.heading.toFixed(2) + "°"
+              : "null"}
           </li>
         </ul>
       </div>
@@ -366,9 +405,10 @@ ThreeJsOrientation.defaultProps = {};
 
 ThreeJsOrientation.propTypes = {
   id: PropTypes.string,
-  data: PropTypes.string.isRequired, // JSON stringified DataFrame
-  activeTime: PropTypes.number.isRequired, // ISO formatted datetime string
-  fbxFile: PropTypes.string.isRequired, // URL or path to the .fbx file
+  data: PropTypes.string.isRequired,
+  activeTime: PropTypes.number.isRequired,
+  objFile: PropTypes.string.isRequired,
+  textureFile: PropTypes.string, // Optional texture file
   style: PropTypes.object,
 };
 

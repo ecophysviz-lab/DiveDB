@@ -10,8 +10,8 @@
 }
 
 \usage{
-threeJsOrientation(id=NULL, activeTime=NULL, data=NULL, fbxFile=NULL,
-style=NULL)
+threeJsOrientation(id=NULL, activeTime=NULL, data=NULL, objFile=NULL,
+style=NULL, textureFile=NULL)
 }
 
 \arguments{
@@ -21,9 +21,11 @@ style=NULL)
 
 \item{data}{Character. }
 
-\item{fbxFile}{Character. }
+\item{objFile}{Character. }
 
 \item{style}{Named list. }
+
+\item{textureFile}{Character. }
 }
 
 \value{named list of JSON elements corresponding to React.js properties and their values}
