@@ -31,5 +31,5 @@ importmetadata:
 	docker compose -f docker-compose.development.yaml exec web python scripts/import_from_notion.py
 
 builddash:
-	cd dash/three_js_orientation && npm run build && python setup.py sdist bdist_wheel && sleep 1 && pip install dist/three_js_orientation-0.0.1.tar.gz
-	cd dash/video_preview && npm run build && python setup.py sdist bdist_wheel && sleep 1 && pip install dist/video_preview-0.0.1.tar.gz
+	cd dash/three_js_orientation && npm i && npm run build && python setup.py sdist bdist_wheel && sleep 1 && pip install dist/three_js_orientation-0.0.1.tar.gz
+	cd dash/video_preview && npm i && npm run build && python setup.py sdist bdist_wheel && sleep 1 && pip install dist/video_preview-0.0.1.tar.gz
