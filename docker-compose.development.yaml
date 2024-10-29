@@ -16,13 +16,9 @@ services:
     volumes:
       - .:/app
       - ${HOST_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
-      - ./files:/files
     ports:
       - "8000:8000"
       - "8050:8050"
-      - "8051:8051"
-      - "8052:8052"
-      - "8053:8053"
     environment:
       - POSTGRES_HOST=metadata_database
     env_file:
@@ -41,12 +37,6 @@ services:
       - .env
     volumes:
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
-      - ./DiveDB:/app/DiveDB
-      - ./data:/app/data
-      - ./files:/app/files
-      - ./pyologger:/app/pyologger
-      - ./scripts:/app/scripts
-      - ./pyproject.toml:/app/pyproject.toml
-      - ./setup.py:/app/setup.py
+      - .:/app
     depends_on:
       - metadata_database

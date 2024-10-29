@@ -320,7 +320,7 @@ We use [DuckDB](https://duckdb.org/) to read files from the data lake. To see ho
 
 ## Using Dash to Visualize DiveDB Data
 
-DiveDB provides a powerful visualization tool using Dash, a Python framework for building analytical web applications. The `data_visualization.py` script is an example of how to create interactive visualizations of biologging data stored in DiveDB.
+DiveDB provides a powerful visualization tool using [Dash](https://dash.plotly.com/), a Python framework for building analytical web applications. The [data_visualization.py](dash/data_visualization.py) script is an example of how to create interactive visualizations of biologging data stored in DiveDB.
 
 ### Key Components
 
