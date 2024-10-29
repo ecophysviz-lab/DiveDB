@@ -15,18 +15,6 @@ DiveDB is currently in active development, and we welcome feedback and contribut
 
 This project uses Docker to facilitate a consistent development and production environment. Docker allows you to package applications and their dependencies into a container, which can then be run on any system that has Docker installed. This helps in avoiding issues related to environment setup and dependency management. For more information on getting started with Docker, visit [Docker's official getting started guide](https://docs.docker.com/get-started/).
 
-## Where to Store Your Data Lake
-
-The data lake can be stored in a container on a remote server or locally. The path to the data lake is stored in the `.env` file as `CONTAINER_DELTA_LAKE_PATH`.
-
-To store the data lake on a remote server, set the `CONTAINER_DELTA_LAKE_PATH` to the S3 connection string for the server. You'll also need to provide the following environment variables:
-- AWS_ACCESS_KEY_ID
-- AWS_SECRET_ACCESS_KEY
-- AWS_REGION
-- AWS_ENDPOINT_URL
-
-To store the data lake locally, set the `CONTAINER_DELTA_LAKE_PATH` to the path to the Delta Lake in the local file system.
-
 ## Getting Started
 
 To create a local analysis environment, follow these steps:
@@ -82,6 +70,182 @@ To create a local analysis environment, follow these steps:
 1. **Access the Application:**
    To access the Django admin interface, open your web browser and go to `http://localhost:8000`. To access the Jupyter notebook server, open your web browser and go to `http://localhost:8888` or connect to kernel `http://localhost:8888/jupyter` in a Jupyter client.
 
+## Where to Store Your Data Lake
+
+The data lake can be stored in a container on a remote server or locally. The path to the data lake is stored in the `.env` file as `CONTAINER_DELTA_LAKE_PATH`.
+
+To store the data lake on a remote server, set the `CONTAINER_DELTA_LAKE_PATH` to the S3 connection string for the server. You'll also need to provide the following environment variables:
+- AWS_ACCESS_KEY_ID
+- AWS_SECRET_ACCESS_KEY
+- AWS_REGION
+- AWS_ENDPOINT_URL
+
+To store the data lake locally, set the `CONTAINER_DELTA_LAKE_PATH` to the path to the Delta Lake in the local file system.
+
+## Delta Lake Schemas in DiveDB
+
+The `DuckPond` class in `duck_pond.py` manages three distinct Delta Lakes, each with its own schema. These schemas define the structure of the data stored in the Delta Lakes and are crucial for ensuring data consistency and reliability.
+
+### 1. DataLake Schema
+
+The `DataLake` schema is designed to store general data collected from various sensors. It includes the following fields:
+
+- **animal**: The identifier for the animal from which data is collected (string).
+- **deployment**: The deployment identifier (string).
+- **recording**: The recording session identifier (string).
+- **group**: The group or category of the data (string).
+- **class**: The class of the data (string).
+- **label**: The label associated with the data (string).
+- **datetime**: The timestamp of the data point (timestamp with microsecond precision, UTC).
+- **value**: A struct containing:
+  - **float**: A floating-point value (nullable).
+  - **string**: A string value (nullable).
+  - **boolean**: A boolean value (nullable).
+  - **int**: An integer value (nullable).
+
+### 2. PointEventsLake Schema
+
+The `PointEventsLake` schema is used to store discrete events that occur at specific points in time. It includes the following fields:
+
+- **animal**: The identifier for the animal (string).
+- **deployment**: The deployment identifier (string).
+- **recording**: The recording session identifier (string).
+- **group**: The group or category of the event (string).
+- **event_key**: A unique key for the event (string).
+- **datetime**: The timestamp of the event (timestamp with microsecond precision, UTC).
+- **short_description**: A brief description of the event (nullable string).
+- **long_description**: A detailed description of the event (nullable string).
+- **event_data**: Additional data related to the event (string).
+
+### 3. StateEventsLake Schema
+
+The `StateEventsLake` schema is designed to store events that have a duration, with a start and end time. It includes the following fields:
+
+- **animal**: The identifier for the animal (string).
+- **deployment**: The deployment identifier (string).
+- **recording**: The recording session identifier (string).
+- **group**: The group or category of the event (string).
+- **event_key**: A unique key for the event (string).
+- **datetime_start**: The start timestamp of the event (timestamp with microsecond precision, UTC).
+- **datetime_end**: The end timestamp of the event (timestamp with microsecond precision, UTC).
+- **short_description**: A brief description of the event (string).
+- **long_description**: A detailed description of the event (string).
+- **event_data**: Additional data related to the event (string).
+
+These schemas are defined using the `pyarrow` library and are used to enforce data structure and integrity within the Delta Lakes managed by the `DuckPond` class.
+
+## Metadata Models in DiveDB
+
+The `models.py` file in the `metadata` app defines several Django models that represent the core entities in the DiveDB application. These models are used to store and manage metadata related to diving projects, animals, loggers, deployments, recordings, and files.
+
+### 1. LoggersWiki Model
+
+The `LoggersWiki` model contains metadata for a logger, including:
+
+- **description**: A text field for a detailed description of the logger (nullable).
+- **tags**: An array of text fields for tagging the logger.
+- **projects**: An array of text fields for associating the logger with projects.
+
+### 2. Loggers Model
+
+The `Loggers` model represents a logger attached to diving vertebrates. It includes:
+
+- **id**: The primary key identifier for the logger.
+- **wiki**: A one-to-one relationship with `LoggersWiki` (nullable).
+- **icon_url**: A URL field for the logger's icon (nullable).
+- **serial_no**: The serial number of the logger (nullable).
+- **manufacturer**: The manufacturer of the logger (nullable).
+- **manufacturer_name**: The name of the manufacturer (nullable).
+- **ptt**: The PTT identifier (nullable).
+- **type**: The type of logger (nullable).
+- **type_name**: The name of the logger type (nullable).
+- **notes**: Additional notes about the logger (nullable).
+- **owner**: The owner of the logger (nullable).
+
+### 3. Animals Model
+
+The `Animals` model represents an animal in a diving project. It includes:
+
+- **id**: The primary key identifier for the animal.
+- **project_id**: The identifier for the project the animal is part of.
+- **common_name**: The common name of the animal.
+- **scientific_name**: The scientific name of the animal.
+- **lab_id**: The laboratory identifier (nullable).
+- **birth_year**: The birth year of the animal (nullable).
+- **sex**: The sex of the animal (nullable).
+- **domain_ids**: Domain identifiers associated with the animal (nullable).
+
+### 4. Deployments Model
+
+The `Deployments` model represents a boat trip to collect data. It includes:
+
+- **id**: The primary key identifier for the deployment.
+- **domain_deployment_id**: Domain-specific deployment identifier (nullable).
+- **animal_age_class**: The age class of the animal (nullable).
+- **animal_age**: The age of the animal (nullable).
+- **deployment_type**: The type of deployment (nullable).
+- **deployment_name**: The name of the deployment.
+- **rec_date**: The date of the recording.
+- **deployment_latitude**: The latitude of the deployment location (nullable).
+- **deployment_longitude**: The longitude of the deployment location (nullable).
+- **deployment_location**: The location of the deployment (nullable).
+- **departure_datetime**: The departure date and time (nullable).
+- **recovery_latitude**: The latitude of the recovery location (nullable).
+- **recovery_longitude**: The longitude of the recovery location (nullable).
+- **recovery_location**: The location of the recovery (nullable).
+- **arrival_datetime**: The arrival date and time (nullable).
+- **animal**: The identifier for the animal involved in the deployment.
+- **start_time**: The start time of the deployment (nullable).
+- **start_time_precision**: The precision of the start time (nullable).
+- **timezone**: The timezone of the deployment.
+
+### 5. AnimalDeployments Model
+
+The `AnimalDeployments` model represents an animal within a deployment. It includes:
+
+- **deployment**: A foreign key to the `Deployments` model.
+- **animal**: A foreign key to the `Animals` model.
+
+### 6. Recordings Model
+
+The `Recordings` model represents a recording of data from a logger. It includes:
+
+- **id**: The primary key identifier for the recording.
+- **name**: The name of the recording.
+- **animal_deployment**: A foreign key to the `AnimalDeployments` model.
+- **logger**: A foreign key to the `Loggers` model.
+- **start_time**: The start time of the recording.
+- **actual_start_time**: The actual start time of the recording (nullable).
+- **end_time**: The end time of the recording (nullable).
+- **start_time_precision**: The precision of the start time (nullable).
+- **timezone**: The timezone of the recording (nullable).
+- **quality**: The quality of the recording (nullable).
+- **attachment_location**: The location of the logger attachment (nullable).
+- **attachment_type**: The type of logger attachment (nullable).
+
+### 7. Files Model
+
+The `Files` model represents media and data files. It includes:
+
+- **extension**: The file extension.
+- **type**: The type of file (media or data).
+- **delta_path**: The path to the file in the Delta Lake (nullable).
+- **recording**: A foreign key to the `Recordings` model.
+- **metadata**: JSON field for additional metadata (nullable).
+- **start_time**: The start time of the file (nullable).
+- **uploaded_at**: The upload timestamp (nullable).
+- **file**: The file field for storing the file in OpenStack storage.
+
+### 8. MediaUpdates Model
+
+The `MediaUpdates` model represents an update to a media file. It includes:
+
+- **file**: A foreign key to the `Files` model.
+- **update_type**: The type of update applied to the media file.
+- **update_factor**: A factor associated with the update.
+
+These models are defined using Django's ORM and are used to manage the metadata and relationships between different entities in the DiveDB application.
+
 ## Uploading Files to the Data Lake
 
 To see how to upload files to the data lake, refer to the [visualization_docs.ipynb](docs/visualization_docs.ipynb) notebook.
@@ -120,11 +284,50 @@ For any files to be uploaded to the data lake, they must be in netCDF format and
 - We have a validation function in `DataUploader.validate_netcdf` that checks if a netCDF file meets the above requirements and provides helpful error messages if not. See [validate_netcdf in data_uploader.py](DiveDB/services/data_uploader.py).
 
 **Example:**
-- A sample netCDF file is included in the repository: `oror-002_2024-01-16.nc` that meets the above requirements and can be used as a template for your own data.
+- A sample netCDF file is included in the repository: `files/example_data.nc` that meets the above requirements and can be used as a template for your own data.
 
 ## Reading Files from the Data Lake
 
 We use [DuckDB](https://duckdb.org/) to read files from the data lake. To see how to read files from the data lake, refer to the [visualization_docs.ipynb](docs/visualization_docs.ipynb) notebook.
+
+## Using Dash to Visualize DiveDB Data
+
+DiveDB provides a powerful visualization tool using Dash, a Python framework for building analytical web applications. The `data_visualization.py` script is an example of how to create interactive visualizations of biologging data stored in DiveDB.
+
+### Key Components
+
+- **Dash Application**: The script initializes a Dash application that serves as the main interface for data visualization.
+- **Plotly Graphs**: Interactive plots are created using Plotly, allowing users to explore sensor and derived data over time.
+- **Three.js Orientation**: The `three_js_orientation` component is used to render a 3D model, providing a visual representation of the animal's orientation based on the data.
+- **Video Preview**: The `video_preview` component allows users to view synchronized video footage alongside the data plots.
+
+### How to Use
+
+1. **Set Up Environment**: Ensure that your environment is configured with the necessary dependencies. You can use Docker to maintain a consistent setup.
+
+2. **Run the Dash Application**: Execute the `data_visualization.py` script to start the Dash server. This will launch a web application accessible via your browser.
+
+   ```sh
+   python dash/data_visualization.py
+   ```
+
+3. **Explore the Data**: Once the application is running, you can interact with the following components:
+
+   - **3D Model Viewer**: The `three_js_orientation` component displays a 3D model of the animal. It uses data from the DiveDB to animate the model's orientation in real-time. You can adjust the active time using the playhead slider to see how the orientation changes over time.
+
+   - **Video Synchronization**: The `video_preview` component provides a video player that is synchronized with the data plots. This allows you to view video footage alongside the data, providing context to the visualized events.
+
+   - **Interactive Plots**: The application includes a series of interactive plots generated using Plotly. These plots display various sensor and derived data signals, such as ECG, temperature, and depth. You can zoom into specific time ranges and explore the data in detail.
+
+4. **Control Playback**: Use the play and pause buttons to control the playback of the data and video. The playhead slider allows you to navigate through the data timeline.
+
+5. **Customize Visualization**: The script is designed to be flexible. You can modify the data sources, add new sensors, or change the visualization parameters to suit your needs.
+
+### Example Data
+
+The script uses example data from the DiveDB, specifically focusing on the animal with ID "apfo-001a". Ensure that your data is structured similarly to leverage the full capabilities of the visualization tool.
+
+By following these steps, you can effectively use Dash to visualize and analyze biologging data from DiveDB, gaining insights into the behavior and environment of marine mammals.
 
 ## Additional Commands
 

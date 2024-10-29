@@ -43,7 +43,7 @@ services:
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
       - ./DiveDB:/app/DiveDB
       - ./data:/app/data
-      - ./files:/files
+      - ./files:/app/files
       - ./pyologger:/app/pyologger
       - ./scripts:/app/scripts
       - ./pyproject.toml:/app/pyproject.toml

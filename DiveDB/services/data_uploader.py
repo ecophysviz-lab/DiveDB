@@ -14,7 +14,7 @@ import xarray as xr
 import json
 import math
 
-from DiveDB.services.duck_pond import DuckPond, LAKE_CONFIGS
+from DiveDB.services.duck_pond import DuckPond
 from DiveDB.services.utils.openstack import SwiftClient
 
 
@@ -165,7 +165,7 @@ class DataUploader:
                 "datetime": times,
                 "value": value_structs,
             },
-            schema=LAKE_CONFIGS["DATA"]["schema"],
+            schema=self.duckpond.LAKE_CONFIGS["DATA"]["schema"],
         )
         self.duckpond.write_to_delta(
             data=batch_table,
@@ -222,7 +222,7 @@ class DataUploader:
                 "short_description": short_descriptions,
                 "long_description": long_descriptions,
             },
-            schema=LAKE_CONFIGS["STATE_EVENTS"]["schema"],
+            schema=self.duckpond.LAKE_CONFIGS["STATE_EVENTS"]["schema"],
         )
         self.duckpond.write_to_delta(
             data=batch_table,
@@ -401,7 +401,7 @@ class DataUploader:
         netcdf_file_path: str,
         metadata: dict,
         batch_size: int = 1000000,
-        rename_map: dict = None,
+        rename_map: dict = {},
     ):
         """
         Uploads a netCDF file to the database and DuckPond.
@@ -433,24 +433,24 @@ class DataUploader:
         print(
             f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
         )
-        if os.environ.get("SKIP_OPENSTACK_UPLOAD", "false").lower() == "true":
-            print("Skipping OpenStack upload...")
+        if os.environ.get("SKIP_OPENSTACK_UPLOAD", "true").lower() != "true":
+            with open(netcdf_file_path, "rb") as f:
+                file_object = File(f, name=os.path.basename(netcdf_file_path))
+                recording = Recordings.objects.get(id=metadata["recording"])
+                file = Files.objects.create(
+                    recording=recording,
+                    file=file_object,
+                    extension="nc",
+                    type="data",
+                    metadata=self._make_json_serializable(ds.attrs),
+                )
+        else:
 
             class FileWrapper:
                 def __init__(self, name):
                     self.file = type("File", (object,), {"name": name})()
 
             file = FileWrapper("mock file name")
-        else:
-            with open(netcdf_file_path, "rb") as f:
-                file_object = File(f, name=os.path.basename(netcdf_file_path))
-                file = Files.objects.create(
-                    recording=Recordings.objects.get(name=metadata["recording"]),
-                    file=file_object,
-                    extension="nc",
-                    type="data",
-                    metadata=self._make_json_serializable(ds.attrs),
-                )
 
         sample_coords = [coord for coord in ds.coords if "_sample" in coord.lower()]
         print(f"Processing {sample_coords} datasets in the netCDF file.")
