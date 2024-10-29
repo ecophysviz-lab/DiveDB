@@ -280,7 +280,7 @@ These models are defined using Django's ORM and are used to manage the metadata 
 Django migrations are a way of propagating changes you make to your models (adding a field, deleting a model, etc.) into your database schema. Follow these steps to create and apply migrations:
 
 1. **Make Changes to Your Models:**
-   Modify your Django models in the `models.py` file as needed.
+   Modify your Django models in the [`models.py`](DiveDB/server/metadata/models.py) file as needed.
 
 2. **Create Migrations:**
    After making changes to your models, create a new migration file by running the following command:

@@ -2,13 +2,17 @@ import os
 import dash
 from dash import dcc, html, Output, Input, State
 import pandas as pd
+from dotenv import load_dotenv
 
 import three_js_orientation
+
+print(three_js_orientation)
 import video_preview
 from DiveDB.services.duck_pond import DuckPond
 from graph_utils import plot_tag_data_interactive5
 
-duckpond = DuckPond(os.environ["HOST_DELTA_LAKE_PATH"])
+load_dotenv()
+duckpond = DuckPond(os.getenv("HOST_DELTA_LAKE_PATH"))
 
 app = dash.Dash(__name__)
 
@@ -118,7 +122,7 @@ app.layout = html.Div(
                 video_preview.VideoPreview(
                     id="video-trimmer",
                     # Video file must be downloaded from https://figshare.com/ndownloader/files/50061327
-                    videoSrc="/assets/fixed_video_output_00001_excerpt.mp4",
+                    videoSrc="/assets/2019-11-08_apfo-001a_CC-35_excerpt.mp4",
                     activeTime=0,
                     playheadTime=dff["timestamp"].min(),
                     isPlaying=False,

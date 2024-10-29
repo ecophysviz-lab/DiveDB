@@ -4,6 +4,7 @@ This module contains the models for the metadata app.
 
 import os
 from datetime import datetime
+import pytz
 
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
@@ -77,14 +78,9 @@ class Deployments(models.Model):
     """
     Deployments is a model that represents a boat trip to collect data.
     """
-
-    TIMEZONE_CHOICES = [
-        ("UTC", "UTC"),
-        ("US/Pacific", "US/Pacific"),
-        ("US/Mountain", "US/Mountain"),
-        ("US/Central", "US/Central"),
-        ("US/Eastern", "US/Eastern"),
-    ]
+    # Create a list of tuples with (timezone, timezone)
+    timezone_tuples = [(tz, tz) for tz in pytz.all_timezones]
+    TIMEZONE_CHOICES = timezone_tuples
 
     id = models.CharField(primary_key=True)
     domain_deployment_id = models.CharField(null=True, blank=True)
@@ -104,7 +100,7 @@ class Deployments(models.Model):
     animal = models.CharField()
     start_time = models.DateTimeField(null=True, blank=True)
     start_time_precision = models.TextField(null=True, blank=True)
-    timezone = models.CharField(max_length=32, choices=TIMEZONE_CHOICES)
+    timezone = models.CharField(choices=TIMEZONE_CHOICES)
     notes = models.TextField(null=True, blank=True)
 
     class Meta:
@@ -192,7 +188,7 @@ class Files(models.Model):
     uploaded_at = models.DateTimeField(null=True, blank=True)
     file = models.FileField(
         upload_to=f"{os.getenv('OPENSTACK_FILE_STORAGE_CONTAINER_NAME', 'media')}/",
-        storage=OpenStackStorage(),
+        # storage=OpenStackStorage(),
     )
 
     class Meta:
