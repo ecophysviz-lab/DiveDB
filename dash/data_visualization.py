@@ -5,9 +5,8 @@ import pandas as pd
 from dotenv import load_dotenv
 
 import three_js_orientation
-
-print(three_js_orientation)
 import video_preview
+
 from DiveDB.services.duck_pond import DuckPond
 from graph_utils import plot_tag_data_interactive5
 
@@ -27,8 +26,12 @@ dff = duckpond.get_delta_data(
         "roll",
         "heading",
     ],
-    date_range=("2019-11-07T20:33:11", "2019-11-07T20:39:30"),
+    date_range=("2019-11-08T09:33:11+13:00", "2019-11-08T09:39:30+13:00"),
 )
+# Convert to UTC
+dff["datetime"] = dff["datetime"].dt.tz_localize("UTC")
+# convert the datetime in dff to +13 timezone
+dff["datetime"] = dff["datetime"] + pd.Timedelta(hours=13)
 
 # Convert datetime to timestamp (seconds since epoch) for slider control
 dff["timestamp"] = dff["datetime"].apply(lambda x: x.timestamp())
@@ -122,8 +125,8 @@ app.layout = html.Div(
                 video_preview.VideoPreview(
                     id="video-trimmer",
                     # Video file must be downloaded from https://figshare.com/ndownloader/files/50061327
-                    videoSrc="/assets/2019-11-08_apfo-001a_CC-35_excerpt.mp4",
-                    activeTime=0,
+                    videoSrc="/assets/fixed_video_output_00001_excerpt.mp4",
+                    # activeTime=0,
                     playheadTime=dff["timestamp"].min(),
                     isPlaying=False,
                     style={"width": "50vw", "height": "40vw"},
