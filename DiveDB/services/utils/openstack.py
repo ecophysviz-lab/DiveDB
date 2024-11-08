@@ -14,15 +14,18 @@ OPENSTACK_APPLICATION_CREDENTIAL_SECRET = os.getenv(
 
 class SwiftClient:
     def __init__(self):
-        loader = loading.get_plugin_loader("v3applicationcredential")
-        auth = loader.load_from_options(
-            auth_url=OPENSTACK_AUTH_URL,
-            application_credential_id=OPENSTACK_APPLICATION_CREDENTIAL_ID,
-            application_credential_secret=OPENSTACK_APPLICATION_CREDENTIAL_SECRET,
-        )
-        self.sess = session.Session(auth=auth)
-        self.client = swiftclient.Connection(session=self.sess)
-        self.storage_url, _ = self.client.get_auth()
+        if OPENSTACK_AUTH_URL and OPENSTACK_APPLICATION_CREDENTIAL_ID and OPENSTACK_APPLICATION_CREDENTIAL_SECRET:
+            loader = loading.get_plugin_loader("v3applicationcredential")
+            auth = loader.load_from_options(
+                auth_url=OPENSTACK_AUTH_URL,
+                application_credential_id=OPENSTACK_APPLICATION_CREDENTIAL_ID,
+                application_credential_secret=OPENSTACK_APPLICATION_CREDENTIAL_SECRET,
+            )
+            self.sess = session.Session(auth=auth)
+            self.client = swiftclient.Connection(session=self.sess)
+            self.storage_url, _ = self.client.get_auth()
+        else:
+            print("No OpenStack credentials found. SwiftClient will not be initialized.")
 
     def get_containers(self):
         return self.client.get_account()[1]
