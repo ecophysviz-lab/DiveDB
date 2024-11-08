@@ -59,33 +59,37 @@ To create a local analysis environment, follow these steps:
    ```sh
    cp .env.example .env
    ```
-   Ensure that the `DJANGO_SECRET_KEY` is set to a secure value.
+   Ensure that the `DJANGO_SECRET_KEY` is set to a secure value. You can generate a random secret key using `openssl rand -base64 32`.
 
 1. **Start the Docker Daemon:**
    Start the Docker Desktop application (recommended) OR run `dockerd` in the terminal.
 
 1. **Start the PostgreSQL Service:**
+   Create a directory for the PostgreSQL data mount.
+   ```sh
+   mkdir data/pg_data # Create the directory if it doesn't exist
+   ```
    Use the `docker-compose.development.yaml` file to start the PostgreSQL service.
    ```sh
-   docker-compose -f docker-compose.development.yaml up -d metadata_database
+   docker-compose -f docker-compose.development.yaml up -d postgres
    ```
 
 1. **Create the Local PostgreSQL Database and User:**
-   Set the user and password to any string. Make sure to update the `.env` file with the correct values.
+   Set the user and password to any string. Make sure to update the `.env` file with the correct values. This can later be used instead of the root postgres user to access the database.
    ```sh
-   docker-compose -f docker-compose.development.yaml exec metadata_database psql -U postgres -c "CREATE DATABASE divedb;"
-   docker-compose -f docker-compose.development.yaml exec metadata_database psql -U postgres -c "CREATE USER divedbuser WITH PASSWORD 'divedbpassword';"
-   docker-compose -f docker-compose.development.yaml exec metadata_database psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE divedb TO divedbuser;"
+   docker-compose -f docker-compose.development.yaml exec postgres psql -U postgres -c "CREATE DATABASE divedb;"
+   docker-compose -f docker-compose.development.yaml exec postgres psql -U postgres -c "CREATE USER divedbuser WITH PASSWORD 'divedbpassword';"
+   docker-compose -f docker-compose.development.yaml exec postgres psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE divedb TO divedbuser;"
    ```
 
 1. **Start the Application:**
-   Spin up the Django application and Jupyter notebook server. This will also start a Postgres database container if not already running.
+   Spin up the Django application and Jupyter notebook server. This will also start a Postgres database container if not already running. Leave this running while you work on the project.
    ```sh
    make up
    ```
 
 1. **Run Migrations:**
-   Run the migrations to create the tables in the database.
+   Run the migrations to create the tables in the database. Run this command in a new terminal window.
    ```sh
    make migrate
    ```

@@ -1,5 +1,5 @@
 services:
-  metadata_database:
+  postgres:
     image: postgres:16
     volumes:
       - ${POSTGRES_LOCAL_DATA_MOUNT}:/var/lib/postgresql/data
@@ -20,11 +20,11 @@ services:
       - "8000:8000"
       - "8050:8050"
     environment:
-      - POSTGRES_HOST=metadata_database
+      - POSTGRES_HOST=postgres
     env_file:
       - .env
     depends_on:
-      - metadata_database  
+      - postgres  
 
   jupyter:
     build:
@@ -32,11 +32,11 @@ services:
     ports:
       - "8888:8888"
     environment:
-      - POSTGRES_HOST=metadata_database
+      - POSTGRES_HOST=postgres
     env_file:
       - .env
     volumes:
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
       - .:/app
     depends_on:
-      - metadata_database
+      - postgres
