@@ -69,6 +69,7 @@ To create a local analysis environment, follow these steps:
    ```sh
    mkdir data/pg_data # Create the directory if it doesn't exist
    ```
+   Once this directory is created, it must be empty to be used by the PostgreSQL container. To make sure it's empty, you can run `rm -rf data/pg_data/*`. 
    Use the `docker-compose.development.yaml` file to start the PostgreSQL service.
    ```sh
    docker-compose -f docker-compose.development.yaml up -d postgres
