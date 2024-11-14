@@ -185,7 +185,7 @@ class DataUploader:
         del batch_table
         gc.collect()
 
-    def _write_event_to_duckpond(
+    def _write_events_to_duckpond(
         self,
         metadata: dict,
         start_times: pa.Array,
@@ -203,36 +203,129 @@ class DataUploader:
         if long_descriptions is None:
             long_descriptions = [None] * len(event_keys)
 
-        batch_table = pa.table(
-            {
-                "animal": pa.array(
-                    [metadata["animal"]] * len(event_keys), type=pa.string()
-                ),
-                "deployment": pa.array(
-                    [str(metadata["deployment"])] * len(event_keys), type=pa.string()
-                ),
-                "recording": pa.array(
-                    [metadata["recording"]] * len(event_keys), type=pa.string()
-                ),
-                "group": pa.array([group] * len(event_keys), type=pa.string()),
-                "event_key": event_keys,
-                "datetime_start": start_times,
-                "datetime_end": end_times,
-                "event_data": [json.dumps(data) for data in event_data],
-                "short_description": short_descriptions,
-                "long_description": long_descriptions,
-            },
-            schema=self.duckpond.LAKE_CONFIGS["STATE_EVENTS"]["schema"],
-        )
-        self.duckpond.write_to_delta(
-            data=batch_table,
-            lake="STATE_EVENTS",
-            mode="append",
-            partition_by=["animal", "deployment", "recording", "group", "event_key"],
-            name=file_name,
-            description="test",
-        )
-        del batch_table
+        # Determine if events are point or state based on duration
+        is_point_event = (end_times - start_times) == np.timedelta64(0, "s")
+
+        # Collect point and state events separately
+        point_events = []
+        state_events = []
+
+        for i, is_point in enumerate(is_point_event):
+            event = {
+                "animal": metadata["animal"],
+                "deployment": str(metadata["deployment"]),
+                "recording": metadata["recording"],
+                "group": group,
+                "event_key": event_keys[i],
+                "event_data": json.dumps(event_data[i]),
+                "short_description": short_descriptions[i],
+                "long_description": long_descriptions[i],
+            }
+            if is_point:
+                event["datetime"] = start_times[i]
+                point_events.append(event)
+            else:
+                event["datetime_start"] = start_times[i]
+                event["datetime_end"] = end_times[i]
+                state_events.append(event)
+
+        # Write point events
+        if point_events:
+            batch_table = pa.table(
+                {
+                    "animal": pa.array(
+                        [e["animal"] for e in point_events], type=pa.string()
+                    ),
+                    "deployment": pa.array(
+                        [e["deployment"] for e in point_events], type=pa.string()
+                    ),
+                    "recording": pa.array(
+                        [e["recording"] for e in point_events], type=pa.string()
+                    ),
+                    "group": pa.array(
+                        [e["group"] for e in point_events], type=pa.string()
+                    ),
+                    "event_key": pa.array(
+                        [e["event_key"] for e in point_events], type=pa.string()
+                    ),
+                    "datetime": pa.array([e["datetime"] for e in point_events]),
+                    "event_data": pa.array(
+                        [e["event_data"] for e in point_events], type=pa.string()
+                    ),
+                    "short_description": pa.array(
+                        [e["short_description"] for e in point_events], type=pa.string()
+                    ),
+                    "long_description": pa.array(
+                        [e["long_description"] for e in point_events], type=pa.string()
+                    ),
+                },
+                schema=self.duckpond.LAKE_CONFIGS["POINT_EVENTS"]["schema"],
+            )
+            self.duckpond.write_to_delta(
+                data=batch_table,
+                lake="POINT_EVENTS",
+                mode="append",
+                partition_by=[
+                    "animal",
+                    "deployment",
+                    "recording",
+                    "group",
+                    "event_key",
+                ],
+                name=file_name,
+                description="test",
+            )
+
+        # Write state events
+        if state_events:
+            batch_table = pa.table(
+                {
+                    "animal": pa.array(
+                        [e["animal"] for e in state_events], type=pa.string()
+                    ),
+                    "deployment": pa.array(
+                        [e["deployment"] for e in state_events], type=pa.string()
+                    ),
+                    "recording": pa.array(
+                        [e["recording"] for e in state_events], type=pa.string()
+                    ),
+                    "group": pa.array(
+                        [e["group"] for e in state_events], type=pa.string()
+                    ),
+                    "event_key": pa.array(
+                        [e["event_key"] for e in state_events], type=pa.string()
+                    ),
+                    "datetime_start": pa.array(
+                        [e["datetime_start"] for e in state_events]
+                    ),
+                    "datetime_end": pa.array([e["datetime_end"] for e in state_events]),
+                    "event_data": pa.array(
+                        [e["event_data"] for e in state_events], type=pa.string()
+                    ),
+                    "short_description": pa.array(
+                        [e["short_description"] for e in state_events], type=pa.string()
+                    ),
+                    "long_description": pa.array(
+                        [e["long_description"] for e in state_events], type=pa.string()
+                    ),
+                },
+                schema=self.duckpond.LAKE_CONFIGS["STATE_EVENTS"]["schema"],
+            )
+            self.duckpond.write_to_delta(
+                data=batch_table,
+                lake="STATE_EVENTS",
+                mode="append",
+                partition_by=[
+                    "animal",
+                    "deployment",
+                    "recording",
+                    "group",
+                    "event_key",
+                ],
+                name=file_name,
+                description="test",
+            )
+
         gc.collect()
 
     def validate_netcdf(self, ds: xr.Dataset):
@@ -452,7 +545,52 @@ class DataUploader:
 
             file = FileWrapper("mock file name")
 
-        sample_coords = [coord for coord in ds.coords if "_sample" in coord.lower()]
+        # Process event data variables
+        event_data_vars = [var for var in ds.data_vars if var.startswith("event_data")]
+        if event_data_vars:
+            duration_var = next(
+                (var for var in event_data_vars if "duration" in var.lower()), None
+            )
+            if duration_var:
+                duration_data = ds[duration_var].values
+                start_times = ds["event_data_value"].values
+                # Convert start_times to datetime64 if it's not already
+                start_times = pa.array(
+                    ds.coords["event_data_samples"].values,
+                    type=self._get_datetime_type(ds.coords["event_data_samples"]),
+                )
+
+                end_times = start_times + np.array(
+                    duration_data, dtype="timedelta64[s]"
+                )
+
+                event_keys = ds["event_data_key"].values
+
+                event_data = [
+                    {
+                        var: ds[var].values[i]
+                        for var in event_data_vars
+                        if var != duration_var
+                    }
+                    for i in range(len(start_times))
+                ]
+
+                self._write_events_to_duckpond(
+                    metadata=metadata,
+                    start_times=start_times,
+                    end_times=end_times,
+                    group="events",
+                    event_keys=event_keys,
+                    event_data=event_data,
+                    file_name=file.file.name,
+                )
+
+        # Process other data variables
+        sample_coords = [
+            coord
+            for coord in ds.coords
+            if "_sample" in coord.lower() and "event_data" not in coord.lower()
+        ]
         print(f"Processing {sample_coords} datasets in the netCDF file.")
 
         with tqdm(total=len(sample_coords), desc="Processing variables") as pbar:
@@ -460,36 +598,8 @@ class DataUploader:
                 variables_with_coord = set(
                     var for var in ds.data_vars if coord in ds[var].dims
                 )
-                if any("duration" in var.lower() for var in variables_with_coord):
-                    duration_var = [
-                        var for var in variables_with_coord if "duration" in var.lower()
-                    ][0]
-                    duration_data = ds[duration_var].values
-                    start_times = ds[coord].values
-                    end_times = start_times + np.array(
-                        duration_data, dtype="timedelta64[s]"
-                    )
 
-                    event_data = [
-                        {
-                            var: ds[var].values[i]
-                            for var in variables_with_coord
-                            if var != duration_var
-                        }
-                        for i in range(len(start_times))
-                    ]
-
-                    event_keys = ["dive"] * len(start_times)
-
-                    self._write_event_to_duckpond(
-                        metadata=metadata,
-                        start_times=start_times,
-                        end_times=end_times,
-                        group=coord.replace("_samples", ""),
-                        event_keys=event_keys,
-                        event_data=event_data,
-                        file_name=file.file.name,
-                    )
+                # Upload data
                 for var_name, var_data in ds[variables_with_coord].items():
                     if (
                         isinstance(var_data.values, np.ndarray)
