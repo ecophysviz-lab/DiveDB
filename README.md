@@ -1,5 +1,7 @@
 # DiveDB
 
+[![Quality control badge](https://github.com/ecophysviz-lab/DiveDB/actions/workflows/quality-control.yml/badge.svg)](https://github.com/ecophysviz-lab/DiveDB/actions/workflows/quality-control.yml)
+
 DiveDB is designed to organize and analyze biologging data collected by any sensor on any marine mammal. By storing your data in a structured data lake, DiveDB enforces consistency, allowing you to query data across multiple dives, sensors, and animals. The primary goals of DiveDB include:
 
 - **Metadata Management**: Utilizing the [Django](https://www.djangoproject.com/) framework to provide an admin interface for managing the metadata associated with each dive.
