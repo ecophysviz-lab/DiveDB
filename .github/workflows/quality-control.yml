@@ -4,7 +4,10 @@
 name: Quality Control
 
 on:
-  pull_request
+  pull_request:
+  
+  # Allow workflow to be run manually from the Actions tab:
+  workflow_dispatch:
 
 permissions:
   contents: read
