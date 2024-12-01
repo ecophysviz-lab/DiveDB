@@ -320,7 +320,7 @@ By following these steps, you can effectively manage changes to your database sc
 
 ## Uploading Files to the Data Lake
 
-To see how to upload files to the data lake, refer to the [visualization_docs.ipynb](docs/visualization_docs.ipynb) notebook.
+To see how to upload files to the data lake, refer to the [upload_docs.ipynb](docs/upload_docs.ipynb) notebook.
 
 ### Requirements
 For any files to be uploaded to the data lake, they must be in netCDF format and meet the following requirements:
