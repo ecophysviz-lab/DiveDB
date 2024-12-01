@@ -5,9 +5,14 @@ name: Quality Control
 
 on:
   pull_request:
-  
+
   # Allow workflow to be run manually from the Actions tab:
   workflow_dispatch:
+
+  # Run on main branch when a PR merges down to main
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
