@@ -1,34 +1,42 @@
-.PHONY: up down build migrate makemigrations createsuperuser shell bash test
+.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata builddash
+
+COMPOSE_CMD = docker compose -f docker-compose.development.yaml
+EXEC_WEB = $(COMPOSE_CMD) exec web
 
 up:
-	docker compose -f docker-compose.development.yaml --env-file .env up
+	$(COMPOSE_CMD) --env-file .env up
 
 down:
-	docker compose -f docker-compose.development.yaml down
+	$(COMPOSE_CMD) down
 
 build:
-	docker compose -f docker-compose.development.yaml build
+	$(COMPOSE_CMD) build
 
 makemigrations:
-	docker compose -f docker-compose.development.yaml exec web python manage.py makemigrations
+	$(EXEC_WEB) python manage.py makemigrations
 
 migrate:
-	docker compose -f docker-compose.development.yaml exec web python manage.py migrate
+	$(EXEC_WEB) python manage.py migrate
 
 createsuperuser:
-	docker compose -f docker-compose.development.yaml exec web python manage.py createsuperuser
+	$(EXEC_WEB) python manage.py createsuperuser
 
 shell:
-	docker compose -f docker-compose.development.yaml exec web python manage.py shell
+	$(EXEC_WEB) python manage.py shell
 
 bash:
-	docker compose -f docker-compose.development.yaml exec web bash
+	$(EXEC_WEB) bash
 
 test:
-	docker compose -f docker-compose.development.yaml exec web pytest
+	$(EXEC_WEB) pytest
+
+# TODO: Add tests for custom dash components
+test-dash:
+	$(EXEC_WEB) pytest dash/video_preview
+	$(EXEC_WEB) pytest dash/three_js_orientation
 
 importmetadata:
-	docker compose -f docker-compose.development.yaml exec web python scripts/import_from_notion.py
+	$(EXEC_WEB) python scripts/import_from_notion.py
 
 builddash:
 	cd dash/three_js_orientation && npm i && npm run build && python setup.py sdist bdist_wheel && sleep 1 && pip install dist/three_js_orientation-0.0.1.tar.gz
