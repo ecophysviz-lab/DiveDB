@@ -11,6 +11,7 @@ import duckdb
 import pyarrow as pa
 from deltalake import DeltaTable, write_deltalake
 from DiveDB.services.utils.sampling import resample
+from DiveDB.services.dive_data import DiveData
 
 # flake8: noqa
 
@@ -207,7 +208,7 @@ class DuckPond:
         date_range: tuple[str, str] | None = None,
         frequency: int | None = None,
         limit: int | None = None,
-    ) -> pd.DataFrame | duckdb.DuckDBPyRelation:
+    ) -> pd.DataFrame | DiveData:
         """
         Get data from the Delta Lake based on various filters.
 
@@ -308,9 +309,10 @@ class DuckPond:
         pivot_query = f"""
             SELECT
                 datetime,
+                animal,
                 {', '.join(pivot_expressions)}
             FROM ({base_query}) AS sub
-            GROUP BY datetime
+            GROUP BY datetime, animal
             ORDER BY datetime
         """
 
@@ -340,11 +342,13 @@ class DuckPond:
 
         # Keep only the best columns and the datetime column
         final_query = f"""
-            SELECT datetime, {', '.join(best_columns)}
+            SELECT datetime, animal, {', '.join(best_columns)}
             FROM pivot_results
         """
-        results = self.conn.sql(final_query)
 
+        results = DiveData(self.conn.sql(final_query))
+
+        #TODO-propose: pull this into a method of DiveData
         if frequency:
             # Pull data into memory for resampling
             df = results.df()
