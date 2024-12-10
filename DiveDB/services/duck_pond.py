@@ -351,6 +351,7 @@ class DuckPond:
         if frequency:
             # Pull data into memory for resampling
             df = results.df()
+            df = df.loc[ : , df.columns!='recording']
 
             # Ensure 'datetime' is in datetime format
             df["datetime"] = pd.to_datetime(df["datetime"])
