@@ -349,17 +349,7 @@ class DuckPond:
             # Pull data into memory for resampling
             df = results.df()
 
-            # Ensure 'datetime' is in datetime format
-            df["datetime"] = pd.to_datetime(df["datetime"])
-
-            # Set 'datetime' as index for resampling
-            df.set_index("datetime", inplace=True)
-
-            # Resample the data
-            resample_period = pd.to_timedelta(1 / frequency, unit="s")
-            df_resampled = (
-                df.resample(resample_period).mean().dropna(how="all").reset_index()
-            )
+            df_resampled = resample(df, frequency)
 
             return df_resampled
         else:
