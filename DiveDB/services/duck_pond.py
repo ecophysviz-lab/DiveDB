@@ -368,4 +368,4 @@ class DuckPond:
             return df_resampled
         else:
             # Return the DuckDB relation without pulling data into memory
-            return DiveData(results)
+            return DiveData(results, self)

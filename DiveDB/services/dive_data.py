@@ -14,27 +14,31 @@ class DiveData():
     def __init__(self, duckdb_relation: duckdb.DuckDBPyRelation, duckpond: DuckPond):
         self.duckdb_relation = duckdb_relation
         self.duckpond = duckpond  # TODO-check: okay to set this here? Or better to calculate metadata immediately and not save...?
-        self.recording_ids = duckdb_relation.unique('recording').df()['recording'].values
+        self.recording_ids = [id for id in duckdb_relation.unique('recording').df()['recording'].values]
+        self.metadata = None
 
     def __getattr__(self, item):
         if hasattr(self.duckdb_relation, item):
             return getattr(self.duckdb_relation, item)
 
     def get_metadata(self):
-        self.metadata = get_metadata(self.relation, self.duckpond)
+        self.metadata = get_metadata(self, self.duckpond).copy()  # TODO-question: if this isn't empty, should we refresh it??
     
-    # TODO-clarify: spec says output path, but we may 
-    # need to generate multiple files so prob use outdir instead?
-    def export_to_edf(self, outdir: str):
+    # TODO-clarify: spec says output path; when we generate multiple files, 
+    # how to handle? for now, appending an index...
+    def export_to_edf(self, filepath: str):
         """Export metadata plus signals to set of EDF files"""
-        self.get_metadata() 
-        print("Not yet implemented")
+        export_to_edf(self, filepath)
+
+#####
+##### Utils
+#####
 
 
-def get_metadata(relation, duckpond):
+def get_metadata(divedata: DiveData, duckpond):
     """Get metadata from postgres"""
     metadata = {}
-    for recording_id in relation.recording_ids:
+    for recording_id in divedata.recording_ids:
         print("Recording: ", recording_id)
         recording_metadata = {}
         df = duckpond.conn.sql("""
@@ -48,3 +52,34 @@ def get_metadata(relation, duckpond):
             recording_metadata[col] = df[col][0]
         metadata[recording_id] = recording_metadata
     return metadata
+
+
+def _get_adjusted_filename(filename, i_recording, num_recordings):
+    if num_recordings == 1 and filename.lower().endswith(".edf"):
+        return filename 
+    if num_recordings == 1:
+        return filename + ".edf"
+    prefix = filename[:-4] if filename.lower().endswith(".edf") else filename 
+    return prefix + "_" + str(i_recording + 1) + ".edf"
+
+
+def export_to_edf(data: DiveData, filepath: str) -> list:
+    """Export metadata plus signals to set of EDF files"""
+    edf_filepaths = []
+    data.get_metadata()
+    for (i, recording_id) in enumerate(data.metadata.keys()):
+        metadata = data.metadata[recording_id]
+        recording_filepath = _get_adjusted_filename(filepath, i, len(data.recording_ids))
+        print(i, recording_filepath, recording_id, metadata)
+        
+        # First let's figure out how this EDF is going to be structured---don't 
+        # materialize the signals yet!! 
+        max_duration_sec = 0
+        # TODO- pull in from notebook
+
+        # Now let's go through and materialize the signals one at a time 
+        # TODO- pull in from notebook
+
+        edf_filepaths.append(recording_filepath)
+
+    return edf_filepaths
