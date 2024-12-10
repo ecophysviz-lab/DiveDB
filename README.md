@@ -1,5 +1,7 @@
 # DiveDB
 
+[![Quality control badge](https://github.com/ecophysviz-lab/DiveDB/actions/workflows/quality-control.yml/badge.svg)](https://github.com/ecophysviz-lab/DiveDB/actions/workflows/quality-control.yml)
+
 DiveDB is designed to organize and analyze biologging data collected by any sensor on any marine mammal. By storing your data in a structured data lake, DiveDB enforces consistency, allowing you to query data across multiple dives, sensors, and animals. The primary goals of DiveDB include:
 
 - **Metadata Management**: Utilizing the [Django](https://www.djangoproject.com/) framework to provide an admin interface for managing the metadata associated with each dive.
@@ -78,7 +80,6 @@ To create a local analysis environment, follow these steps:
 1. **Create the Local PostgreSQL Database and User:**
    Set the user and password to any string. Make sure to update the `.env` file with the correct values. This can later be used instead of the root postgres user to access the database.
    ```sh
-   docker compose -f docker-compose.development.yaml exec postgres psql -U postgres -c "CREATE DATABASE divedb;"
    docker compose -f docker-compose.development.yaml exec postgres psql -U postgres -c "CREATE USER divedbuser WITH PASSWORD 'divedbpassword';"
    docker compose -f docker-compose.development.yaml exec postgres psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE divedb TO divedbuser;"
    ```
@@ -320,7 +321,7 @@ By following these steps, you can effectively manage changes to your database sc
 
 ## Uploading Files to the Data Lake
 
-To see how to upload files to the data lake, refer to the [visualization_docs.ipynb](docs/visualization_docs.ipynb) notebook.
+To see how to upload files to the data lake, refer to the [upload_docs.ipynb](docs/upload_docs.ipynb) notebook.
 
 ### Requirements
 For any files to be uploaded to the data lake, they must be in netCDF format and meet the following requirements:
