@@ -308,11 +308,10 @@ class DuckPond:
 
         pivot_query = f"""
             SELECT
-                datetime,
-                animal,
+                datetime, recording,
                 {', '.join(pivot_expressions)}
             FROM ({base_query}) AS sub
-            GROUP BY datetime, animal
+            GROUP BY datetime, recording,
             ORDER BY datetime
         """
 
@@ -340,13 +339,13 @@ class DuckPond:
             )[0]
             best_columns.append(f"{label}_{best_type} AS {label}")
 
-        # Keep only the best columns and the datetime column
+        # Keep only the best columns, the required metadata columns, and the datetime column
         final_query = f"""
-            SELECT datetime, animal, {', '.join(best_columns)}
+            SELECT datetime, recording, {', '.join(best_columns)}
             FROM pivot_results
         """
 
-        results = DiveData(self.conn.sql(final_query))
+        results = self.conn.sql(final_query)
 
         #TODO-propose: pull this into a method of DiveData
         if frequency:
@@ -368,4 +367,4 @@ class DuckPond:
             return df_resampled
         else:
             # Return the DuckDB relation without pulling data into memory
-            return results
+            return DiveData(results)
