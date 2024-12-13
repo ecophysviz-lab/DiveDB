@@ -12,8 +12,10 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 import os
 from pathlib import Path
-
 from dotenv import load_dotenv
+from rest_framework.renderers import JSONRenderer
+import json
+import numpy as np
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -50,6 +52,7 @@ CSRF_TRUSTED_ORIGINS = [
 # Application definition
 django_prefix = os.environ.get("DJANGO_PREFIX", "DiveDB")
 INSTALLED_APPS = [
+    "rest_framework",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -146,3 +149,19 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+REST_FRAMEWORK = {
+    "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
+    "JSON_ENCODER": "rest_framework.utils.encoders.JSONEncoder",
+}
+
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, float):
+            if np.isnan(obj):
+                return None
+        return super().default(obj)
+
+
+JSONRenderer.encoder_class = CustomJSONEncoder

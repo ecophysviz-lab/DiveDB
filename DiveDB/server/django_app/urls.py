@@ -17,7 +17,41 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
+from ..metadata import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Loggers endpoints
+    path("api/loggers/", views.LoggersListView.as_view(), name="loggers-list"),
+    path(
+        "api/loggers/<int:pk>/",
+        views.LoggersRetrieveView.as_view(),
+        name="loggers-detail",
+    ),
+    # Animals endpoints
+    path("api/animals/", views.AnimalsListView.as_view(), name="animals-list"),
+    path(
+        "api/animals/<int:pk>/",
+        views.AnimalsRetrieveView.as_view(),
+        name="animals-detail",
+    ),
+    # Deployments endpoints
+    path(
+        "api/deployments/", views.DeploymentsListView.as_view(), name="deployments-list"
+    ),
+    path(
+        "api/deployments/<int:pk>/",
+        views.DeploymentsRetrieveView.as_view(),
+        name="deployments-detail",
+    ),
+    # Recordings endpoints
+    path("api/recordings/", views.RecordingsListView.as_view(), name="recordings-list"),
+    path(
+        "api/recordings/<int:pk>/",
+        views.RecordingsRetrieveView.as_view(),
+        name="recordings-detail",
+    ),
+    # Files endpoints
+    path("api/files/", views.FilesListView.as_view(), name="files-list"),
+    path("api/files/<int:pk>/", views.FilesRetrieveView.as_view(), name="files-detail"),
 ]
