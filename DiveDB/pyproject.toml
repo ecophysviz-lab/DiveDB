@@ -11,6 +11,7 @@ dependencies = [
   "dash",
   "deltalake",
   "django",
+  "djangorestframework",
   "django-storages",
   "duckdb",
   "edfio",
