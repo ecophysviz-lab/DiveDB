@@ -24,6 +24,7 @@ dependencies = [
   "mne",
   "netcdf4",
   "notion_client",
+  "numpy",
   "pandas",
   "pre-commit",
   "psycopg2-binary",
