@@ -3,7 +3,6 @@ EDF Export Manager
 """
 
 import duckdb
-from DiveDB.services.duck_pond import DuckPond
 
 
 # TODO-clarify: spec says DuckDBPyConnection but get_delta_data returns a Relation 
@@ -11,10 +10,11 @@ from DiveDB.services.duck_pond import DuckPond
 # Followed proxy pattern to extend class: https://stackoverflow.com/questions/69313845/create-child-class-object-using-parent-class-instance
 class DiveData():
     """EDF Export Manager"""
-    def __init__(self, duckdb_relation: duckdb.DuckDBPyRelation, duckpond: DuckPond):
+    def __init__(self, duckdb_relation: duckdb.DuckDBPyRelation, conn: duckdb.DuckDBPyConnection):
         self.duckdb_relation = duckdb_relation
-        self.duckpond = duckpond  # TODO-check: okay to set this here? Or better to calculate metadata immediately and not save...?
         self.recording_ids = [id for id in duckdb_relation.unique('recording').df()['recording'].values]
+        # TODO-check: based on spec, required to set this here... Seems better to calculate metadata immediately and not save, though...
+        self.conn = conn  
         self.metadata = None
 
     def __getattr__(self, item):
@@ -22,7 +22,7 @@ class DiveData():
             return getattr(self.duckdb_relation, item)
 
     def get_metadata(self):
-        self.metadata = get_metadata(self, self.duckpond).copy()  # TODO-question: if this isn't empty, should we refresh it??
+        self.metadata = get_metadata(self).copy()  # TODO-question: if this isn't empty, should we refresh it??
     
     # TODO-clarify: spec says output path; when we generate multiple files, 
     # how to handle? for now, appending an index...
@@ -35,13 +35,13 @@ class DiveData():
 #####
 
 
-def get_metadata(divedata: DiveData, duckpond):
+def get_metadata(divedata: DiveData):
     """Get metadata from postgres"""
     metadata = {}
     for recording_id in divedata.recording_ids:
         print("Recording: ", recording_id)
         recording_metadata = {}
-        df = duckpond.conn.sql("""
+        df = divedata.conn.sql("""
                             SELECT start_time, animal_deployment_id, logger_id
                             FROM Metadata.public.Recordings
                             WHERE Recordings.id = '2019-11-08_apfo-001a_apfo-001a_CC-35'
