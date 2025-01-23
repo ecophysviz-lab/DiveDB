@@ -308,10 +308,10 @@ class DuckPond:
 
         pivot_query = f"""
             SELECT
-                datetime, recording,
+                datetime, recording, class,
                 {', '.join(pivot_expressions)}
             FROM ({base_query}) AS sub
-            GROUP BY datetime, recording,
+            GROUP BY datetime, recording, class
             ORDER BY datetime
         """
 
@@ -341,7 +341,7 @@ class DuckPond:
 
         # Keep only the best columns, the required metadata columns, and the datetime column
         final_query = f"""
-            SELECT datetime, recording, {', '.join(best_columns)}
+            SELECT datetime, class, recording, {', '.join(best_columns)}
             FROM pivot_results
         """
 
@@ -351,7 +351,7 @@ class DuckPond:
         if frequency:
             # Pull data into memory for resampling
             df = results.df()
-            df = df.loc[ : , df.columns!='recording']
+            df = df.drop(['recording', 'class'], axis=1)
 
             # Ensure 'datetime' is in datetime format
             df["datetime"] = pd.to_datetime(df["datetime"])
