@@ -5,7 +5,9 @@ EDF Export Manager
 import duckdb
 import math
 import numpy as np
-from edfio import Edf, EdfSignal
+import datetime 
+from pandas import Timestamp
+from edfio import Edf, EdfSignal, Recording, Patient
 
 
 # TODO-clarify: spec says DuckDBPyConnection but get_delta_data returns a Relation 
@@ -42,12 +44,11 @@ def get_metadata(divedata: DiveData):
     """Get metadata from postgres"""
     metadata = {}
     for recording_id in divedata.recording_ids:
-        # print("Recording: ", recording_id)
         recording_metadata = {}
-        df = divedata.conn.sql("""
+        df = divedata.conn.sql(f"""
                             SELECT start_time, animal_deployment_id, logger_id
                             FROM Metadata.public.Recordings
-                            WHERE Recordings.id = '2019-11-08_apfo-001a_apfo-001a_CC-35'
+                            WHERE Recordings.id = '{recording_id}'
                         """).df()
         if df.shape[0] != 1:
             print("Oh no more than one item for this recording") # TODO-throw error 
@@ -90,6 +91,7 @@ def create_edf(df, metadata):
 
     # Set up: Figure out what common max duration is
     max_duration_sec = 0
+    start_datetime = None
     for name in signal_names:
         df_sig = df[['datetime', name]]
         df_sig = df_sig[df_sig[name].notna()]
@@ -98,7 +100,12 @@ def create_edf(df, metadata):
         sampling_rate = df_sig['datetime'].diff()[1:].dt.total_seconds().unique()[0] #TODO-safety: handle correctly if there are any gaps filtered out (eg from nonna() earlier)
         sampling_frequency = int(1/sampling_rate) # TODO-safety: don't just blindly round o_O
 
-        # start_time = df_sig['datetime'].values[0] # TODO - store this and sanity-check all signals start at the same time (or adjust!)
+        sig_start_datetime = df_sig['datetime'].values[0]
+        if start_datetime is not None:
+            if sig_start_datetime != start_datetime:
+                print("Warning: Signals start at different times! Not yet handled by \
+                      EDF export! ", start_datetime, sig_start_datetime)
+        start_datetime = sig_start_datetime
 
         sig_max_duration_sec = math.ceil(df.shape[0] / sampling_frequency)
         max_duration_sec = max(max_duration_sec, sig_max_duration_sec)
@@ -144,8 +151,30 @@ def create_edf(df, metadata):
         signal = EdfSignal(signal_data,
                             sampling_frequency=sampling_frequency, 
                             physical_dimension="TODO",
-                            label=label)
+                            label=label
+                            # transducer_type="AgAgCl electrode",
+                            # prefiltering="HP:0.1Hz LP:75Hz"
+                            )
         # TODO-add header metadata
         signals.append(signal)
-    print(signals)
-    return Edf(signals)
+
+    starttime = Timestamp(start_datetime).to_pydatetime().time()
+    edf = Edf(signals,
+              starttime=starttime)
+    
+    # Add recording header
+    startdate = Timestamp(start_datetime).to_pydatetime().date()
+    edf.recording = Recording(
+        startdate=startdate,
+        # hospital_administration_code="EMG561",
+        # investigator_technician_code="BK/JOP",
+        # equipment_code="Sony",
+    )
+
+    edf.patient=Patient(
+        # code="MCH-0234567",
+        # sex="F",
+        # birthdate=datetime.date(1951, 5, 2),
+        # name="Haagse_Harry",
+    )
+    return edf
