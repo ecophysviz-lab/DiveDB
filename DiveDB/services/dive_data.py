@@ -5,9 +5,10 @@ EDF Export Manager
 import duckdb
 import math
 import numpy as np
-import datetime 
+import datetime
 from pandas import Timestamp
 from edfio import Edf, EdfSignal, Recording, Patient
+import os.path
 
 
 # TODO-clarify: spec says DuckDBPyConnection but get_delta_data returns a Relation 
@@ -31,9 +32,9 @@ class DiveData():
             print("Warning: Overwriting existing metadata!")
         self.metadata = get_metadata(self)
     
-    def export_to_edf(self, filepath: str):
+    def export_to_edf(self, output_dir: str):
         """Export metadata plus signals to set of EDF files"""
-        export_to_edf(self, filepath)
+        return export_to_edf(self, output_dir)
 
 #####
 ##### Utils
@@ -58,30 +59,28 @@ def get_metadata(divedata: DiveData):
     return metadata
 
 
-# TODO- maybe get rid of this depending on whether we still want to pass in filename, 
-# rather than output directory
-def get_filename(filename, i_recording, num_recordings):
-    if num_recordings == 1 and filename.lower().endswith(".edf"):
-        return filename 
-    if num_recordings == 1:
-        return filename + ".edf"
-    prefix = filename[:-4] if filename.lower().endswith(".edf") else filename
-    return prefix + "_" + str(i_recording + 1) + ".edf"
+def construct_new_filename(output_dir, filename_prefix: str, max_suffix_int: int = 1000):
+    path_prefix = os.path.join(output_dir, filename_prefix)
+    if not os.path.isfile(path_prefix + ".edf"):
+        return path_prefix + ".edf"
+    for i in range(1, max_suffix_int + 1):
+        fname = path_prefix + "_" + str(i) + ".edf"
+        if not os.path.isfile(fname):
+            return fname
+    raise Exception(f"Filepath already exists in directory ({path_prefix + ".edf"})")
 
 
-# TODO-clarify: spec says output path; when we generate multiple files, 
-# how to handle? for now, appending an index...
-def export_to_edf(data: DiveData, filepath: str) -> list:
+def export_to_edf(data: DiveData, output_dir: str) -> list:
     """Export metadata plus signals to set of EDF files"""
     edf_filepaths = []
     data.get_metadata()  # TODO-CHECK: always, or only if it's None already?
     df = data.duckdb_relation.df()  # TODO: filter down to specific recording_id before materializing?
-    for (i, recording_id) in enumerate(data.metadata.keys()):
+    for recording_id in data.metadata.keys():
         metadata = data.metadata[recording_id]
-        recording_filepath = get_filename(filepath, i, len(data.recording_ids))
         edf = create_edf(df, metadata)
-        edf.write(recording_filepath)
-        edf_filepaths.append(recording_filepath)
+        edf_path = construct_new_filename(output_dir, recording_id)
+        edf.write(edf_path)
+        edf_filepaths.append(edf_path)
     return edf_filepaths
 
 
