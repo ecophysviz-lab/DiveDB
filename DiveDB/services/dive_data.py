@@ -59,7 +59,7 @@ def get_metadata(divedata: DiveData):
     return metadata
 
 
-def construct_new_filename(output_dir, filename_prefix: str, max_suffix_int: int = 1000):
+def make_unique_edf_filename(output_dir, filename_prefix: str, max_suffix_int: int = 1000):
     path_prefix = os.path.join(output_dir, filename_prefix)
     if not os.path.isfile(path_prefix + ".edf"):
         return path_prefix + ".edf"
@@ -74,17 +74,18 @@ def export_to_edf(data: DiveData, output_dir: str) -> list:
     """Export metadata plus signals to set of EDF files"""
     edf_filepaths = []
     data.get_metadata()  # TODO-CHECK: always, or only if it's None already?
-    df = data.duckdb_relation.df()  # TODO: filter down to specific recording_id before materializing?
     for recording_id in data.metadata.keys():
-        metadata = data.metadata[recording_id]
-        edf = create_edf(df, metadata)
-        edf_path = construct_new_filename(output_dir, recording_id)
+        df = data.duckdb_relation.filter("recording='{recording_id}'").df()
+        print(df)
+        recording_metadata = data.metadata[recording_id]
+        edf = construct_recording_edf(df, recording_metadata)
+        edf_path = make_unique_edf_filename(output_dir, recording_id)
         edf.write(edf_path)
         edf_filepaths.append(edf_path)
     return edf_filepaths
 
 
-def create_edf(df, metadata):
+def construct_recording_edf(df, metadata):
     # Iterate through each signal (class + label) in the recording 
     signal_names = [n for n in list(df.columns)if n not in ['datetime', 'class', 'recording']]
 
