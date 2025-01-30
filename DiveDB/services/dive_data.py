@@ -55,9 +55,19 @@ def get_metadata(divedata: DiveData):
                             WHERE Recordings.id = '{recording_id}'
                         """).df()
         if df.shape[0] != 1:
-            print("Oh no more than one item for this recording")  # TODO-throw error 
-        for col in list(['start_time', 'animal_deployment_id', 'logger_id']):
-            recording_metadata[col] = df[col][0]
+            raise(Exception("Multiple recording entries unexpectedly returned for single recording_id!"))
+        recording_metadata['logger_id'] = df['logger_id'][0]
+
+        animal_deployment_id = df['animal_deployment_id'][0]
+        df = divedata.conn.sql(f"""
+                            SELECT animal_id, deployment_id
+                            FROM Metadata.public.Animal_Deployments
+                            WHERE Animal_Deployments.id = '{animal_deployment_id}'
+                        """).df()
+        if df.shape[0] != 1:
+            raise(Exception("Multiple deployment entries unexpectedly returned for single animal_deployment_id!"))
+        recording_metadata['animal_id'] = df['animal_id'][0]
+        recording_metadata['deployment_id'] = df['deployment_id'][0]
         metadata[recording_id] = recording_metadata
     return metadata
 
@@ -103,7 +113,7 @@ def get_sampling_rate(timestamps: Series):
 # TODO-file-future: Should be on a per-signal basis, either hard-coded (eh) or passed in
 # by the user (better) or gleaned from the db (best, but requires storing in db!)
 def get_pad_value_for_signal(signal_name):
-    print(f"Warning: Signal-specific padding value not yet implemented for `{signal_name}` (default: `0`")
+    print(f"Warning: Signal-specific padding value not yet implemented for `{signal_name}` (default: `0`)")
     return np.float64(0)
 
 
@@ -126,17 +136,20 @@ def signal_name(signal_class_name, signal_name):
     if signal_class_name.startswith("sensor_data"):
         class_prefix = signal_class_name[12:]
     elif signal_class_name.startswith("derived_data"):
-        class_prefix = "**" + signal_class_name[13:]
+        class_prefix = "derived_" + signal_class_name[13:]
     else:
         class_prefix = signal_class_name
 
     if signal_class_name == signal_name:
         label = class_prefix if len(class_prefix) <= 16 else class_prefix[0:16]  # lol EDF
     else:
-        max_prefix_length = 16 - len(signal_name) - 1  # lol EDF 
-        # TODO handle case when prefix is now < 0
+        max_prefix_length = 16 - len(signal_name) - 1  # lol EDF limits
+        if max_prefix_length < 0:
+            max_prefix_length = 0
         class_prefix = class_prefix if len(class_prefix) <= max_prefix_length else class_prefix[0:max_prefix_length]
         label = class_prefix + "-" + signal_name
+        if len(label) > 16:
+            label = label[0:16]
     return label
 
 
@@ -154,11 +167,6 @@ def data_processing_details(signal_class_name):
 # by the user (better) or gleaned from the db (best, but requires storing in db!)
 def get_physical_dimension(signal_name):
     return "Unknown"
-
-
-# TODO: implement (or don't return at all! might be feature creep?)
-def sensor_type_details(name, metadata):
-    return "TODO"  # TODO - question: are there length limits here, in the EDF spec??
 
 
 # Assumes we've been passed a single recording and that all signals in it are valid and continuous
@@ -199,21 +207,29 @@ def construct_recording_edf(df, metadata):
         label = signal_name(signal_class, name)
         physical_dimension = get_physical_dimension(name)
         processing_details_str = data_processing_details(signal_class)
-        sensor_type_str = sensor_type_details(name, metadata)
         
         signal = EdfSignal(signal_data,
                            sampling_frequency=sampling_rate,
                            label=label,
                            physical_dimension=physical_dimension,
-                           transducer_type=sensor_type_str,
                            prefiltering=processing_details_str)
-        # TODO-any additional metadata to include?? check spec.
         signals.append(signal)
 
+    # Construct the full EDF!
     edf = Edf(signals,
               starttime=recording_start_datetime.time())
-    edf.recording = Recording(startdate=recording_start_datetime.date())
+    
+    # Add additional metadata
+    # Why not just pack the 4 metadata fields we want (these 3 plus recording_id)
+    # into "additional"? Because EDF has a character limit on the heading, 
+    # so they won't all fit. So put animal_id in patient, and skip recording_id 
+    # (which is already the file name anyway...)
+    edf.recording = Recording(
+        startdate=recording_start_datetime.date(),
+        equipment_code=metadata['logger_id'],
+        additional=(f"deployment_id:{metadata['deployment_id']}",)
+    )
     edf.patient = Patient(
-        code="MCH-0234567",  # TODO - metadata animal
+        code=metadata['animal_id']
     )
     return edf
