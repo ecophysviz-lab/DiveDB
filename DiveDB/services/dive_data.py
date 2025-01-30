@@ -7,7 +7,7 @@ import math
 import numpy as np
 import datetime
 from pandas import Timestamp, Series
-from edfio import Edf, EdfSignal, Patient, Recording, EdfAnnotation
+from edfio import Edf, EdfSignal, Recording, EdfAnnotation
 import os.path
 from pathlib import Path
 import json
