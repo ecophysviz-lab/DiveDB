@@ -7,9 +7,10 @@ import math
 import numpy as np
 import datetime
 from pandas import Timestamp, Series
-from edfio import Edf, EdfSignal, Patient, Recording
+from edfio import Edf, EdfSignal, Patient, Recording, EdfAnnotation
 import os.path
 from pathlib import Path
+import json
 
 
 # TODO-clarify: spec says DuckDBPyConnection but get_delta_data returns a Relation
@@ -68,6 +69,7 @@ def get_metadata(divedata: DiveData):
             raise(Exception("Multiple deployment entries unexpectedly returned for single animal_deployment_id!"))
         recording_metadata['animal_id'] = df['animal_id'][0]
         recording_metadata['deployment_id'] = df['deployment_id'][0]
+        recording_metadata['recording_id'] = recording_id
         metadata[recording_id] = recording_metadata
     return metadata
 
@@ -216,20 +218,14 @@ def construct_recording_edf(df, metadata):
         signals.append(signal)
 
     # Construct the full EDF!
-    edf = Edf(signals,
-              starttime=recording_start_datetime.time())
-    
+    edf = Edf(signals, starttime=recording_start_datetime.time())
+    edf.recording = Recording(startdate=recording_start_datetime.date())
+
     # Add additional metadata
-    # Why not just pack the 4 metadata fields we want (these 3 plus recording_id)
-    # into "additional"? Because EDF has a character limit on the heading, 
-    # so they won't all fit. So put animal_id in patient, and skip recording_id 
-    # (which is already the file name anyway...)
-    edf.recording = Recording(
-        startdate=recording_start_datetime.date(),
-        equipment_code=metadata['logger_id'],
-        additional=(f"deployment_id:{metadata['deployment_id']}",)
-    )
-    edf.patient = Patient(
-        code=metadata['animal_id']
-    )
+    # We do this by adding an annotation, because the EDF metadata fields are human
+    # (and EEG) specific, and have arbitrary (short) character limits. Safer 
+    # to pack it all into an annotation!
+    metadata_str = json.dumps(metadata)
+    edf.add_annotations([EdfAnnotation(0, None, metadata_str),])
+
     return edf
