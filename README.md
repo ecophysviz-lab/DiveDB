@@ -363,6 +363,10 @@ For any files to be uploaded to the data lake, they must be in netCDF format and
 
 We use [DuckDB](https://duckdb.org/) to read files from the data lake. To see how to read files from the data lake, refer to the [visualization_docs.ipynb](docs/visualization_docs.ipynb) notebook.
 
+## Exporting data as EDF files
+
+We use [EDF](https://en.wikipedia.org/wiki/European_Data_Format) to export signal data from the data lake. To see how to select and export data, refer to the [querying_docs.ipynb](docs/querying_docs.ipynb) notebook.
+
 ## Using Dash to Visualize DiveDB Data
 
 DiveDB provides a powerful visualization tool using [Dash](https://dash.plotly.com/), a Python framework for building analytical web applications. The [data_visualization.py](dash/data_visualization.py) script is an example of how to create interactive visualizations of biologging data stored in DiveDB.

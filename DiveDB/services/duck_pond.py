@@ -344,7 +344,6 @@ class DuckPond:
             SELECT datetime, class, recording, {', '.join(best_columns)}
             FROM pivot_results
         """
-
         results = self.conn.sql(final_query)
 
         if frequency:

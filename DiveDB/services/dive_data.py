@@ -1,5 +1,5 @@
 """
-EDF Export Manager
+Retrieved Data Manager
 """
 
 import duckdb
