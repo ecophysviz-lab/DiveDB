@@ -347,7 +347,6 @@ class DuckPond:
 
         results = self.conn.sql(final_query)
 
-        #TODO-propose: pull this into a method of DiveData
         if frequency:
             # Pull data into memory for resampling
             df = results.df()
