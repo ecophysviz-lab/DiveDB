@@ -214,7 +214,7 @@ class DuckPond:
 
         Returns:
         - If frequency is not None, returns a pd.DataFrame.
-        - If frequency is None, returns a DuckDBPyRelation object with pivoted data.
+        - If frequency is None, returns a DiveData object with pivoted data.
         """
 
         def get_predicate_string(predicate: str, values: List[str]):
