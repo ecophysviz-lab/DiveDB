@@ -1,10 +1,10 @@
 DiveDB documentation
 ====================
 
-To do: include (or copy over) information from the README.
+TODO: include (or copy over) information from the README.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: Contents:
 
-
+   api
