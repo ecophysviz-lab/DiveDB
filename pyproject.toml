@@ -36,6 +36,7 @@ dependencies = [
   "python-swiftclient",
   "setuptools",
   "sphinx",
+  "sphinx_rtd_theme",
   "tqdm",
   "xarray",
 ]
