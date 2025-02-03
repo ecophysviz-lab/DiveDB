@@ -35,6 +35,7 @@ dependencies = [
   "python-keystoneclient",
   "python-swiftclient",
   "setuptools",
+  "sphinx",
   "tqdm",
   "xarray",
 ]
