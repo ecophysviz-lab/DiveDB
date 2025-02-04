@@ -3,8 +3,8 @@ DiveDB documentation
 
 TODO: include (or copy over) information from the README.
 
-.. toctree::
-   :maxdepth: 4
-   :caption: Contents:
+.. autosummary::
+   :toctree: _autosummary
+   :recursive:
 
-   api
+   DiveDB
