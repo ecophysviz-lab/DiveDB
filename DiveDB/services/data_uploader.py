@@ -329,28 +329,28 @@ class DataUploader:
         gc.collect()
 
     def validate_netcdf(self, ds: xr.Dataset):
-        """
-        Validates netCDF file before upload.
+        # """
+        # Validates netCDF file before upload.
 
-        Dimensions:
-            - Sampling: Must have suffix "_samples". Array of datetime64.
-            - Labeling: Must have suffix "_variables". Array of str.
+        # Dimensions:
+        #     - Sampling: Must have suffix "_samples". Array of datetime64.
+        #     - Labeling: Must have suffix "_variables". Array of str.
 
-        Data variables:
-            - Must be associated with sampling dim, and maybe labeling dim.
-            - If flat array (ndim=1), should have attribute "variable" with str.
-            - If nested list (ndim=2), should have attribute "variables" with list of str.
+        # Data variables:
+        #     - Must be associated with sampling dim, and maybe labeling dim.
+        #     - If flat array (ndim=1), should have attribute "variable" with str.
+        #     - If nested list (ndim=2), should have attribute "variables" with list of str.
 
-        Args:
-            ds (xr.Dataset): A formatted (no groups) netCDF dataset.
+        # Args:
+        #     ds (xr.Dataset): A formatted (no groups) netCDF dataset.
 
-        Raises:
-            NetCDFValidationError: Generic exception for validation errors. Provides details in msg.
+        # Raises:
+        #     NetCDFValidationError: Generic exception for validation errors. Provides details in msg.
 
 
-        Returns:
-            bool: True if dataset passes all checks.
-        """
+        # Returns:
+        #     bool: True if dataset passes all checks.
+        # """
         required_dimensions_suffix = ["_samples", "_variables"]
 
         if not ds.dims:
@@ -496,19 +496,19 @@ class DataUploader:
         batch_size: int = 1000000,
         rename_map: dict = {},
     ):
-        """
-        Uploads a netCDF file to the database and DuckPond.
+        # """
+        # Uploads a netCDF file to the database and DuckPond.
 
-        Parameters:
-        netcdf_file_path (str): Path to the netCDF file.
-        metadata (dict): Metadata dictionary.
-            Required keys:
-                - animal: Animal ID (int)
-                - deployment: Deployment Name (str)
-                - recording: Recording Name (str)
-        batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
-        rename_map (dict, optional): A dictionary mapping original variable names to new names.
-        """
+        # Parameters:
+        # netcdf_file_path (str): Path to the netCDF file.
+        # metadata (dict): Metadata dictionary.
+        #     Required keys:
+        #         - animal: Animal ID (int)
+        #         - deployment: Deployment Name (str)
+        #         - recording: Recording Name (str)
+        # batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
+        # rename_map (dict, optional): A dictionary mapping original variable names to new names.
+        # """
 
         ds = xr.open_dataset(netcdf_file_path)
 
