@@ -29,11 +29,11 @@ release = '0.1.0'  # TODO: Pull from code version
 
 extensions = [
     'sphinx.ext.autodoc',  # Core library for html generation from docstrings
-    'sphinx.ext.autosummary',  # Create neat summary tables
+    # 'sphinx.ext.autosummary',  # Create neat summary tables
     'myst_parser',  # Support including markdown files
     # 'sphinx.ext.viewcode',
 ]
-autosummary_generate = True  # Turn on sphinx.ext.autosummary
+# autosummary_generate = True  # Turn on sphinx.ext.autosummary
 
 templates_path = ['../_templates']
 exclude_patterns = ['_build', '_templates', 'Thumbs.db', '.DS_Store']

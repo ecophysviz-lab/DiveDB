@@ -10,4 +10,4 @@ DiveDB Documentation
    :maxdepth: 2
 
    readme_link
-   api
+   api<_auto-apidoc/DiveDB>
