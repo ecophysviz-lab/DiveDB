@@ -1,12 +1,13 @@
-DiveDB documentation
+DiveDB Documentation
 ====================
 
-TODO: include (or copy over) information from the README.
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
+   :start-line: 4
 
-.. autosummary::
-   :toctree: _autosummary
-   :recursive:
-   :caption: Module API
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents
 
-   DiveDB.server 
-   DiveDB.services
+   api
+

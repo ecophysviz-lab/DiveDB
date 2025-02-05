@@ -329,28 +329,28 @@ class DataUploader:
         gc.collect()
 
     def validate_netcdf(self, ds: xr.Dataset):
-        # """
-        # Validates netCDF file before upload.
+        """
+        Validates netCDF file before upload.
 
-        # Dimensions:
-        #     - Sampling: Must have suffix "_samples". Array of datetime64.
-        #     - Labeling: Must have suffix "_variables". Array of str.
+        Dimensions:
+            - Sampling: Must have suffix "_samples". Array of datetime64.
+            - Labeling: Must have suffix "_variables". Array of str.
 
-        # Data variables:
-        #     - Must be associated with sampling dim, and maybe labeling dim.
-        #     - If flat array (ndim=1), should have attribute "variable" with str.
-        #     - If nested list (ndim=2), should have attribute "variables" with list of str.
+        Data variables:
+            - Must be associated with sampling dim, and maybe labeling dim.
+            - If flat array (ndim=1), should have attribute "variable" with str.
+            - If nested list (ndim=2), should have attribute "variables" with list of str.
 
-        # Args:
-        #     ds (xr.Dataset): A formatted (no groups) netCDF dataset.
+        Args:
+            ds (xr.Dataset): A formatted (no groups) netCDF dataset.
 
-        # Raises:
-        #     NetCDFValidationError: Generic exception for validation errors. Provides details in msg.
+        Raises:
+            NetCDFValidationError: Generic exception for validation errors. Provides details in msg.
 
 
-        # Returns:
-        #     bool: True if dataset passes all checks.
-        # """
+        Returns:
+            bool: True if dataset passes all checks.
+        """
         required_dimensions_suffix = ["_samples", "_variables"]
 
         if not ds.dims:
