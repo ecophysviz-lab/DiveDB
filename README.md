@@ -286,7 +286,7 @@ These models are defined using Django's ORM and are used to manage the metadata 
 Django migrations are a way of propagating changes you make to your models (adding a field, deleting a model, etc.) into your database schema. Follow these steps to create and apply migrations:
 
 1. **Make Changes to Your Models:**
-   Modify your Django models in the [`models.py`](DiveDB/server/metadata/models.py) file as needed.
+   Modify your Django models in the [`models.py`](https://github.com/ecophysviz-lab/DiveDB/blob/main/DiveDB/server/metadata/models.py) file as needed.
 
 2. **Create Migrations:**
    After making changes to your models, create a new migration file by running the following command:
@@ -321,7 +321,7 @@ By following these steps, you can effectively manage changes to your database sc
 
 ## Uploading Files to the Data Lake
 
-To see how to upload files to the data lake, refer to the [upload_docs.ipynb](docs/upload_docs.ipynb) notebook.
+To see how to upload files to the data lake, refer to the [upload_docs.ipynb](https://github.com/ecophysviz-lab/DiveDB/blob/main/examples/upload_docs.ipynb) notebook.
 
 ### Requirements
 For any files to be uploaded to the data lake, they must be in netCDF format and meet the following requirements:
@@ -354,18 +354,18 @@ For any files to be uploaded to the data lake, they must be in netCDF format and
   Attribute: variables with the variables' names (duplicates the dimension).
 
 **Validation:**
-- We have a validation function in `DataUploader.validate_netcdf` that checks if a netCDF file meets the above requirements and provides helpful error messages if not. See [validate_netcdf in data_uploader.py](DiveDB/services/data_uploader.py).
+- We have a validation function in `DataUploader.validate_netcdf` that checks if a netCDF file meets the above requirements and provides helpful error messages if not. See [`validate_netcdf` in data_uploader.py](#DiveDB.services.data_uploader).
 
 **Example:**
 - An example netCDF file can be downloaded here: [https://figshare.com/ndownloader/files/50061330](https://figshare.com/ndownloader/files/50061330) that meets the above requirements and can be used as a template for your own data.
 
 ## Reading Files from the Data Lake
 
-We use [DuckDB](https://duckdb.org/) to read files from the data lake. To see how to read files from the data lake, refer to the [visualization_docs.ipynb](docs/visualization_docs.ipynb) notebook.
+We use [DuckDB](https://duckdb.org/) to read files from the data lake. To see how to read files from the data lake, refer to the [visualization_docs.ipynb](https://github.com/ecophysviz-lab/DiveDB/blob/main/examples/visualization_docs.ipynb) notebook.
 
 ## Using Dash to Visualize DiveDB Data
 
-DiveDB provides a powerful visualization tool using [Dash](https://dash.plotly.com/), a Python framework for building analytical web applications. The [data_visualization.py](dash/data_visualization.py) script is an example of how to create interactive visualizations of biologging data stored in DiveDB.
+DiveDB provides a powerful visualization tool using [Dash](https://dash.plotly.com/), a Python framework for building analytical web applications. The [data_visualization.py](https://github.com/ecophysviz-lab/DiveDB/blob/main/dash/data_visualization.py) script is an example of how to create interactive visualizations of biologging data stored in DiveDB.
 
 ### Key Components
 
@@ -445,3 +445,17 @@ By following these steps, you can effectively use Dash to visualize and analyze 
    pip install -r requirements.txt
    pytest
    ```
+
+1. **To build docs manually:**
+   ```sh
+   # Run locally
+   source venv/bin/activate
+   pip install .
+   
+   cd docs
+   make clean
+   make html
+   ```
+   Then view at `docs/_build/html/index.html`.
+
+   When adding new documentation, follow the [numpy style guide](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard).

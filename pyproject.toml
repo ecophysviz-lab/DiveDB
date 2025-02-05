@@ -22,6 +22,7 @@ dependencies = [
   "importlib-metadata==4.8.3",
   "load_dotenv",
   "mne",
+  "myst_parser",
   "netcdf4",
   "notion_client",
   "numpy",
@@ -37,6 +38,8 @@ dependencies = [
   "python-keystoneclient",
   "python-swiftclient",
   "setuptools",
+  "sphinx",
+  "sphinx_rtd_theme",
   "tqdm",
   "xarray",
 ]
