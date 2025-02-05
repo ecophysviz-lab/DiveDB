@@ -1,6 +1,10 @@
 DiveDB Documentation
 ====================
 
+..
+   Include the intro blurb from the readme, but save 
+   the rest of it for `readme_link`
+
 .. include:: ../../README.md
    :parser: myst_parser.sphinx_
    :start-line: 4
@@ -10,4 +14,4 @@ DiveDB Documentation
    :maxdepth: 2
 
    readme_link
-   api<_auto-apidoc/DiveDB>
+   API<_auto-apidoc/DiveDB>
