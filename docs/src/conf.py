@@ -29,6 +29,7 @@ release = '0.1.0'  # TODO: Pull from code version
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    'sphinx.ext.napoleon',  # Support np documentation style docstrings
     'sphinx.ext.autodoc',  # Core library for html generation from docstrings
     # 'sphinx.ext.autosummary',  # Create neat summary tables
     'myst_parser',  # Support including markdown files
@@ -67,7 +68,7 @@ def run_apidoc(_):
     # certainly!
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir)
-    apidoc(["--module-first", "--separate", "--force", "--no-toc", "-d 5",
+    apidoc(["--module-first", "--separate", "--force", "--no-toc", "-d 0",
             "-o", output_dir, module_to_be_documented])
 
 

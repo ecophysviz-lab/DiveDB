@@ -500,16 +500,17 @@ class DataUploader:
         Uploads a netCDF file to the database and DuckPond.
 
         Parameters:
-        netcdf_file_path (str): Path to the netCDF file.
-        metadata (dict): Metadata dictionary.
-            Required keys:
-                - animal: Animal ID (int)
-                - deployment: Deployment Name (str)
-                - recording: Recording Name (str)
-        batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
-        rename_map (dict, optional): A dictionary mapping original variable names to new names.
-        """
+            netcdf_file_path (str): Path to the netCDF file.
+            metadata (dict): Metadata dictionary.
 
+                Required keys:
+                    - animal: Animal ID (int)
+                    - deployment: Deployment Name (str)
+                    - recording: Recording Name (str)
+
+            batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
+            rename_map (dict, optional): A dictionary mapping original variable names to new names.
+        """
         ds = xr.open_dataset(netcdf_file_path)
 
         # Apply renaming if rename_map is provided

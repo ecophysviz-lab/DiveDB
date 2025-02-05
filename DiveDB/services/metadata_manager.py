@@ -361,16 +361,16 @@ class MetadataManager:
         Facilitates the retrieval of metadata for a specified model from CSV, PostgreSQL, and Notion.
 
         Parameters:
-        model_name (ModelNames): The name of the model for which metadata is being retrieved.
+            model_name (ModelNames): The name of the model for which metadata is being retrieved.
 
         Workflow:
-        1. Fetches Notion data and converts it to the model format.
-        2. Checks if the metadata lookup key exists in the CSV file.
-        3. User Interaction:
-            - Prompts the user to select a name from the CSV metadata.
-            - If no selection, prompts the user to select a name from the PostgreSQL database.
-            - If no selection, prompts the user to select a name from the Notion data.
-        4. Returns the selected, newly created record, or closes the program if no selection is made.
+            1. Fetches Notion data and converts it to the model format.
+            2. Checks if the metadata lookup key exists in the CSV file.
+            3. User Interaction:
+                - Prompts the user to select a name from the CSV metadata.
+                - If no selection, prompts the user to select a name from the PostgreSQL database.
+                - If no selection, prompts the user to select a name from the Notion data.
+            4. Returns the selected, newly created record, or closes the program if no selection is made.
         """
         from IPython.display import clear_output
 
