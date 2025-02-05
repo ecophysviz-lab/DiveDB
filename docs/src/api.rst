@@ -6,6 +6,5 @@ API
    :recursive:
    :caption: API
 
-   DiveDB.server 
-   DiveDB.services
+   DiveDB
 
