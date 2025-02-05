@@ -445,3 +445,17 @@ By following these steps, you can effectively use Dash to visualize and analyze 
    pip install -r requirements.txt
    pytest
    ```
+
+1. **To build docs manually:**
+   ```sh
+   # Run locally
+   source venv/bin/activate
+   pip install .
+   
+   cd docs
+   make clean
+   make html
+   ```
+   Then view at `docs/_build/html/index.html`.
+
+   When adding new documentation, follow the [numpy style guide](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard).
