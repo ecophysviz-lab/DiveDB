@@ -47,6 +47,8 @@ def get_metadata(divedata):
         if df.shape[0] != 1:
             raise Exception("Multiple recording entries unexpectedly returned for single recording_id!")
         recording_metadata['logger_id'] = df['logger_id'][0]
+        recording_metadata['timezone'] = df['start_time'][0].tzname()
+        recording_metadata['start_time'] = df['start_time'][0].isoformat()
 
         animal_deployment_id = df['animal_deployment_id'][0]
         df = divedata.conn.sql(f"""
@@ -59,6 +61,7 @@ def get_metadata(divedata):
         recording_metadata['animal_id'] = df['animal_id'][0]
         recording_metadata['deployment_id'] = df['deployment_id'][0]
         recording_metadata['recording_id'] = recording_id
+
         metadata[recording_id] = recording_metadata
     return metadata
 
