@@ -7,7 +7,7 @@ import math
 import numpy as np
 import datetime
 from pandas import Timestamp, Series
-from edfio import Edf, EdfSignal, Recording, EdfAnnotation
+from edfio import Edf, EdfSignal, Recording, Patient, EdfAnnotation
 import os.path
 from pathlib import Path
 import json
@@ -240,5 +240,6 @@ def construct_recording_edf(multisignal_data_df, metadata):
     # to pack it all into an annotation!
     metadata_str = json.dumps(metadata)
     edf.add_annotations([EdfAnnotation(0, None, metadata_str),])
-
+    subject_code = metadata['animal_id']
+    edf.patient = Patient(code=subject_code.replace(" ", "_"))
     return edf
