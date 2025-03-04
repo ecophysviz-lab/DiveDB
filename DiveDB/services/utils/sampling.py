@@ -23,7 +23,7 @@ def upsample(df, original_fs, target_fs):
     # For all columns that aren't datetime, repeat the data
     for col in df.columns:
         if col != "datetime":
-            new_df[col] = np.repeat(df[col], upsampling_factor)
+            new_df[col] = pd.Series(np.repeat(df[col].values, upsampling_factor))
         else:
             number_of_seconds = (df[col].iloc[-1] - df[col].iloc[0]).total_seconds() + 1
             seconds_elapsed = np.arange(0, number_of_seconds, 1 / target_fs)
@@ -36,28 +36,7 @@ def upsample(df, original_fs, target_fs):
     elif len(new_df) < original_length:
         new_df = np.pad(new_df, (0, original_length - len(new_df)), "edge")
 
-    return new_df
-
-    # # Calculate the target sampling interval
-    # freq = pd.Timedelta(seconds=1 / target_fs)
-
-    # # Separate numeric and non-numeric columns
-    # numeric_cols = df.select_dtypes(include=[np.number]).columns
-    # non_numeric_cols = df.columns.difference(numeric_cols)
-
-    # # Resample numeric columns using interpolation
-    # df_numeric = df[numeric_cols].resample(freq).interpolate(method="linear")
-
-    # # Resample non-numeric columns using forward-fill
-    # df_non_numeric = df[non_numeric_cols].resample(freq).ffill()
-
-    # # Combine the numeric and non-numeric resampled data
-    # df_upsampled = pd.concat([df_numeric, df_non_numeric], axis=1)
-
-    # # Reorder columns to match the original DataFrame
-    # df_upsampled = df_upsampled[df.columns]
-
-    # return df_upsampled
+    return new_df.reset_index(drop=True)
 
 
 def downsample(df, original_fs, target_fs):
@@ -79,30 +58,7 @@ def downsample(df, original_fs, target_fs):
     print(
         f"Original FS: {original_fs}, Target FS: {target_fs}, Conversion Factor: {conversion_factor}"
     )
-    return df.iloc[::conversion_factor, :]
-    # if target_fs >= original_fs:
-    #     return df
-
-    # # Calculate the target sampling interval
-    # freq = pd.Timedelta(seconds=1 / target_fs)
-
-    # # Separate numeric and non-numeric columns
-    # numeric_cols = df.select_dtypes(include=[np.number]).columns
-    # non_numeric_cols = df.columns.difference(numeric_cols)
-
-    # # Drop values to match new frequency
-    # df_numeric = df[numeric_cols].resample(freq).mean()
-
-    # # Resample non-numeric columns using forward-fill
-    # df_non_numeric = df[non_numeric_cols].resample(freq).ffill()
-
-    # # Combine the numeric and non-numeric resampled data
-    # df_downsampled = pd.concat([df_numeric, df_non_numeric], axis=1)
-
-    # # Reorder columns to match the original DataFrame
-    # df_downsampled = df_downsampled[df.columns]
-
-    # return df_downsampled
+    return df.iloc[::conversion_factor, :].reset_index(drop=True)
 
 
 def resample(df, target_fs, original_fs=None):
@@ -118,8 +74,6 @@ def resample(df, target_fs, original_fs=None):
     Returns:
     - pandas DataFrame resampled to the target frequency.
     """
-    df.index = pd.to_datetime(df.index)
-
     # Ensure the index is sorted
     df = df.sort_values(by="datetime")
 
