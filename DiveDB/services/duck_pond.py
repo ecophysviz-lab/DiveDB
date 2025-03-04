@@ -11,6 +11,7 @@ import duckdb
 import pyarrow as pa
 from deltalake import DeltaTable, write_deltalake
 from DiveDB.services.utils.sampling import resample
+from DiveDB.services.dive_data import DiveData
 
 # flake8: noqa
 
@@ -207,13 +208,13 @@ class DuckPond:
         date_range: tuple[str, str] | None = None,
         frequency: int | None = None,
         limit: int | None = None,
-    ) -> pd.DataFrame | duckdb.DuckDBPyRelation:
+    ) -> pd.DataFrame | DiveData:
         """
         Get data from the Delta Lake based on various filters.
 
         Returns:
         - If frequency is not None, returns a pd.DataFrame.
-        - If frequency is None, returns a DuckDBPyRelation object with pivoted data.
+        - If frequency is None, returns a DiveData object with pivoted data.
         """
 
         def get_predicate_string(predicate: str, values: List[str]):
@@ -307,10 +308,10 @@ class DuckPond:
 
         pivot_query = f"""
             SELECT
-                datetime,
+                datetime, recording, class,
                 {', '.join(pivot_expressions)}
             FROM ({base_query}) AS sub
-            GROUP BY datetime
+            GROUP BY datetime, recording, class
             ORDER BY datetime
         """
 
@@ -338,9 +339,9 @@ class DuckPond:
             )[0]
             best_columns.append(f"{label}_{best_type} AS {label}")
 
-        # Keep only the best columns and the datetime column
+        # Keep only the best columns, the required metadata columns, and the datetime column
         final_query = f"""
-            SELECT datetime, {', '.join(best_columns)}
+            SELECT datetime, class, recording, {', '.join(best_columns)}
             FROM pivot_results
         """
         results = self.conn.sql(final_query)
@@ -348,6 +349,7 @@ class DuckPond:
         if frequency:
             # Pull data into memory for resampling
             df = results.df()
+            df = df.drop(['recording', 'class'], axis=1)
 
             # Ensure 'datetime' is in datetime format
             df["datetime"] = pd.to_datetime(df["datetime"])
@@ -364,4 +366,4 @@ class DuckPond:
             return df_resampled
         else:
             # Return the DuckDB relation without pulling data into memory
-            return results
+            return DiveData(results, self.conn)

@@ -247,8 +247,8 @@ The `Recordings` model represents a recording of data from a logger. It includes
 
 - **id**: The primary key identifier for the recording.
 - **name**: The name of the recording.
-- **animal_deployment**: A foreign key to the `AnimalDeployments` model.
-- **logger**: A foreign key to the `Loggers` model.
+- **animal_deployment_id**: A foreign key to the `AnimalDeployments` model.
+- **logger_id**: A foreign key to the `Loggers` model.
 - **start_time**: The start time of the recording.
 - **actual_start_time**: The actual start time of the recording (nullable).
 - **end_time**: The end time of the recording (nullable).
@@ -362,6 +362,10 @@ For any files to be uploaded to the data lake, they must be in netCDF format and
 ## Reading Files from the Data Lake
 
 We use [DuckDB](https://duckdb.org/) to read files from the data lake. To see how to read files from the data lake, refer to the [visualization_docs.ipynb](docs/visualization_docs.ipynb) notebook.
+
+## Exporting data as EDF files
+
+We use [EDF](https://en.wikipedia.org/wiki/European_Data_Format) to export signal data from the data lake. To see how to select and export data, refer to the [querying_docs.ipynb](docs/querying_docs.ipynb) notebook.
 
 ## Using Dash to Visualize DiveDB Data
 
