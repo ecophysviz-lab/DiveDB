@@ -13,10 +13,12 @@ from pathlib import Path
 import json
 
 
-class DiveData():
+class DiveData:
     """Retrieved Data Manager"""
-    def __init__(self, duckdb_relation: duckdb.DuckDBPyRelation,
-                 conn: duckdb.DuckDBPyConnection):
+
+    def __init__(
+        self, duckdb_relation: duckdb.DuckDBPyRelation, conn: duckdb.DuckDBPyConnection
+    ):
         self.duckdb_relation = duckdb_relation
         self.conn = conn
 
@@ -33,40 +35,54 @@ class DiveData():
         return export_to_edf(self, output_dir)
 
 
+# TODO: Update this to pull data from Notion
 def get_metadata(divedata):
     """Get metadata from postgres"""
     metadata = {}
-    recording_ids = [id for id in divedata.duckdb_relation.unique('recording').df()['recording'].values]
+    recording_ids = [
+        id
+        for id in divedata.duckdb_relation.unique("recording").df()["recording"].values
+    ]
     for recording_id in recording_ids:
         recording_metadata = {}
-        df = divedata.conn.sql(f"""
+        df = divedata.conn.sql(
+            f"""
                             SELECT start_time, animal_deployment_id, logger_id
                             FROM Metadata.public.Recordings
                             WHERE Recordings.id = '{recording_id}'
-                        """).df()
+                        """
+        ).df()
         if df.shape[0] != 1:
-            raise Exception("Multiple recording entries unexpectedly returned for single recording_id!")
-        recording_metadata['logger_id'] = df['logger_id'][0]
-        recording_metadata['timezone'] = df['start_time'][0].tzname()
-        recording_metadata['start_time'] = df['start_time'][0].isoformat()
+            raise Exception(
+                "Multiple recording entries unexpectedly returned for single recording_id!"
+            )
+        recording_metadata["logger_id"] = df["logger_id"][0]
+        recording_metadata["timezone"] = df["start_time"][0].tzname()
+        recording_metadata["start_time"] = df["start_time"][0].isoformat()
 
-        animal_deployment_id = df['animal_deployment_id'][0]
-        df = divedata.conn.sql(f"""
+        animal_deployment_id = df["animal_deployment_id"][0]
+        df = divedata.conn.sql(
+            f"""
                             SELECT animal_id, deployment_id
                             FROM Metadata.public.Animal_Deployments
                             WHERE Animal_Deployments.id = '{animal_deployment_id}'
-                        """).df()
+                        """
+        ).df()
         if df.shape[0] != 1:
-            raise Exception("Multiple deployment entries unexpectedly returned for single animal_deployment_id!")
-        recording_metadata['animal_id'] = df['animal_id'][0]
-        recording_metadata['deployment_id'] = df['deployment_id'][0]
-        recording_metadata['recording_id'] = recording_id
+            raise Exception(
+                "Multiple deployment entries unexpectedly returned for single animal_deployment_id!"
+            )
+        recording_metadata["animal_id"] = df["animal_id"][0]
+        recording_metadata["deployment_id"] = df["deployment_id"][0]
+        recording_metadata["recording_id"] = recording_id
 
         metadata[recording_id] = recording_metadata
     return metadata
 
 
-def make_unique_edf_filename(output_dir, filename_prefix: str, max_suffix_int: int = 1000):
+def make_unique_edf_filename(
+    output_dir, filename_prefix: str, max_suffix_int: int = 1000
+):
     path_prefix = os.path.join(output_dir, filename_prefix)
     if not os.path.isfile(path_prefix + ".edf"):
         return path_prefix + ".edf"
@@ -74,7 +90,9 @@ def make_unique_edf_filename(output_dir, filename_prefix: str, max_suffix_int: i
         fname = path_prefix + "_" + str(i) + ".edf"
         if not os.path.isfile(fname):
             return fname
-    raise Exception(f"Filepath already exists in directory ({path_prefix + ".edf"})")
+    raise Exception(
+        f"Filepath already exists in directory ({path_prefix + '_' + str(max_suffix_int) + '.edf'})"
+    )
 
 
 def export_to_edf(data: DiveData, output_dir: str) -> list:
@@ -116,15 +134,16 @@ def get_pad_value_for_signal(signal_name):
     return np.float64(0)
 
 
-def get_signal_offset_index(signal_starttime: datetime, signal_sampling_rate,
-                            recording_starttime: datetime):
+def get_signal_offset_index(
+    signal_starttime: datetime, signal_sampling_rate, recording_starttime: datetime
+):
     """
     Calculate the sample index for the offset padding between a signal's start time
     relative to its recording's start time.
 
     Correctness note: The resultant sample offset relative to the start of the
     `recording_starttime` (and therefore also other signals) may be off by as much
-    as 1 / sampling_rate seconds. ¯\_(ツ)_/¯
+    as 1 / sampling_rate seconds. ¯\\_(ツ)_/¯
     Nothing we can do---such is the life of conforming to the EDF spec!
     """
     # By definition of how the recording start time was constructed,
@@ -150,12 +169,18 @@ def get_edf_label_for_signal(signal_class_name, signal_name):
         class_prefix = signal_class_name
 
     if signal_class_name == signal_name:
-        label = class_prefix if len(class_prefix) <= 16 else class_prefix[0:16]  # lol EDF
+        label = (
+            class_prefix if len(class_prefix) <= 16 else class_prefix[0:16]
+        )  # lol EDF
     else:
         max_prefix_length = 16 - len(signal_name) - 1  # lol EDF limits
         if max_prefix_length < 0:
             max_prefix_length = 0
-        class_prefix = class_prefix if len(class_prefix) <= max_prefix_length else class_prefix[0:max_prefix_length]
+        class_prefix = (
+            class_prefix
+            if len(class_prefix) <= max_prefix_length
+            else class_prefix[0:max_prefix_length]
+        )
         label = class_prefix + "-" + signal_name
         if len(label) > 16:
             label = label[0:16]
@@ -194,43 +219,55 @@ def construct_recording_edf(multisignal_data_df, metadata):
     # EDF signals must all be the same length within an EDF record
     # (in seconds, irrespective of sampling rate)---so figure out what those bounds
     # are for the overall recording so that we can pad each signal appropriately
-    all_timestamps = multisignal_data_df.sort_values('datetime')['datetime']
+    all_timestamps = multisignal_data_df.sort_values("datetime")["datetime"]
     recording_start_datetime = Timestamp(all_timestamps.iloc[0]).to_pydatetime()
     recording_end_datetime = Timestamp(all_timestamps.iloc[-1]).to_pydatetime()
 
     # To meet EDF requirement, round the total duration (up) to the nearest second
-    recording_duration_sec = math.ceil((recording_end_datetime - recording_start_datetime).total_seconds())
+    recording_duration_sec = math.ceil(
+        (recording_end_datetime - recording_start_datetime).total_seconds()
+    )
 
     # Iterate through each signal in the recording
     signals = []
-    signal_names = [n for n in list(multisignal_data_df.columns)if n not in ['datetime', 'class', 'recording']]
+    signal_names = [
+        n
+        for n in list(multisignal_data_df.columns)
+        if n not in ["datetime", "class", "recording"]
+    ]
     for name in signal_names:
-        df_sig = multisignal_data_df[['datetime', 'class', name]]
+        df_sig = multisignal_data_df[["datetime", "class", name]]
         df_sig = df_sig[df_sig[name].notna()]
-        df_sig = df_sig.sort_values(by=['datetime'])
+        df_sig = df_sig.sort_values(by=["datetime"])
 
         # Construct the signal data, padded relative to the overall recording
-        timestamps = df_sig.sort_values('datetime')['datetime']
+        timestamps = df_sig.sort_values("datetime")["datetime"]
         sampling_rate = get_sampling_rate(timestamps)
         signal_start_datetime = Timestamp(timestamps.iloc[0]).to_pydatetime()
-        i_start_sample = get_signal_offset_index(signal_start_datetime,
-                                                 sampling_rate, recording_start_datetime)
+        i_start_sample = get_signal_offset_index(
+            signal_start_datetime, sampling_rate, recording_start_datetime
+        )
         pad_value = get_pad_value_for_signal(name)
-        signal_data = np.full(math.ceil(recording_duration_sec * sampling_rate), pad_value,
-                              dtype=np.float64)
+        signal_data = np.full(
+            math.ceil(recording_duration_sec * sampling_rate),
+            pad_value,
+            dtype=np.float64,
+        )
         signal_data[i_start_sample:timestamps.size] = df_sig[name].values
 
         # Assemble the signal metadata
-        signal_class = df_sig['class'].unique()[0]
+        signal_class = df_sig["class"].unique()[0]
         label = get_edf_label_for_signal(signal_class, name)
         physical_dimension = get_physical_dimension(name)
         processing_details_str = data_processing_details(signal_class)
 
-        signal = EdfSignal(signal_data,
-                           sampling_frequency=sampling_rate,
-                           label=label,
-                           physical_dimension=physical_dimension,
-                           prefiltering=processing_details_str)
+        signal = EdfSignal(
+            signal_data,
+            sampling_frequency=sampling_rate,
+            label=label,
+            physical_dimension=physical_dimension,
+            prefiltering=processing_details_str,
+        )
         signals.append(signal)
 
     # Construct the full EDF!
@@ -242,7 +279,11 @@ def construct_recording_edf(multisignal_data_df, metadata):
     # (and EEG) specific, and have arbitrary (short) character limits. Safer
     # to pack it all into an annotation!
     metadata_str = json.dumps(metadata)
-    edf.add_annotations([EdfAnnotation(0, None, metadata_str),])
-    subject_code = metadata['animal_id']
+    edf.add_annotations(
+        [
+            EdfAnnotation(0, None, metadata_str),
+        ]
+    )
+    subject_code = metadata["animal_id"]
     edf.patient = Patient(code=subject_code.replace(" ", "_"))
     return edf

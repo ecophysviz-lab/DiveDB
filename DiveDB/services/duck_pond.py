@@ -39,7 +39,7 @@ class DuckPond:
                     [
                         pa.field("animal", pa.string()),
                         pa.field("deployment", pa.string()),
-                        pa.field("recording", pa.string()),
+                        pa.field("recording", pa.string(), nullable=True),
                         pa.field("group", pa.string()),
                         pa.field("class", pa.string()),
                         pa.field("label", pa.string()),
@@ -65,7 +65,7 @@ class DuckPond:
                     [
                         pa.field("animal", pa.string()),
                         pa.field("deployment", pa.string()),
-                        pa.field("recording", pa.string()),
+                        pa.field("recording", pa.string(), nullable=True),
                         pa.field("group", pa.string()),
                         pa.field("event_key", pa.string()),
                         pa.field("datetime", pa.timestamp("us", tz="UTC")),
@@ -82,7 +82,7 @@ class DuckPond:
                     [
                         pa.field("animal", pa.string()),
                         pa.field("deployment", pa.string()),
-                        pa.field("recording", pa.string()),
+                        pa.field("recording", pa.string(), nullable=True),
                         pa.field("group", pa.string()),
                         pa.field("event_key", pa.string()),
                         pa.field("datetime_start", pa.timestamp("us", tz="UTC")),
@@ -108,14 +108,15 @@ class DuckPond:
             self.conn.execute(
                 """
                 CREATE SECRET secret1 (
-                    TYPE S3,
-                    REGION '{}',
+                    TYPE S3, {}
                     KEY_ID '{}',
                     SECRET '{}',
                     ENDPOINT '{}'
                 );
             """.format(
-                    os.getenv("AWS_REGION"),
+                    "REGION '{}',".format(os.getenv("AWS_REGION"))
+                    if os.getenv("AWS_REGION")
+                    else "",
                     os.getenv("AWS_ACCESS_KEY_ID"),
                     os.getenv("AWS_SECRET_ACCESS_KEY"),
                     os.getenv("AWS_ENDPOINT_URL").replace("https://", ""),
@@ -349,7 +350,7 @@ class DuckPond:
         if frequency:
             # Pull data into memory for resampling
             df = results.df()
-            df = df.drop(['recording', 'class'], axis=1)
+            df = df.drop(["recording", "class"], axis=1)
 
             df_resampled = resample(df, frequency)
 
@@ -357,3 +358,135 @@ class DuckPond:
         else:
             # Return the DuckDB relation without pulling data into memory
             return DiveData(results, self.conn)
+
+    def get_delta_events(
+        self,
+        event_type: Literal["point", "state", "all"] = "all",
+        event_keys: str | List[str] | None = None,
+        animal_ids: str | List[str] | None = None,
+        deployment_ids: str | List[str] | None = None,
+        recording_ids: str | List[str] | None = None,
+        groups: str | List[str] | None = None,
+        date_range: tuple[str, str] | None = None,
+        limit: int | None = None,
+    ) -> pd.DataFrame:
+        """
+        Get events from the Delta Lake based on various filters.
+
+        Args:
+            event_type: Type of events to retrieve ("point", "state", or "all")
+            event_keys: Specific event keys to filter by
+            animal_ids: Animal IDs to filter by
+            deployment_ids: Deployment IDs to filter by
+            recording_ids: Recording IDs to filter by
+            groups: Groups to filter by
+            date_range: Tuple of (start_datetime, end_datetime) to filter by
+            limit: Maximum number of events to return
+
+        Returns:
+            pd.DataFrame: DataFrame containing the filtered events
+        """
+
+        def get_predicate_string(predicate: str, values: List[str]):
+            if not values:
+                return ""
+            if len(values) == 1:
+                return f"{predicate} = '{values[0]}'"
+            quoted_values = ", ".join(f"'{value}'" for value in values)
+            return f"{predicate} IN ({quoted_values})"
+
+        # Convert single strings to lists
+        if isinstance(event_keys, str):
+            event_keys = [event_keys]
+        if isinstance(animal_ids, str):
+            animal_ids = [animal_ids]
+        if isinstance(deployment_ids, str):
+            deployment_ids = [deployment_ids]
+        if isinstance(recording_ids, str):
+            recording_ids = [recording_ids]
+        if isinstance(groups, str):
+            groups = [groups]
+
+        # Build predicates for WHERE clause
+        predicates = []
+        if event_keys:
+            predicates.append(get_predicate_string("event_key", event_keys))
+        if animal_ids:
+            predicates.append(get_predicate_string("animal", animal_ids))
+        if deployment_ids:
+            predicates.append(get_predicate_string("deployment", deployment_ids))
+        if recording_ids:
+            predicates.append(get_predicate_string("recording", recording_ids))
+        if groups:
+            predicates.append(get_predicate_string('"group"', groups))
+
+        # Add date range predicates
+        date_predicate_point = ""
+        date_predicate_state = ""
+        if date_range:
+            date_predicate_point = (
+                f"datetime >= '{date_range[0]}' AND datetime <= '{date_range[1]}'"
+            )
+            date_predicate_state = f"datetime_start <= '{date_range[1]}' AND datetime_end >= '{date_range[0]}'"
+
+        # Build the WHERE clause
+        where_clause = " AND ".join(filter(None, predicates))
+        if where_clause:
+            where_clause = f"WHERE {where_clause}"
+
+        # Build queries for point and state events
+        point_query = f"""
+            SELECT 
+                animal,
+                deployment,
+                recording,
+                "group",
+                event_key,
+                datetime as datetime_start,
+                datetime as datetime_end,
+                short_description,
+                long_description,
+                event_data,
+                'point' as event_type
+            FROM PointEventsLake
+            {where_clause}
+            {f'AND {date_predicate_point}' if date_predicate_point else ''}
+        """
+
+        state_query = f"""
+            SELECT 
+                animal,
+                deployment,
+                recording,
+                "group",
+                event_key,
+                datetime_start,
+                datetime_end,
+                short_description,
+                long_description,
+                event_data,
+                'state' as event_type
+            FROM StateEventsLake
+            {where_clause}
+            {f'AND {date_predicate_state}' if date_predicate_state else ''}
+        """
+
+        # Combine queries based on event_type
+        if event_type == "point":
+            final_query = point_query
+        elif event_type == "state":
+            final_query = state_query
+        else:  # "all"
+            final_query = f"""
+                {point_query}
+                UNION ALL
+                {state_query}
+                ORDER BY datetime_start
+            """
+
+        if limit:
+            final_query += f" LIMIT {limit}"
+
+        # Execute query and return as DataFrame
+        result = self.conn.sql(final_query)
+        return result.df()

@@ -4,7 +4,6 @@ Data Uploader
 
 import os
 import django
-from django.core.files import File
 
 import numpy as np
 import gc
@@ -25,7 +24,6 @@ os.environ.setdefault(
 django.setup()
 
 from DiveDB.server.metadata.models import (  # noqa: E402
-    Files,
     Recordings,
     Deployments,
     Animals,
@@ -505,6 +503,7 @@ class DataUploader:
             Required keys:
                 - animal: Animal ID (int)
                 - deployment: Deployment Name (str)
+            Optional key:
                 - recording: Recording Name (str)
         batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
         rename_map (dict, optional): A dictionary mapping original variable names to new names.
@@ -523,27 +522,28 @@ class DataUploader:
                 }
             )
 
-        print(
-            f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
-        )
-        if os.environ.get("SKIP_OPENSTACK_UPLOAD", "true").lower() != "true":
-            with open(netcdf_file_path, "rb") as f:
-                file_object = File(f, name=os.path.basename(netcdf_file_path))
-                recording = Recordings.objects.get(id=metadata["recording"])
-                file = Files.objects.create(
-                    recording=recording,
-                    file=file_object,
-                    extension="nc",
-                    type="data",
-                    metadata=self._make_json_serializable(ds.attrs),
-                )
-        else:
+        # TODO: Remove upload to OpenStack
+        # print(
+        #     f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
+        # )
+        # if os.environ.get("SKIP_OPENSTACK_UPLOAD", "true").lower() != "true":
+        #     with open(netcdf_file_path, "rb") as f:
+        #         file_object = File(f, name=os.path.basename(netcdf_file_path))
+        #         recording = Recordings.objects.get(id=metadata["recording"])
+        #         file = Files.objects.create(
+        #             recording=recording,
+        #             file=file_object,
+        #             extension="nc",
+        #             type="data",
+        #             metadata=self._make_json_serializable(ds.attrs),
+        #         )
+        # else:
 
-            class FileWrapper:
-                def __init__(self, name):
-                    self.file = type("File", (object,), {"name": name})()
+        #     class FileWrapper:
+        #         def __init__(self, name):
+        #             self.file = type("File", (object,), {"name": name})()
 
-            file = FileWrapper("mock file name")
+        #     file = FileWrapper("mock file name")
 
         # Process event data variables
         event_data_vars = [var for var in ds.data_vars if var.startswith("event_data")]
@@ -582,7 +582,7 @@ class DataUploader:
                     group="events",
                     event_keys=event_keys,
                     event_data=event_data,
-                    file_name=file.file.name,
+                    file_name=netcdf_file_path,
                 )
 
         # Process other data variables
@@ -632,7 +632,7 @@ class DataUploader:
                                     class_name=class_name,
                                     label=label.lower(),
                                     values=values,
-                                    file_name=file.file.name,
+                                    file_name=netcdf_file_path,
                                 )
                     else:
                         # Handle single-variable data arrays
@@ -666,7 +666,7 @@ class DataUploader:
                                 class_name=class_name,
                                 label=label.lower(),
                                 values=values,
-                                file_name=file.file.name,
+                                file_name=netcdf_file_path,
                             )
 
                 pbar.update(1)
