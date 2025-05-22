@@ -33,6 +33,7 @@ dependencies = [
   "pylint-django",
   "pytest",
   "pytest-django",
+  "pytest-mock",
   "pytest-recording",
   "python-keystoneclient",
   "python-swiftclient",

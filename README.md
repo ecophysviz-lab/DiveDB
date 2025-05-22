@@ -39,6 +39,11 @@ DiveDB is currently in active development, and we welcome feedback and contribut
   - [Key Components](#key-components)
   - [How to Use](#how-to-use)
   - [Example Data](#example-data)
+- [Notion ORM Integration](#notion-orm-integration)
+  - [Key Features](#key-features)
+  - [Quick Start](#quick-start)
+  - [Property Type Mapping](#property-type-mapping)
+  - [Limitations](#limitations)
 - [Additional Commands](#additional-commands)
 - [Additional Steps for Development of DiveDB](#additional-steps-for-development-of-divedb)
 
@@ -411,6 +416,61 @@ The script uses example data from the DiveDB, specifically focusing on the anima
 The example netCDF file can be downloaded here: [https://figshare.com/ndownloader/files/50061330](https://figshare.com/ndownloader/files/50061330). Follow the steps in the [Uploading Files to the Data Lake](#uploading-files-to-the-data-lake) section to upload the file to the data lake and then visualize it using the steps above.
 
 By following these steps, you can effectively use Dash to visualize and analyze biologging data from DiveDB, gaining insights into the behavior and environment of marine mammals.
+
+## Notion ORM Integration
+
+DiveDB includes a lightweight, read-only Python wrapper for the Notion API that provides ORM-like access to Notion databases. This integration simplifies querying and parsing Notion data structures into Python-native objects.
+
+### Key Features
+
+- Model Definition: Maps Notion databases to Python classes
+- Schema Introspection: Auto-detects database schemas
+- Query Builder: Pythonic query syntax (e.g., `Animal.objects.filter(Status="Active")`)
+- Property Type Conversion: Maps Notion types to Python types (e.g., Date → datetime)
+- Relationship Support: Navigate between related database records
+- Pagination Handling: Automatic handling of paginated responses
+
+### Quick Start
+
+```python
+from DiveDB.services.notion_orm import NotionORMManager
+
+# Initialize with database IDs and token
+db_map = {
+    "Animal DB": os.getenv("NOTION_ANIMAL_DB"),
+    "Recording DB": os.getenv("NOTION_RECORDING_DB")
+}
+notion_orm = NotionORMManager(db_map=db_map, token=os.getenv("NOTION_API_KEY"))
+
+# Get model class and query data
+Animal = notion_orm.get_model("Animal")
+animal = Animal.get_animal({"Animal ID": "mian-013"})
+
+# Access relationships
+recordings = animal.get_recordings()
+for recording in recordings:
+    print(f"Recording ID: {recording.id}")
+    print(f"Start time: {recording.Start_Time}")
+```
+
+### Property Type Mapping
+
+| Notion Type | Python Type |
+|-------------|-------------|
+| Title | str |
+| Rich Text | str |
+| Number | float/int |
+| Select | str |
+| Multi-select | list[str] |
+| Date | datetime |
+| Checkbox | bool |
+| Relation | list (lazy-loaded) |
+
+### Limitations
+
+- Read-only access (no create/update/delete operations)
+- No real-time sync or webhooks
+- Subject to Notion API rate limits
 
 ## Additional Commands
 
