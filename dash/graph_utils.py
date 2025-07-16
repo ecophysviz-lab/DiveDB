@@ -123,6 +123,7 @@ def plot_tag_data_interactive5(
                         mode="lines",
                         name=y_label,
                         line=dict(color=color),
+                        connectgaps=True,
                     ),
                     row=row_counter,
                     col=1,
