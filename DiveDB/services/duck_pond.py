@@ -21,7 +21,7 @@ class DuckPond:
 
     delta_lakes: dict[str, DeltaTable] = {}
 
-    def __init__(self, delta_path: str, connect_to_postgres: bool = True):
+    def __init__(self, delta_path: str):
         self.delta_path = delta_path
         self.conn = duckdb.connect()
 
@@ -114,9 +114,11 @@ class DuckPond:
                     ENDPOINT '{}'
                 );
             """.format(
-                    "REGION '{}',".format(os.getenv("AWS_REGION"))
-                    if os.getenv("AWS_REGION")
-                    else "",
+                    (
+                        "REGION '{}',".format(os.getenv("AWS_REGION"))
+                        if os.getenv("AWS_REGION")
+                        else ""
+                    ),
                     os.getenv("AWS_ACCESS_KEY_ID"),
                     os.getenv("AWS_SECRET_ACCESS_KEY"),
                     os.getenv("AWS_ENDPOINT_URL").replace("https://", ""),
@@ -124,12 +126,6 @@ class DuckPond:
             )
 
         self._create_lake_views()
-
-        if connect_to_postgres:
-            logging.info("Connecting to PostgreSQL")
-            POSTGRES_CONNECTION_STRING = f"postgresql://{os.environ.get('POSTGRES_USER')}:{os.environ.get('POSTGRES_PASSWORD')}@{os.environ.get('POSTGRES_HOST')}:{os.environ.get('POSTGRES_PORT')}/{os.environ.get('POSTGRES_DB')}"
-            pg_connection_string = POSTGRES_CONNECTION_STRING
-            self.conn.execute(f"ATTACH 'postgres:{pg_connection_string}' AS metadata")
 
     def _create_lake_views(self, lake: str | None = None):
         """Create a view of the delta lake"""

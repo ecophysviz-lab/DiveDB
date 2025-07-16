@@ -65,23 +65,6 @@ To create a local analysis environment, follow these steps:
 
 1. **Start the Docker Daemon:**
    Start the Docker Desktop application (recommended) OR run `dockerd` in the terminal.
-
-1. **Start the PostgreSQL Service:**
-   Create a directory for the PostgreSQL data mount.
-   ```sh
-   mkdir data/pg_data # Create the directory if it doesn't exist
-   ```
-   Once this directory is created, it must be empty to be used by the PostgreSQL container. To make sure it's empty, you can run `rm -rf data/pg_data/*`. 
-   Use the `docker-compose.development.yaml` file to start the PostgreSQL service.
-   ```sh
-   docker compose -f docker-compose.development.yaml up -d postgres
-   ```
-
-1. **Create the Local PostgreSQL Database and User:**
-   Set the user and password to any string. Make sure to update the `.env` file with the correct values. This can later be used instead of the root postgres user to access the database.
-   ```sh
-   docker compose -f docker-compose.development.yaml exec postgres psql -U postgres -c "CREATE USER divedbuser WITH PASSWORD 'divedbpassword';"
-   docker compose -f docker-compose.development.yaml exec postgres psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE divedb TO divedbuser;"
    ```
 
 1. **Start the Jupyter Environment:**
