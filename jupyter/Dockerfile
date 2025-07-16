@@ -8,9 +8,6 @@ RUN pip3 install -r requirements.txt
 COPY . /app
 
 COPY ./jupyter_notebook_config.py /root/.jupyter/jupyter_notebook_config.py
-# RUN prefect config set PREFECT_API_URL=http://prefect:4200/api
-# RUN prefect config set PREFECT_RESULTS_PERSIST_BY_DEFAULT=true
-# RUN prefect config set PREFECT_SERVER_API_HOST=http://prefect/api
 
 # Expose the port for Jupyter Notebook
 EXPOSE 8888

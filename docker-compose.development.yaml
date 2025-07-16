@@ -1,42 +1,11 @@
 services:
-  postgres:
-    image: postgres:16
-    volumes:
-      - ${POSTGRES_LOCAL_DATA_MOUNT}:/var/lib/postgresql/data
-    env_file:
-      - .env
-    ports:
-      - "5432:5432"
-
-  web:
-    build:
-      context: .
-      dockerfile: django.Dockerfile
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - .:/app
-      - ${HOST_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
-    ports:
-      - "8000:8000"
-      - "8050:8050"
-    environment:
-      - POSTGRES_HOST=postgres
-    env_file:
-      - .env
-    depends_on:
-      - postgres  
-
   jupyter:
     build:
       context: ./jupyter
     ports:
       - "8888:8888"
-    environment:
-      - POSTGRES_HOST=postgres
     env_file:
       - .env
     volumes:
       - ${LOCAL_DELTA_PATH}:${CONTAINER_DATA_PATH}
       - .:/app
-    depends_on:
-      - postgres

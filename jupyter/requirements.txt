@@ -4,9 +4,6 @@ dash
 dash[testing]
 dask
 deltalake
-django
-django-storages
-djangorestframework
 duckdb
 edfio
 flake8
@@ -24,9 +21,7 @@ pre-commit
 psycopg2-binary
 pyarrow
 pyedflib
-pylint-django
 pytest
-pytest-django
 pytest-recording
 python-keystoneclient
 python-swiftclient

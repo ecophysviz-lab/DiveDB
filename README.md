@@ -4,7 +4,7 @@
 
 DiveDB is designed to organize and analyze biologging data collected by any sensor on any marine mammal. By storing your data in a structured data lake, DiveDB enforces consistency, allowing you to query data across multiple dives, sensors, and animals. The primary goals of DiveDB include:
 
-- **Metadata Management**: Utilizing the [Django](https://www.djangoproject.com/) framework to provide an admin interface for managing the metadata associated with each dive.
+- **Metadata Management**: Utilizing [Notion](https://www.notion.so/) databases to provide a collaborative interface for managing the metadata associated with each dive.
 - **Data Reliability and Consistency**: Employing [Delta Lake](https://delta.io/) to bring ACID transactions to big data workloads, ensuring data reliability and consistency.
 - **Analytical Query Workloads**: Using [DuckDB](https://duckdb.org/) for fast execution of analytical queries, making it ideal for data analysis tasks.
 - **Interactive Data Visualization**: Building web-based dashboards with [Dash](https://dash.plotly.com/) to visualize data processed by the application.
@@ -23,16 +23,11 @@ DiveDB is currently in active development, and we welcome feedback and contribut
   - [DataLake Schema](#1-datalake-schema)
   - [PointEventsLake Schema](#2-pointeventslake-schema)
   - [StateEventsLake Schema](#3-stateeventslake-schema)
-- [Metadata Models in DiveDB](#metadata-models-in-divedb)
-  - [LoggersWiki Model](#1-loggerswiki-model)
-  - [Loggers Model](#2-loggers-model)
-  - [Animals Model](#3-animals-model)
-  - [Deployments Model](#4-deployments-model)
-  - [AnimalDeployments Model](#5-animaldeployments-model)
-  - [Recordings Model](#6-recordings-model)
-  - [Files Model](#7-files-model)
-  - [MediaUpdates Model](#8-mediaupdates-model)
-- [Creating Django Migrations](#creating-django-migrations)
+- [Notion Metadata Structure](#notion-metadata-structure)
+  - [Animal Database](#1-animal-database)
+  - [Recording Database](#2-recording-database)
+  - [Logger Database](#3-logger-database)
+  - [Deployment Database](#4-deployment-database)
 - [Uploading Files to the Data Lake](#uploading-files-to-the-data-lake)
 - [Reading Files from the Data Lake](#reading-files-from-the-data-lake)
 - [Using Dash to Visualize DiveDB Data](#using-dash-to-visualize-divedb-data)
@@ -66,7 +61,7 @@ To create a local analysis environment, follow these steps:
    ```sh
    cp .env.example .env
    ```
-   Ensure that the `DJANGO_SECRET_KEY` is set to a secure value. You can generate a random secret key using `openssl rand -base64 32`.
+   Ensure that you set up the Notion API credentials and database IDs for metadata management.
 
 1. **Start the Docker Daemon:**
    Start the Docker Desktop application (recommended) OR run `dockerd` in the terminal.
@@ -89,26 +84,14 @@ To create a local analysis environment, follow these steps:
    docker compose -f docker-compose.development.yaml exec postgres psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE divedb TO divedbuser;"
    ```
 
-1. **Start the Application:**
-   Spin up the Django application and Jupyter notebook server. This will also start a Postgres database container if not already running. Leave this running while you work on the project.
+1. **Start the Jupyter Environment:**
+   Spin up the Jupyter notebook server. Leave this running while you work on the project.
    ```sh
    make up
    ```
 
-1. **Run Migrations:**
-   Run the migrations to create the tables in the database. Run this command in a new terminal window.
-   ```sh
-   make migrate
-   ```
-
-1. **Create a Superuser:**
-   Create a superuser to access the admin interface. These credentials can then be used to log in to the Django admin interface.
-   ```sh
-   make createsuperuser
-   ```
-
-1. **Access the Application:**
-   To access the Django admin interface, open your web browser and go to `http://localhost:8000`. To access the Jupyter notebook server, open your web browser and go to `http://localhost:8888` or connect to kernel `http://localhost:8888/jupyter` in a Jupyter client.
+1. **Access the Environment:**
+   To access the Jupyter notebook server, open your web browser and go to `http://localhost:8888` or connect to kernel `http://localhost:8888/jupyter` in a Jupyter client.
 
 ## Where to Store Your Data Lake
 
@@ -174,155 +157,65 @@ The `StateEventsLake` schema is designed to store events that have a duration, w
 
 These schemas are defined using the `pyarrow` library and are used to enforce data structure and integrity within the Delta Lakes managed by the `DuckPond` class.
 
-## Metadata Models in DiveDB
+## Notion Metadata Structure
 
-The `models.py` file in the `metadata` app defines several Django models that represent the core entities in the DiveDB application. These models are used to store and manage metadata related to diving projects, animals, loggers, deployments, recordings, and files.
+DiveDB uses Notion databases to manage metadata associated with diving projects, animals, loggers, deployments, and recordings. The metadata is organized across several interconnected Notion databases that can be accessed through the Notion ORM integration.
 
-### 1. LoggersWiki Model
+### 1. Animal Database
 
-The `LoggersWiki` model contains metadata for a logger, including:
+The Animal database contains information about individual animals in diving projects:
 
-- **description**: A text field for a detailed description of the logger (nullable).
-- **tags**: An array of text fields for tagging the logger.
-- **projects**: An array of text fields for associating the logger with projects.
+- **Animal ID**: Unique identifier for the animal
+- **Common Name**: The common name of the animal species
+- **Scientific Name**: The scientific name of the animal species
+- **Lab ID**: Laboratory identifier (optional)
+- **Birth Year**: The birth year of the animal (optional)
+- **Sex**: The sex of the animal (optional)
+- **Project ID**: The identifier for the project the animal is part of
+- **Domain IDs**: Domain identifiers associated with the animal (optional)
 
-### 2. Loggers Model
+### 1. Recording Database
 
-The `Loggers` model represents a logger attached to diving vertebrates. It includes:
+The Recording database represents recordings of data from loggers:
 
-- **id**: The primary key identifier for the logger.
-- **wiki**: A one-to-one relationship with `LoggersWiki` (nullable).
-- **icon_url**: A URL field for the logger's icon (nullable).
-- **serial_no**: The serial number of the logger (nullable).
-- **manufacturer**: The manufacturer of the logger (nullable).
-- **manufacturer_name**: The name of the manufacturer (nullable).
-- **ptt**: The PTT identifier (nullable).
-- **type**: The type of logger (nullable).
-- **type_name**: The name of the logger type (nullable).
-- **notes**: Additional notes about the logger (nullable).
-- **owner**: The owner of the logger (nullable).
+- **Recording ID**: Unique identifier for the recording
+- **Name**: The name of the recording
+- **Animal**: Link to the associated animal
+- **Logger**: Link to the associated logger
+- **Start Time**: The start time of the recording
+- **End Time**: The end time of the recording (optional)
+- **Timezone**: The timezone of the recording (optional)
+- **Quality**: The quality of the recording (optional)
+- **Attachment Location**: The location of the logger attachment (optional)
+- **Attachment Type**: The type of logger attachment (optional)
 
-### 3. Animals Model
+### 1. Logger Database
 
-The `Animals` model represents an animal in a diving project. It includes:
+The Logger database contains information about loggers attached to diving vertebrates:
 
-- **id**: The primary key identifier for the animal.
-- **project_id**: The identifier for the project the animal is part of.
-- **common_name**: The common name of the animal.
-- **scientific_name**: The scientific name of the animal.
-- **lab_id**: The laboratory identifier (nullable).
-- **birth_year**: The birth year of the animal (nullable).
-- **sex**: The sex of the animal (nullable).
-- **domain_ids**: Domain identifiers associated with the animal (nullable).
+- **Logger ID**: Unique identifier for the logger
+- **Serial Number**: The serial number of the logger (optional)
+- **Manufacturer**: The manufacturer of the logger (optional)
+- **PTT**: The PTT identifier (optional)
+- **Type**: The type of logger (optional)
+- **Notes**: Additional notes about the logger (optional)
+- **Owner**: The owner of the logger (optional)
 
-### 4. Deployments Model
+### 1. Deployment Database
 
-The `Deployments` model represents a boat trip to collect data. It includes:
+The Deployment database represents field deployments for data collection:
 
-- **id**: The primary key identifier for the deployment.
-- **domain_deployment_id**: Domain-specific deployment identifier (nullable).
-- **animal_age_class**: The age class of the animal (nullable).
-- **animal_age**: The age of the animal (nullable).
-- **deployment_type**: The type of deployment (nullable).
-- **deployment_name**: The name of the deployment.
-- **rec_date**: The date of the recording.
-- **deployment_latitude**: The latitude of the deployment location (nullable).
-- **deployment_longitude**: The longitude of the deployment location (nullable).
-- **deployment_location**: The location of the deployment (nullable).
-- **departure_datetime**: The departure date and time (nullable).
-- **recovery_latitude**: The latitude of the recovery location (nullable).
-- **recovery_longitude**: The longitude of the recovery location (nullable).
-- **recovery_location**: The location of the recovery (nullable).
-- **arrival_datetime**: The arrival date and time (nullable).
-- **animal**: The identifier for the animal involved in the deployment.
-- **start_time**: The start time of the deployment (nullable).
-- **start_time_precision**: The precision of the start time (nullable).
-- **timezone**: The timezone of the deployment.
+- **Deployment ID**: Unique identifier for the deployment
+- **Deployment Name**: The name of the deployment
+- **Recording Date**: The date of the recording
+- **Animal**: Link to the associated animal
+- **Deployment Location**: The location of the deployment (optional)
+- **Deployment Coordinates**: Latitude and longitude of deployment (optional)
+- **Recovery Location**: The location of the recovery (optional)
+- **Recovery Coordinates**: Latitude and longitude of recovery (optional)
+- **Timezone**: The timezone of the deployment
 
-### 5. AnimalDeployments Model
-
-The `AnimalDeployments` model represents an animal within a deployment. It includes:
-
-- **deployment**: A foreign key to the `Deployments` model.
-- **animal**: A foreign key to the `Animals` model.
-
-### 6. Recordings Model
-
-The `Recordings` model represents a recording of data from a logger. It includes:
-
-- **id**: The primary key identifier for the recording.
-- **name**: The name of the recording.
-- **animal_deployment_id**: A foreign key to the `AnimalDeployments` model.
-- **logger_id**: A foreign key to the `Loggers` model.
-- **start_time**: The start time of the recording.
-- **actual_start_time**: The actual start time of the recording (nullable).
-- **end_time**: The end time of the recording (nullable).
-- **start_time_precision**: The precision of the start time (nullable).
-- **timezone**: The timezone of the recording (nullable).
-- **quality**: The quality of the recording (nullable).
-- **attachment_location**: The location of the logger attachment (nullable).
-- **attachment_type**: The type of logger attachment (nullable).
-
-### 7. Files Model
-
-The `Files` model represents media and data files. It includes:
-
-- **extension**: The file extension.
-- **type**: The type of file (media or data).
-- **delta_path**: The path to the file in the Delta Lake (nullable).
-- **recording**: A foreign key to the `Recordings` model.
-- **metadata**: JSON field for additional metadata (nullable).
-- **start_time**: The start time of the file (nullable).
-- **uploaded_at**: The upload timestamp (nullable).
-- **file**: The file field for storing the file in OpenStack storage.
-
-### 8. MediaUpdates Model
-
-The `MediaUpdates` model represents an update to a media file. It includes:
-
-- **file**: A foreign key to the `Files` model.
-- **update_type**: The type of update applied to the media file.
-- **update_factor**: A factor associated with the update.
-
-These models are defined using Django's ORM and are used to manage the metadata and relationships between different entities in the DiveDB application.
-
-## Creating Django Migrations
-
-Django migrations are a way of propagating changes you make to your models (adding a field, deleting a model, etc.) into your database schema. Follow these steps to create and apply migrations:
-
-1. **Make Changes to Your Models:**
-   Modify your Django models in the [`models.py`](DiveDB/server/metadata/models.py) file as needed.
-
-2. **Create Migrations:**
-   After making changes to your models, create a new migration file by running the following command:
-   ```sh
-   make makemigrations
-   ```
-   This command will generate a migration file in the `migrations` directory of the app where changes were made.
-
-3. **Apply Migrations:**
-   To apply the migrations and update your database schema, run:
-   ```sh
-   make migrate
-   ```
-   This command will apply all unapplied migrations to your database.
-
-4. **Check Migration Status:**
-   To see which migrations have been applied and which are pending, use:
-   ```sh
-   make bash
-   python manage.py showmigrations
-   ```
-
-5. **Rollback Migrations (if needed):**
-   If you need to undo a migration, you can roll back to a previous state by specifying the migration name:
-   ```sh
-   make bash
-   python manage.py migrate <app_name> <migration_name>
-   ```
-   Replace `<app_name>` with the name of your app and `<migration_name>` with the name of the migration you want to roll back to.
-
-By following these steps, you can effectively manage changes to your database schema using Django's migration system.
+The Notion ORM integration allows you to query and access this metadata programmatically, providing a flexible interface for managing dive metadata collaboratively while maintaining data relationships and integrity.
 
 ## Uploading Files to the Data Lake
 
@@ -331,7 +224,7 @@ To see how to upload files to the data lake, refer to the [upload_docs.ipynb](do
 ### Requirements
 For any files to be uploaded to the data lake, they must be in netCDF format and meet the following requirements:
 
-**Dimensions & Coordinates**<br>
+**Dimensions & Coordinates**
   Track the date and time associated with collected data.
   Label classed data nested in arrays (e.g., ax, ay, az values for accelerometer data).
 
@@ -482,11 +375,6 @@ for recording in recordings:
 - **To Rebuild the Docker Image:**
   ```sh
   make build
-  ```
-
-- **To Access the Django Shell in Docker:**
-  ```sh
-  make shell
   ```
 
 - **To Enter the Docker Container with Bash in Docker:**
