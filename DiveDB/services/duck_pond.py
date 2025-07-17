@@ -5,13 +5,14 @@ Delta Lake Manager
 import logging
 import os
 import pandas as pd
-from typing import List, Literal
+from typing import List, Literal, Dict, Optional
 
 import duckdb
 import pyarrow as pa
 from deltalake import DeltaTable, write_deltalake
 from DiveDB.services.utils.sampling import resample
 from DiveDB.services.dive_data import DiveData
+from DiveDB.services.notion_orm import NotionORMManager
 
 # flake8: noqa
 
@@ -21,9 +22,26 @@ class DuckPond:
 
     delta_lakes: dict[str, DeltaTable] = {}
 
-    def __init__(self, delta_path: str, connect_to_postgres: bool = True):
+    def __init__(
+        self,
+        delta_path: str,
+        notion_manager: Optional[NotionORMManager] = None,
+        notion_db_map: Optional[Dict[str, str]] = None,
+        notion_token: Optional[str] = None,
+    ):
         self.delta_path = delta_path
         self.conn = duckdb.connect()
+
+        # Initialize Notion ORM manager
+        if notion_manager:
+            self.notion_manager = notion_manager
+        elif notion_db_map and notion_token:
+            self.notion_manager = NotionORMManager(notion_db_map, notion_token)
+        else:
+            self.notion_manager = None
+
+        # Track Notion table names
+        self._notion_table_names = []
 
         self.lakes = [
             "DATA",
@@ -114,9 +132,11 @@ class DuckPond:
                     ENDPOINT '{}'
                 );
             """.format(
-                    "REGION '{}',".format(os.getenv("AWS_REGION"))
-                    if os.getenv("AWS_REGION")
-                    else "",
+                    (
+                        "REGION '{}',".format(os.getenv("AWS_REGION"))
+                        if os.getenv("AWS_REGION")
+                        else ""
+                    ),
                     os.getenv("AWS_ACCESS_KEY_ID"),
                     os.getenv("AWS_SECRET_ACCESS_KEY"),
                     os.getenv("AWS_ENDPOINT_URL").replace("https://", ""),
@@ -125,11 +145,9 @@ class DuckPond:
 
         self._create_lake_views()
 
-        if connect_to_postgres:
-            logging.info("Connecting to PostgreSQL")
-            POSTGRES_CONNECTION_STRING = f"postgresql://{os.environ.get('POSTGRES_USER')}:{os.environ.get('POSTGRES_PASSWORD')}@{os.environ.get('POSTGRES_HOST')}:{os.environ.get('POSTGRES_PORT')}/{os.environ.get('POSTGRES_DB')}"
-            pg_connection_string = POSTGRES_CONNECTION_STRING
-            self.conn.execute(f"ATTACH 'postgres:{pg_connection_string}' AS metadata")
+        # Load Notion databases into DuckDB if notion_manager is available
+        if self.notion_manager:
+            self._load_notion_databases()
 
     def _create_lake_views(self, lake: str | None = None):
         """Create a view of the delta lake"""
@@ -181,7 +199,6 @@ class DuckPond:
         write_deltalake(
             table_or_uri=self.LAKE_CONFIGS[lake]["path"],
             data=data,
-            schema=self.LAKE_CONFIGS[lake]["schema"],
             partition_by=partition_by,
             mode=mode,
             name=name,
@@ -196,6 +213,102 @@ class DuckPond:
     def close_connection(self):
         """Close the connection to our delta lake"""
         self.conn.close()
+
+    def _load_notion_databases(self):
+        """Load all available Notion databases into DuckDB tables"""
+        if not self.notion_manager:
+            return
+
+        try:
+            # Get all available database names from the notion manager
+            for db_map_key, db_id in self.notion_manager.db_map.items():
+                try:
+                    model_name = None
+
+                    # Try different model names to see which one results in our db_map_key
+                    possible_model_names = [
+                        db_map_key.replace(" DB", ""),  # Remove " DB" suffix
+                        db_map_key.replace(" DB", "") + "s",  # Remove " DB" and add "s"
+                        db_map_key,  # Try the key directly
+                    ]
+
+                    for candidate in possible_model_names:
+                        # Simulate the get_model transformation
+                        test_db_name = (
+                            f"{candidate} DB"
+                            if not candidate.endswith(" DB")
+                            else candidate
+                        )
+                        test_db_name = test_db_name.replace("s DB", " DB")
+
+                        if test_db_name == db_map_key:
+                            model_name = candidate
+                            break
+
+                    if not model_name:
+                        logging.warning(
+                            f"Could not determine model name for database '{db_map_key}'"
+                        )
+                        continue
+
+                    # Now use the existing get_model logic
+                    model = self.notion_manager.get_model(model_name)
+
+                    # Query all data from the model
+                    records = model.objects.all()
+
+                    if records:
+                        data_rows = []
+                        for record in records:
+                            row_data = {"id": record.id}
+
+                            # Get all properties that were parsed by NotionModel._from_notion_page
+                            for prop_name in record._meta.schema.keys():
+                                if hasattr(record, prop_name):
+                                    value = getattr(record, prop_name)
+                                    # Handle different value types
+                                    if value is not None:
+                                        attr_name = prop_name.replace(" ", "_").lower()
+                                        if isinstance(value, (list, dict)):
+                                            row_data[attr_name] = str(
+                                                value
+                                            )  # Use transformed name for column
+                                        else:
+                                            row_data[
+                                                attr_name
+                                            ] = value  # Use transformed name for column
+                                    else:
+                                        row_data[attr_name] = None
+
+                            data_rows.append(row_data)
+
+                        # Create DuckDB table - use db_map key directly as table name
+                        table_name = model_name + "s"
+                        self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+                        self.conn.register(table_name, pd.DataFrame(data_rows))
+
+                        # Track this table name
+                        self._notion_table_names.append(table_name)
+
+                        logging.info(
+                            f"Loaded Notion database '{db_map_key}' into DuckDB table '{table_name}' with {len(df)} records"
+                        )
+
+                except Exception as e:
+                    logging.warning(
+                        f"Failed to load Notion database '{db_map_key}': {e}"
+                    )
+                    continue
+
+        except Exception as e:
+            logging.error(f"Error loading Notion databases: {e}")
+
+    def list_notion_tables(self) -> List[str]:
+        """List all available Notion tables in DuckDB"""
+        if not self.notion_manager:
+            return []
+
+        return self._notion_table_names.copy()
 
     def get_delta_data(
         self,
@@ -357,7 +470,7 @@ class DuckPond:
             return df_resampled
         else:
             # Return the DuckDB relation without pulling data into memory
-            return DiveData(results, self.conn)
+            return DiveData(results, self.conn, notion_manager=self.notion_manager)
 
     def get_delta_events(
         self,

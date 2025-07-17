@@ -11,16 +11,31 @@ from edfio import Edf, EdfSignal, Recording, Patient, EdfAnnotation
 import os.path
 from pathlib import Path
 import json
+from typing import Dict, Optional
+from .notion_orm import NotionORMManager
 
 
 class DiveData:
     """Retrieved Data Manager"""
 
     def __init__(
-        self, duckdb_relation: duckdb.DuckDBPyRelation, conn: duckdb.DuckDBPyConnection
+        self,
+        duckdb_relation: duckdb.DuckDBPyRelation,
+        conn: duckdb.DuckDBPyConnection,
+        notion_manager: Optional[NotionORMManager] = None,
+        notion_db_map: Optional[Dict[str, str]] = None,
+        notion_token: Optional[str] = None,
     ):
         self.duckdb_relation = duckdb_relation
         self.conn = conn
+
+        # Initialize Notion ORM manager
+        if notion_manager:
+            self.notion_manager = notion_manager
+        elif notion_db_map and notion_token:
+            self.notion_manager = NotionORMManager(notion_db_map, notion_token)
+        else:
+            self.notion_manager = None
 
     def __getattr__(self, item):
         if hasattr(self.duckdb_relation, item):
@@ -35,48 +50,62 @@ class DiveData:
         return export_to_edf(self, output_dir)
 
 
-# TODO: Update this to pull data from Notion
 def get_metadata(divedata):
-    """Get metadata from postgres"""
+    """Get metadata from Notion"""
+    if not divedata.notion_manager:
+        raise Exception(
+            "NotionORMManager not provided - cannot fetch metadata from Notion"
+        )
+
     metadata = {}
     recording_ids = [
         id
         for id in divedata.duckdb_relation.unique("recording").df()["recording"].values
     ]
+
+    # Get models for the Notion databases
+    Recording = divedata.notion_manager.get_model("Recordings")
+    Animal = divedata.notion_manager.get_model("Animals")
+    Deployment = divedata.notion_manager.get_model("Deployments")
+
     for recording_id in recording_ids:
         recording_metadata = {}
-        df = divedata.conn.sql(
-            f"""
-                            SELECT start_time, animal_deployment_id, logger_id
-                            FROM Metadata.public.Recordings
-                            WHERE Recordings.id = '{recording_id}'
-                        """
-        ).df()
-        if df.shape[0] != 1:
-            raise Exception(
-                "Multiple recording entries unexpectedly returned for single recording_id!"
-            )
-        recording_metadata["logger_id"] = df["logger_id"][0]
-        recording_metadata["timezone"] = df["start_time"][0].tzname()
-        recording_metadata["start_time"] = df["start_time"][0].isoformat()
 
-        animal_deployment_id = df["animal_deployment_id"][0]
-        df = divedata.conn.sql(
-            f"""
-                            SELECT animal_id, deployment_id
-                            FROM Metadata.public.Animal_Deployments
-                            WHERE Animal_Deployments.id = '{animal_deployment_id}'
-                        """
-        ).df()
-        if df.shape[0] != 1:
+        # Query Recordings database in Notion
+        recording = Recording.objects.filter(id=recording_id).first()
+        if not recording:
+            raise Exception(f"Recording with id '{recording_id}' not found in Notion!")
+
+        recording_metadata["logger_id"] = recording.logger_id
+        recording_metadata["timezone"] = (
+            recording.start_time.tzname()
+            if hasattr(recording.start_time, "tzname")
+            else None
+        )
+        recording_metadata["start_time"] = (
+            recording.start_time.isoformat() if recording.start_time else None
+        )
+
+        # Query Animals database in Notion
+        animal = Animal.objects.filter(id=recording.animal_id).first()
+        if not animal:
             raise Exception(
-                "Multiple deployment entries unexpectedly returned for single animal_deployment_id!"
+                f"Animal with id '{recording.animal_id}' not found in Notion!"
             )
-        recording_metadata["animal_id"] = df["animal_id"][0]
-        recording_metadata["deployment_id"] = df["deployment_id"][0]
+
+        # Query Deployments database in Notion
+        deployment = Deployment.objects.filter(id=recording.deployment_id).first()
+        if not deployment:
+            raise Exception(
+                f"Deployment with id '{recording.deployment_id}' not found in Notion!"
+            )
+
+        recording_metadata["animal_id"] = animal.id
+        recording_metadata["deployment_id"] = deployment.id
         recording_metadata["recording_id"] = recording_id
 
         metadata[recording_id] = recording_metadata
+
     return metadata
 
 
@@ -253,7 +282,7 @@ def construct_recording_edf(multisignal_data_df, metadata):
             pad_value,
             dtype=np.float64,
         )
-        signal_data[i_start_sample:timestamps.size] = df_sig[name].values
+        signal_data[i_start_sample : timestamps.size] = df_sig[name].values
 
         # Assemble the signal metadata
         signal_class = df_sig["class"].unique()[0]

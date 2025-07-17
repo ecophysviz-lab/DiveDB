@@ -39,33 +39,9 @@ jobs:
   
   test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:latest
-        env:
-          POSTGRES_DB: divedb
-          POSTGRES_USER: divedbuser
-          POSTGRES_PASSWORD: divedbpassword
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
-      DJANGO_SECRET_KEY: "mock-secret-key"
-      POSTGRES_DB: "divedb"
-      POSTGRES_USER: "divedbuser"
-      POSTGRES_PASSWORD: "divedbpassword"
-      POSTGRES_HOST: "localhost"
-      POSTGRES_PORT: 5432
-      HOST_DELTA_LAKE_PATH: "./data/delta-lake"
+      LOCAL_DELTA_LAKE_PATH: "./data/delta-lake"
       CONTAINER_DELTA_LAKE_PATH: "/data/delta-lake"
-      OPENSTACK_AUTH_URL: ${{ secrets.OPENSTACK_AUTH_URL }}
-      OPENSTACK_APPLICATION_CREDENTIAL_ID: ${{ secrets.OPENSTACK_APPLICATION_CREDENTIAL_ID }}
-      OPENSTACK_APPLICATION_CREDENTIAL_SECRET: ${{ secrets.OPENSTACK_APPLICATION_CREDENTIAL_SECRET }}
-      OPENSTACK_FILE_STORAGE_CONTAINER_NAME: ${{ secrets.OPENSTACK_FILE_STORAGE_CONTAINER_NAME }}
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.12
@@ -76,7 +52,5 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install .
-    - name: Run migrations
-      run: python manage.py migrate
     - name: Run tests
       run: pytest

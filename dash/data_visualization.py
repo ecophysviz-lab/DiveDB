@@ -11,7 +11,7 @@ from DiveDB.services.duck_pond import DuckPond
 from graph_utils import plot_tag_data_interactive5
 
 load_dotenv()
-duckpond = DuckPond(os.getenv("HOST_DELTA_LAKE_PATH"))
+duckpond = DuckPond(os.getenv("LOCAL_DELTA_LAKE_PATH"))
 
 app = dash.Dash(__name__)
 
