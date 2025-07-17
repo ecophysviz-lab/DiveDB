@@ -29,7 +29,7 @@ dff = duckpond.get_delta_data(
     date_range=("2019-11-08T09:33:11+13:00", "2019-11-08T09:39:30+13:00"),
 )
 # Convert to UTC
-dff["datetime"] = dff["datetime"].dt.tz_localize("UTC")
+dff["datetime"] = dff["datetime"].dt.tz_convert("UTC")
 # convert the datetime in dff to +13 timezone
 dff["datetime"] = dff["datetime"] + pd.Timedelta(hours=13)
 
@@ -276,4 +276,4 @@ def update_graph(playhead_timestamp, existing_fig):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run(debug=True)
