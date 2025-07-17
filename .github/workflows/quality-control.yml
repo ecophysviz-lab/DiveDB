@@ -40,7 +40,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      HOST_DELTA_LAKE_PATH: "./data/delta-lake"
+      LOCAL_DELTA_LAKE_PATH: "./data/delta-lake"
       CONTAINER_DELTA_LAKE_PATH: "/data/delta-lake"
     steps:
     - uses: actions/checkout@v4
