@@ -1,11 +1,13 @@
 services:
   jupyter:
     build:
-      context: ./jupyter
+      context: .
+      dockerfile: jupyter/Dockerfile
     ports:
       - "8888:8888"
     env_file:
       - .env
     volumes:
-      - ${LOCAL_DELTA_PATH}:${CONTAINER_DATA_PATH}
+      - ${HOST_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
+      - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
       - .:/app

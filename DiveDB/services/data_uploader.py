@@ -27,9 +27,9 @@ class DataUploader:
 
     def __init__(
         self,
-        duckpond: DuckPond = None,
-        notion_manager: NotionORMManager = None,
-        notion_config: dict = None,
+        duckpond: DuckPond | None = None,
+        notion_manager: NotionORMManager | None = None,
+        notion_config: dict | None = None,
     ):
         """
         Initialize DataUploader with optional DuckPond instance and Notion configuration.
