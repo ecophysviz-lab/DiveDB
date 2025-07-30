@@ -3,7 +3,6 @@ Data Uploader
 """
 
 import os
-import django
 
 import numpy as np
 import gc
@@ -14,22 +13,7 @@ import json
 import math
 
 from DiveDB.services.duck_pond import DuckPond
-from DiveDB.services.utils.openstack import SwiftClient
-
-
-django_prefix = os.environ.get("DJANGO_PREFIX", "DiveDB")
-os.environ.setdefault(
-    "DJANGO_SETTINGS_MODULE", f"{django_prefix}.server.django_app.settings"
-)
-django.setup()
-
-from DiveDB.server.metadata.models import (  # noqa: E402
-    Recordings,
-    Deployments,
-    Animals,
-    Loggers,
-    AnimalDeployments,
-)
+from DiveDB.services.notion_orm import NotionORMManager
 
 
 class NetCDFValidationError(Exception):
@@ -41,10 +25,30 @@ class NetCDFValidationError(Exception):
 class DataUploader:
     """Data Uploader"""
 
-    def __init__(self, duckpond: DuckPond = None, swift_client: SwiftClient = None):
-        """Initialize DataUploader with optional DuckPond and SwiftClient instances."""
+    def __init__(
+        self,
+        duckpond: DuckPond | None = None,
+        notion_manager: NotionORMManager | None = None,
+        notion_config: dict | None = None,
+    ):
+        """
+        Initialize DataUploader with optional DuckPond instance and Notion configuration.
+
+        Args:
+            duckpond: DuckPond instance for data storage
+            notion_manager: NotionORMManager instance for database operations
+            notion_config: Dictionary with 'db_map' and 'token' keys for Notion ORM (ignored if notion_manager is provided)
+        """
         self.duckpond = duckpond or DuckPond(os.environ["CONTAINER_DELTA_LAKE_PATH"])
-        self.swift_client = swift_client or SwiftClient()
+
+        if notion_manager:
+            self.notion_manager = notion_manager
+        elif notion_config:
+            self.notion_manager = NotionORMManager(
+                db_map=notion_config["db_map"], token=notion_config["token"]
+            )
+        else:
+            self.notion_manager = None
 
     def _get_datetime_type(self, time_data_array: xr.DataArray):
         """Function to get the datetime type from a PyArrow array."""
@@ -415,77 +419,70 @@ class DataUploader:
                 )
         return True
 
-    def get_or_create_logger(self, logger_data):
-        logger, created = Loggers.objects.get_or_create(
-            id=logger_data["logger_id"],
-            defaults={
-                "manufacturer": logger_data.get("manufacturer"),
-                "manufacturer_name": logger_data.get("manufacturer_name"),
-                "serial_no": logger_data.get("serial_no"),
-                "ptt": logger_data.get("ptt"),
-                "type": logger_data.get("type"),
-                "notes": logger_data.get("notes"),
-            },
-        )
-        return logger, created
+    def _get_model_by_id(self, model_name: str, model_id: str, id_field: str = "id"):
+        """
+        Generic method to get a model by ID from Notion database.
 
-    def get_or_create_recording(self, recording_data):
-        animal_deployment, _ = AnimalDeployments.objects.get_or_create(
-            animal=recording_data["animal"], deployment=recording_data["deployment"]
-        )
-        recording, created = Recordings.objects.get_or_create(
-            id=recording_data["recording_id"],
-            defaults={
-                "name": recording_data.get("name"),
-                "animal_deployment": animal_deployment,
-                "logger": recording_data.get("logger"),
-                "start_time": recording_data.get("start_time"),
-                "end_time": recording_data.get("end_time"),
-                "timezone": recording_data.get("timezone"),
-                "quality": recording_data.get("quality"),
-                "attachment_location": recording_data.get("attachment_location"),
-                "attachment_type": recording_data.get("attachment_type"),
-            },
-        )
-        return recording, created
+        Args:
+            model_name: Name of the model to get
+            model_id: ID value to search for
+            id_field: Field name to search by (default: "id")
 
-    def get_or_create_deployment(self, deployment_data):
-        deployment, created = Deployments.objects.get_or_create(
-            id=deployment_data["deployment_id"],
-            defaults={
-                "domain_deployment_id": deployment_data.get("domain_deployment_id"),
-                "animal_age_class": deployment_data.get("animal_age_class"),
-                "animal_age": deployment_data.get("animal_age"),
-                "deployment_type": deployment_data.get("deployment_type"),
-                "deployment_name": deployment_data.get("deployment_name"),
-                "rec_date": deployment_data.get("rec_date"),
-                "deployment_latitude": deployment_data.get("deployment_latitude"),
-                "deployment_longitude": deployment_data.get("deployment_longitude"),
-                "deployment_location": deployment_data.get("deployment_location"),
-                "departure_datetime": deployment_data.get("departure_datetime"),
-                "recovery_latitude": deployment_data.get("recovery_latitude"),
-                "recovery_longitude": deployment_data.get("recovery_longitude"),
-                "recovery_location": deployment_data.get("recovery_location"),
-                "arrival_datetime": deployment_data.get("arrival_datetime"),
-                "notes": deployment_data.get("notes"),
-            },
-        )
-        return deployment, created
+        Returns: Model instance
 
-    def get_or_create_animal(self, animal_data):
-        animal, created = Animals.objects.get_or_create(
-            id=animal_data["animal_id"],
-            defaults={
-                "project_id": animal_data.get("project_id"),
-                "common_name": animal_data.get("common_name"),
-                "scientific_name": animal_data.get("scientific_name"),
-                "lab_id": animal_data.get("lab_id"),
-                "birth_year": animal_data.get("birth_year"),
-                "sex": animal_data.get("sex"),
-                "domain_ids": animal_data.get("domain_ids"),
-            },
-        )
-        return animal, created
+        Raises: ValueError: If notion_manager is not configured or model not found
+        """
+        if not self.notion_manager:
+            raise ValueError("Notion configuration required for database operations")
+
+        Model = self.notion_manager.get_model(model_name)
+        filter_kwargs = {id_field: model_id}
+        instance = Model.objects.filter(**filter_kwargs).first()
+
+        if not instance:
+            raise ValueError(f"{model_name} with {id_field}='{model_id}' not found")
+
+        return instance
+
+    def get_logger(self, logger_data):
+        """
+        Get logger from Notion database.
+
+        Args: logger_data: Dict with logger information including 'logger_id'
+        Returns: Logger instance
+        Raises: ValueError: If logger not found
+        """
+        return self._get_model_by_id("Logger", logger_data["logger_id"])
+
+    def get_recording(self, recording_data):
+        """
+        Get recording from Notion database.
+
+        Args: recording_data: Dict with recording information including 'recording_id'
+        Returns: Recording instance
+        Raises: ValueError: If recording not found
+        """
+        return self._get_model_by_id("Recording", recording_data["recording_id"])
+
+    def get_deployment(self, deployment_data):
+        """
+        Get deployment from Notion database.
+
+        Args: deployment_data: Dict with deployment information including 'deployment_id'
+        Returns: Deployment instance
+        Raises: ValueError: If deployment not found
+        """
+        return self._get_model_by_id("Deployment", deployment_data["deployment_id"])
+
+    def get_animal(self, animal_data):
+        """
+        Get animal from Notion database.
+
+        Args: animal_data: Dict with animal information including 'animal_id'
+        Returns: Animal instance
+        Raises: ValueError: If animal not found
+        """
+        return self._get_model_by_id("Animal", animal_data["animal_id"])
 
     def upload_netcdf(
         self,
@@ -493,6 +490,7 @@ class DataUploader:
         metadata: dict,
         batch_size: int = 1000000,
         rename_map: dict = {},
+        skip_validation: bool = False,
     ):
         """
         Uploads a netCDF file to the database and DuckPond.
@@ -507,6 +505,7 @@ class DataUploader:
                 - recording: Recording Name (str)
         batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
         rename_map (dict, optional): A dictionary mapping original variable names to new names.
+        skip_validation (bool, optional): Skip validation of the netCDF file. Defaults to False.
         """
 
         ds = xr.open_dataset(netcdf_file_path)
@@ -521,29 +520,6 @@ class DataUploader:
                     for var in ds.data_vars
                 }
             )
-
-        # TODO: Remove upload to OpenStack
-        # print(
-        #     f"Creating file record for {os.path.basename(netcdf_file_path)} and uploading to OpenStack..."
-        # )
-        # if os.environ.get("SKIP_OPENSTACK_UPLOAD", "true").lower() != "true":
-        #     with open(netcdf_file_path, "rb") as f:
-        #         file_object = File(f, name=os.path.basename(netcdf_file_path))
-        #         recording = Recordings.objects.get(id=metadata["recording"])
-        #         file = Files.objects.create(
-        #             recording=recording,
-        #             file=file_object,
-        #             extension="nc",
-        #             type="data",
-        #             metadata=self._make_json_serializable(ds.attrs),
-        #         )
-        # else:
-
-        #     class FileWrapper:
-        #         def __init__(self, name):
-        #             self.file = type("File", (object,), {"name": name})()
-
-        #     file = FileWrapper("mock file name")
 
         # Process event data variables
         event_data_vars = [var for var in ds.data_vars if var.startswith("event_data")]

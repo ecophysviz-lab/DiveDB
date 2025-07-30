@@ -1,7 +1,6 @@
 .PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash run-dash build-bash
 
 COMPOSE_CMD = docker compose -f docker-compose.development.yaml
-EXEC_WEB = $(COMPOSE_CMD) exec web
 
 up:
 	$(COMPOSE_CMD) --env-file .env up
@@ -12,31 +11,11 @@ down:
 build:
 	$(COMPOSE_CMD) build
 
-makemigrations:
-	$(EXEC_WEB) python manage.py makemigrations
-
-migrate:
-	$(EXEC_WEB) python manage.py migrate
-
-createsuperuser:
-	$(EXEC_WEB) python manage.py createsuperuser
-
-shell:
-	$(EXEC_WEB) python manage.py shell
-
 bash:
-	$(EXEC_WEB) bash
+	$(COMPOSE_CMD) exec jupyter bash
 
 test:
-	$(EXEC_WEB) pytest
-
-# TODO: Add tests for custom dash components
-test-dash:
-	$(EXEC_WEB) pytest dash/video_preview
-	$(EXEC_WEB) pytest dash/three_js_orientation
-
-importmetadata:
-	$(EXEC_WEB) python scripts/import_from_notion.py
+	pytest
 
 build-all-dash:
 	$(MAKE) build-bash component=three_js_orientation

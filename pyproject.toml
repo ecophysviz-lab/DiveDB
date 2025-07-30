@@ -12,9 +12,6 @@ dependencies = [
   "dash[testing]",
   "dask",
   "deltalake",
-  "django",
-  "djangorestframework",
-  "django-storages",
   "duckdb",
   "edfio",
   "flake8",
@@ -30,9 +27,8 @@ dependencies = [
   "psycopg2-binary",
   "pyarrow",
   "pyedflib",
-  "pylint-django",
   "pytest",
-  "pytest-django",
+  "pytest-mock",
   "pytest-recording",
   "python-keystoneclient",
   "python-swiftclient",
@@ -40,6 +36,11 @@ dependencies = [
   "tqdm",
   "xarray",
 ]
+
+# Add this section to explicitly specify only DiveDB as the package
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["DiveDB*"]
 
 [tool.black]
 line-length = 88

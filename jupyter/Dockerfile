@@ -2,15 +2,15 @@
 FROM python:3.12
 WORKDIR /app
 
-COPY ./requirements.txt /app/requirements.txt
-RUN pip3 install -r requirements.txt
+# Copy pyproject.toml and install dependencies
+COPY pyproject.toml /app/pyproject.toml
+RUN pip3 install -e ".[dev]"
+RUN pip3 install jupyter ipykernel
 
+# Copy the rest of the application
 COPY . /app
 
-COPY ./jupyter_notebook_config.py /root/.jupyter/jupyter_notebook_config.py
-# RUN prefect config set PREFECT_API_URL=http://prefect:4200/api
-# RUN prefect config set PREFECT_RESULTS_PERSIST_BY_DEFAULT=true
-# RUN prefect config set PREFECT_SERVER_API_HOST=http://prefect/api
+COPY jupyter/jupyter_notebook_config.py /root/.jupyter/jupyter_notebook_config.py
 
 # Expose the port for Jupyter Notebook
 EXPOSE 8888

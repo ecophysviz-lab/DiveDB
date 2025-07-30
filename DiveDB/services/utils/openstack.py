@@ -1,3 +1,7 @@
+"""
+OpenStack Swift Client - NOT CURRENTLY IN USE or actively maintained.
+"""
+
 import os
 
 from keystoneauth1 import loading, session
@@ -14,7 +18,11 @@ OPENSTACK_APPLICATION_CREDENTIAL_SECRET = os.getenv(
 
 class SwiftClient:
     def __init__(self):
-        if OPENSTACK_AUTH_URL and OPENSTACK_APPLICATION_CREDENTIAL_ID and OPENSTACK_APPLICATION_CREDENTIAL_SECRET:
+        if (
+            OPENSTACK_AUTH_URL
+            and OPENSTACK_APPLICATION_CREDENTIAL_ID
+            and OPENSTACK_APPLICATION_CREDENTIAL_SECRET
+        ):
             loader = loading.get_plugin_loader("v3applicationcredential")
             auth = loader.load_from_options(
                 auth_url=OPENSTACK_AUTH_URL,
@@ -25,7 +33,9 @@ class SwiftClient:
             self.client = swiftclient.Connection(session=self.sess)
             self.storage_url, _ = self.client.get_auth()
         else:
-            print("No OpenStack credentials found. SwiftClient will not be initialized.")
+            print(
+                "No OpenStack credentials found. SwiftClient will not be initialized."
+            )
 
     def get_containers(self):
         return self.client.get_account()[1]

@@ -1,8 +1,7 @@
-from django.core.files.storage import Storage
 from .openstack import SwiftClient
 
 
-class OpenStackStorage(Storage):
+class OpenStackStorage:
     def __init__(self):
         self.client = SwiftClient()
 

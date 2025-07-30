@@ -6,19 +6,15 @@ build-backend = "setuptools.build_meta"
 name = "DiveDB"
 version = "0.1.0"
 dependencies = [
-  "black",
   "bs4",
-  "dash",
+  "dask",
   "deltalake",
-  "django",
-  "djangorestframework",
-  "django-storages",
   "duckdb",
   "edfio",
-  "flake8",
   "importlib-metadata==4.8.3",
   "load_dotenv",
   "mne",
+  "netcdf4",
   "notion_client",
   "numpy",
   "pandas",
@@ -26,34 +22,9 @@ dependencies = [
   "psycopg2-binary",
   "pyarrow",
   "pyedflib",
-  "pylint-django",
-  "pytest",
-  "pytest-django",
-  "pytest-recording",
   "python-keystoneclient",
   "python-swiftclient",
   "setuptools",
   "tqdm",
   "xarray",
 ]
-
-[tool.black]
-line-length = 88
-target-version = ["py37"]
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | \.lib
-  | _build
-  | buck-out
-  | build
-  | dist
-  | services/duck_pond.py
-  | pyologger
-)/
-'''
