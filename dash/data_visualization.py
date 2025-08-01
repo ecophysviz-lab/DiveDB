@@ -1953,7 +1953,7 @@ def update_graph(playhead_timestamp, existing_fig):
             y1=1,
             xref="x",
             yref="paper",
-            line=dict(width=2, dash="solid"),
+            line=dict(color="#73a9c4", width=2, dash="solid"),
         )
     )
     existing_fig["layout"]["uirevision"] = "constant"
