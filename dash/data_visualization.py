@@ -1,8 +1,9 @@
 import os
 import dash
-from dash import dcc, html, Output, Input, State
+from dash import dcc, html, Output, Input, State, callback_context
 import pandas as pd
 from dotenv import load_dotenv
+import dash_bootstrap_components as dbc
 
 import three_js_orientation
 import video_preview
@@ -13,7 +14,10 @@ from graph_utils import plot_tag_data_interactive5
 load_dotenv()
 duckpond = DuckPond(os.getenv("LOCAL_DELTA_LAKE_PATH"))
 
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, external_stylesheets=[
+    dbc.themes.BOOTSTRAP,
+    "/assets/styles.css"  # Custom SASS-compiled CSS
+])
 
 dff = duckpond.get_delta_data(
     animal_ids="apfo-001a",
