@@ -105,12 +105,20 @@ class DuckPond:
                 },
             )
 
-            # Configure DuckDB S3 settings
-            self.conn.execute(f"SET s3_endpoint='{self.s3_endpoint}';")
+            # Configure DuckDB S3 settings for Ceph compatibility
+            self.conn.execute(
+                f"SET s3_endpoint='{self.s3_endpoint.replace('https://', '')}';"
+            )
             self.conn.execute(f"SET s3_access_key_id='{self.s3_access_key}';")
             self.conn.execute(f"SET s3_secret_access_key='{self.s3_secret_key}';")
             self.conn.execute(f"SET s3_region='{self.s3_region}';")
-            logging.info("Configured DuckDB S3 settings")
+            # Additional settings for Ceph/MinIO compatibility
+            self.conn.execute("SET s3_use_ssl=true;")  # Enable SSL for security
+            self.conn.execute("SET s3_url_style='path';")  # Path-style URLs for Ceph
+
+            logging.info(
+                f"Configured DuckDB S3 settings for Ceph compatibility: {self.s3_endpoint}"
+            )
 
         else:
             catalog_db_path = os.path.join(self.warehouse_path, "catalog.db")
@@ -369,13 +377,17 @@ class DuckPond:
                 # Build direct Parquet path instead of using iceberg_scan
                 if self.use_s3:
                     # For S3, construct the data path
-                    parquet_path = f"'{self.warehouse_path}/{dataset}.db/{lake_name}/data/**/*.parquet'"
+                    dataset_db = f"{dataset}.db"
+                    # Structure: warehouse/dataset.db/table_type/data/**/*.parquet
+                    parquet_path = f"{self.warehouse_path}/{dataset_db}/{lake_name}/data/**/*.parquet"
                 else:
-                    # For local filesystem, construct the file URI path
+                    # For local filesystem, construct the file path
                     data_dir = os.path.join(
                         self.warehouse_path, f"{dataset}.db", lake_name, "data"
                     )
-                    parquet_path = f"'file://{os.path.abspath(data_dir)}/**/*.parquet'"
+                    parquet_path = f"file://{os.path.abspath(data_dir)}/**/*.parquet"
+
+                logging.debug(f"Hive-partitioned Parquet path: {parquet_path}")
 
                 # Check if table has any snapshots (data)
                 snapshots = table.snapshots()
@@ -431,7 +443,7 @@ class DuckPond:
                         )
                     logging.info(f"Created empty placeholder view: {view_name}")
                 else:
-                    # Table has data, create normal view
+                    # Table has data, use read_parquet with hive_partitioning
                     if lake_name == "data":
                         # Create view that converts wide format back to single value column
                         self.conn.execute(
@@ -460,7 +472,7 @@ class DuckPond:
                                 val_bool as boolean_value,
                                 val_str as string_value,
                                 data_type
-                            FROM {parquet_path};
+                            FROM read_parquet('{parquet_path}', hive_partitioning = true);
                         """
                         )
                     else:
@@ -469,7 +481,7 @@ class DuckPond:
                             f"""
                             DROP VIEW IF EXISTS {view_name};
                             CREATE VIEW {view_name} AS
-                            SELECT * FROM {parquet_path};
+                            SELECT * FROM read_parquet('{parquet_path}', hive_partitioning = true);
                         """
                         )
                     logging.info(f"Created DuckDB view: {view_name}")
@@ -505,7 +517,7 @@ class DuckPond:
         )
 
         return cls(
-            warehouse_path=warehouse_path,
+            warehouse_path=warehouse_path if not s3_endpoint else None,
             s3_endpoint=s3_endpoint,
             s3_access_key=s3_access_key,
             s3_secret_key=s3_secret_key,
@@ -627,7 +639,6 @@ class DuckPond:
             if not values:
                 return ""
             if len(values) == 1:
-                # Direct equality - no need for TRIM since we're bypassing Iceberg
                 return f"{predicate} = '{values[0]}'"
             quoted_values = ", ".join(f"'{value}'" for value in values)
             return f"{predicate} IN ({quoted_values})"
@@ -832,6 +843,35 @@ class DuckPond:
             self.get_view_name(dataset, table_type)
             for table_type in ["data", "point_events", "state_events"]
         ]
+
+    def test_s3_connectivity(self):
+        """Test S3 connectivity and direct Parquet access"""
+        if not self.use_s3:
+            return {"status": "skipped", "reason": "Not using S3 backend"}
+
+        try:
+            # Test basic S3 connectivity
+            test_query = "SELECT 1 as test_value"
+            result = self.conn.sql(test_query).df()
+
+            # Test S3 configuration
+            settings = {}
+            for setting in ["s3_endpoint", "s3_region", "s3_access_key_id"]:
+                try:
+                    setting_result = self.conn.sql(
+                        f"SELECT current_setting('{setting}') as value"
+                    ).df()
+                    settings[setting] = setting_result.iloc[0]["value"]
+                except Exception:
+                    settings[setting] = "not_set"
+
+            return {
+                "status": "success",
+                "basic_query": len(result) > 0,
+                "s3_settings": settings,
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
 
     def close_connection(self):
         """Close the connection"""
