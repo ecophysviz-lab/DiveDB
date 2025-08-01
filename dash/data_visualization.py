@@ -1810,6 +1810,61 @@ app.layout = html.Div(
 )
 
 
+@app.callback(
+    Output("modal", "is_open"),
+    [Input("save-button", "n_clicks"), Input("close", "n_clicks")],
+    [State("modal", "is_open")],
+)
+def toggle_modal(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+
+@app.callback(
+    Output('main-layout', 'className'),
+    Input('right-top-toggle', 'n_clicks'),
+    Input('right-bottom-toggle', 'n_clicks'),
+    Input('left-toggle', 'n_clicks'),
+    Input('right-toggle', 'n_clicks'),
+    State('main-layout', 'className')
+)
+def displayClick(right_top_clicks, right_bottom_clicks, left_clicks, right_clicks, current_className):
+    if not callback_context.triggered:
+        return current_className or 'default-layout'
+    
+    changed_id = [p['prop_id'] for p in callback_context.triggered][0]
+    
+    # Parse current class states
+    current_classes = (current_className or 'default-layout').split() if current_className else ['default-layout']
+    
+    # Ensure base class is always present
+    if 'default-layout' not in current_classes:
+        current_classes.append('default-layout')
+    
+    # Determine which layout to toggle
+    target_layout = None
+    if 'right-top-toggle' in changed_id:
+        target_layout = 'right-top-expanded'
+    elif 'right-bottom-toggle' in changed_id:
+        target_layout = 'right-bottom-expanded'
+    elif 'left-toggle' in changed_id:
+        target_layout = 'left-sidebar-hidden'
+    elif 'right-toggle' in changed_id:
+        target_layout = 'right-sidebar-hidden'
+    
+    # Toggle the specific layout class independently
+    if target_layout:
+        if target_layout in current_classes:
+            # Remove the class (toggle off)
+            current_classes.remove(target_layout)
+        else:
+            # Add the class (toggle on)
+            current_classes.append(target_layout)
+    
+    return ' '.join(current_classes)
+
+
 # Callback to update VideoPreview props
 @app.callback(
     Output("video-trimmer", "playheadTime"),
