@@ -1,0 +1,44 @@
+$blueExtraDark: #041827;
+$blueDark: #0e3551;
+$blueLight: #73a9c4;
+$blue: #092a42;
+$blueMedium: #286591;
+$background-color: $blueExtraDark;
+$white: #fff;
+$black: #333;
+$box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+$orange: #ff6600;
+$green: #00cc66;
+$purple: #800080;
+$yellow: #ffcc00;
+$turquoise: #00bcd4;
+$pink: #ff69b4;
+$red: #ff0000;
+
+
+$theme-colors: (
+	// Custom colors
+	"white": $white,
+    "blueDark": $blueDark,
+	"black": $black,
+	"blueLight": $blueLight,
+    "blue": $blue,
+	"blueExtraDark": $blueExtraDark,
+	"blueMedium": $blueMedium,
+	"orange": $orange,
+	"green": $green,
+	"purple": $purple,
+	"yellow": $yellow,
+	"turquoise": $turquoise,
+	"pink": $pink,
+    "red": $red,
+
+	// Customize Bootstrap colors
+	"primary": $blue,
+	"secondary": $blue,
+	"success": $blueLight,
+	"info": $blue,
+	"warning": $blueMedium,
+	"danger": $blue,
+	"dark": $black
+);
