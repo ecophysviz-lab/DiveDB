@@ -301,6 +301,8 @@ class NotionORMManager:
     Manager class for handling Notion database models and queries.
     """
 
+    # TODO: IDENTIFY ORPHAN DATALAKES
+
     def __init__(self, db_map: Dict[str, str], token: str):
         """
         Initialize the NotionORMManager.

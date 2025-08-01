@@ -76,38 +76,60 @@ To create a local analysis environment, follow these steps:
 1. **Access the Environment:**
    To access the Jupyter notebook server, open your web browser and go to `http://localhost:8888` or connect to kernel `http://localhost:8888/jupyter` in a Jupyter client.
 
-## Where to Store Your Data Lake
+## Where to Store Your Iceberg Warehouse
 
-The data lake can be stored in a container on a remote server or locally. The path to the data lake is stored in the `.env` file as `CONTAINER_DELTA_LAKE_PATH`.
+The Iceberg data warehouse can be stored locally or on remote object storage. The path to the warehouse is configured in the `.env` file as `CONTAINER_ICEBERG_PATH`.
 
-To store the data lake on a remote server, set the `CONTAINER_DELTA_LAKE_PATH` to the S3 connection string for the server. You'll also need to provide the following environment variables:
-- AWS_ACCESS_KEY_ID
-- AWS_SECRET_ACCESS_KEY
-- AWS_REGION
-- AWS_ENDPOINT_URL
+### Local Storage (Development)
+For local development, set the warehouse path to a local directory:
+```bash
+CONTAINER_ICEBERG_PATH=/app/iceberg_warehouse
+LOCAL_ICEBERG_PATH=./local_iceberg_warehouse
+```
 
-To store the data lake locally, set the `CONTAINER_DELTA_LAKE_PATH` to the path to the Delta Lake in the local file system.
+### Remote Storage - S3/Ceph Backend
+To store the warehouse on S3-compatible object storage (AWS S3, Ceph, MinIO, etc.), provide the following environment variables:
 
-## Delta Lake Schemas in DiveDB
+```bash
+# S3/Ceph Configuration
+S3_ENDPOINT=https://your-s3-endpoint.com  # Ceph/S3 endpoint URL
+S3_ACCESS_KEY=your-access-key               # S3 access key
+S3_SECRET_KEY=your-secret-key               # S3 secret key  
+S3_BUCKET=your-iceberg-bucket               # S3 bucket name
+S3_REGION=us-east-1                         # S3 region (optional)
+```
 
-The `DuckPond` class in `duck_pond.py` manages three distinct Delta Lakes, each with its own schema. These schemas define the structure of the data stored in the Delta Lakes and are crucial for ensuring data consistency and reliability.
+When S3 configuration is provided, DuckPond will automatically:
+- Configure the Iceberg catalog for S3 storage
+- Load DuckDB's S3 extensions (httpfs)
+- Set up S3 credentials for data access
+- Store data at `s3://your-bucket/iceberg-warehouse/`
 
-### 1. DataLake Schema
+**Note:** Ensure your S3 bucket exists and your credentials have read/write permissions.
 
-The `DataLake` schema is designed to store general data collected from various sensors. It includes the following fields:
+**Migration Note:** This project has migrated from Delta Lake to Apache Iceberg for improved performance, schema evolution, and better partitioning capabilities.
 
-- **animal**: The identifier for the animal from which data is collected (string).
-- **deployment**: The deployment identifier (string).
-- **recording**: The recording session identifier (string).
-- **group**: The group or category of the data (string).
-- **class**: The class of the data (string).
-- **label**: The label associated with the data (string).
-- **datetime**: The timestamp of the data point (timestamp with microsecond precision, UTC).
-- **value**: A struct containing:
-  - **float**: A floating-point value (nullable).
-  - **string**: A string value (nullable).
-  - **boolean**: A boolean value (nullable).
-  - **int**: An integer value (nullable).
+## Iceberg Schemas in DiveDB
+
+The `DuckPond` class in `duck_pond.py` manages three distinct Iceberg tables, each with its own schema. These schemas use a wide format approach for better performance and query flexibility.
+
+### 1. Data Table Schema (Wide Format)
+
+The `data` table stores sensor data using a wide schema approach instead of nested structs. This provides better query performance and easier analytics:
+
+- **dataset**: High-level dataset identifier (required, string)
+- **animal**: The identifier for the animal from which data is collected (required, string)
+- **deployment**: The deployment identifier (required, string)
+- **recording**: The recording session identifier (optional, string)
+- **group**: The group or category of the data (required, string)
+- **class**: The class of the data (required, string)
+- **label**: The label associated with the data (required, string)
+- **datetime**: The timestamp of the data point (required, timestamp with microsecond precision)
+- **val_dbl**: Floating-point values (optional, double)
+- **val_int**: Integer values (optional, long)
+- **val_bool**: Boolean values (optional, boolean)
+- **val_str**: String values (optional, string)
+- **data_type**: Indicates which value column contains the data (required, string: 'double', 'int', 'bool', 'str')
 
 ### 2. PointEventsLake Schema
 
@@ -138,7 +160,7 @@ The `StateEventsLake` schema is designed to store events that have a duration, w
 - **long_description**: A detailed description of the event (string).
 - **event_data**: Additional data related to the event (string).
 
-These schemas are defined using the `pyarrow` library and are used to enforce data structure and integrity within the Delta Lakes managed by the `DuckPond` class.
+These schemas are defined using the `pyarrow` library and are used to enforce data structure and integrity within the Iceberg data lake managed by the `DuckPond` class.
 
 ## Notion Metadata Structure
 

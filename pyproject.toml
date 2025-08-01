@@ -11,7 +11,7 @@ dependencies = [
   "dash",
   "dash[testing]",
   "dask",
-  "deltalake",
+  "pyiceberg[sql-sqlite,pyarrow]",
   "duckdb",
   "edfio",
   "flake8",

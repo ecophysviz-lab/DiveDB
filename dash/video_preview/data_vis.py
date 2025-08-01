@@ -10,11 +10,12 @@ import video_preview
 # importlib.reload(DiveDB.services.duck_pond)
 from DiveDB.services.duck_pond import DuckPond
 
-duckpond = DuckPond("/data/delta-2")
+duck_pond = DuckPond.from_environment()
 
 app = dash.Dash(__name__)
 
-dff = duckpond.get_delta_data(
+dff = duck_pond.get_data(
+    dataset="EP Physiology",
     animal_ids="oror-002",
     frequency=10,
     labels=[
@@ -29,7 +30,8 @@ dff = duckpond.get_delta_data(
     date_range=["2024-01-16 18:00:00", "2024-01-16 18:10:00"],
 )
 
-ecg_dff = duckpond.get_delta_data(
+ecg_dff = duck_pond.get_data(
+    dataset="EP Physiology",
     animal_ids="oror-002",
     frequency=25,
     labels="sensor_data_ecg",

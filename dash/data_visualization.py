@@ -1,4 +1,3 @@
-import os
 import dash
 from dash import dcc, html, Output, Input, State
 import pandas as pd
@@ -11,11 +10,12 @@ from DiveDB.services.duck_pond import DuckPond
 from graph_utils import plot_tag_data_interactive5
 
 load_dotenv()
-duckpond = DuckPond(os.getenv("LOCAL_DELTA_LAKE_PATH"))
+duck_pond = DuckPond.from_environment()
 
 app = dash.Dash(__name__)
 
-dff = duckpond.get_delta_data(
+dff = duck_pond.get_data(
+    dataset="EP Physiology",
     animal_ids="apfo-001a",
     frequency=1,
     labels=[

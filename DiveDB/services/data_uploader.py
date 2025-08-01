@@ -2,7 +2,7 @@
 Data Uploader
 """
 
-import os
+from typing import Dict, List, Optional, Union, Any
 
 import numpy as np
 import gc
@@ -27,19 +27,19 @@ class DataUploader:
 
     def __init__(
         self,
-        duckpond: DuckPond | None = None,
-        notion_manager: NotionORMManager | None = None,
-        notion_config: dict | None = None,
-    ):
+        duck_pond: Optional[DuckPond] = None,
+        notion_manager: Optional[NotionORMManager] = None,
+        notion_config: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """
         Initialize DataUploader with optional DuckPond instance and Notion configuration.
 
         Args:
-            duckpond: DuckPond instance for data storage
+            duck_pond: DuckPond instance for Iceberg data storage
             notion_manager: NotionORMManager instance for database operations
             notion_config: Dictionary with 'db_map' and 'token' keys for Notion ORM (ignored if notion_manager is provided)
         """
-        self.duckpond = duckpond or DuckPond(os.environ["CONTAINER_DELTA_LAKE_PATH"])
+        self.duck_pond = duck_pond or DuckPond.from_environment()
 
         if notion_manager:
             self.notion_manager = notion_manager
@@ -50,7 +50,7 @@ class DataUploader:
         else:
             self.notion_manager = None
 
-    def _get_datetime_type(self, time_data_array: xr.DataArray):
+    def _get_datetime_type(self, time_data_array: xr.DataArray) -> pa.DataType:
         """Function to get the datetime type from a PyArrow array."""
         time_dtype = time_data_array.dtype
         if time_dtype == "datetime64[ns]":
@@ -61,7 +61,7 @@ class DataUploader:
             raise ValueError(f"Unsupported time dtype: {time_dtype}")
 
     # Convert ds.attrs to a JSON-serializable dictionary
-    def _make_json_serializable(self, attrs):
+    def _make_json_serializable(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
         serializable_attrs = {}
         for key, value in attrs.items():
             if isinstance(value, (np.integer, np.floating)):
@@ -77,129 +77,48 @@ class DataUploader:
                 serializable_attrs[key] = value
         return serializable_attrs
 
-    def _create_value_structs(self, values):
-        """Helper function to create value structs for PyArrow table."""
-        boolean_values = np.where(
-            np.isin(values, [True, False]) & ~np.isin(values, [1.0, 0.0]),
-            values,
-            None,
-        )
-        numeric_values = np.vectorize(
-            lambda x: (float(x) if isinstance(x, (int, float)) else np.nan)
-        )(values)
-
-        # Check if the data type is integer
-        if np.issubdtype(numeric_values.dtype, np.integer):
-            float_values = None
-            int_values = np.where(
-                np.isfinite(numeric_values), numeric_values.astype(int), None
-            )
-        else:
-            float_values = np.where(np.isfinite(numeric_values), numeric_values, None)
-            int_values = None
-
-        string_values = np.where(
-            ~np.isin(values, [True, False])
-            & np.vectorize(
-                lambda x: (
-                    not np.isfinite(float(x)) if isinstance(x, (int, float)) else True
-                )
-            )(values),
-            values,
-            None,
-        )
-        # Ensure string_values are actually strings
-        string_values = np.where(
-            np.vectorize(lambda x: isinstance(x, str))(string_values),
-            string_values,
-            None,
-        )
-        return pa.StructArray.from_arrays(
-            [
-                (
-                    pa.array(float_values, type=pa.float64())
-                    if float_values is not None
-                    else pa.nulls(len(values), type=pa.float64())
-                ),
-                pa.array(string_values, type=pa.string()),
-                pa.array(boolean_values, type=pa.bool_()),
-                (
-                    pa.array(int_values, type=pa.int64())
-                    if int_values is not None
-                    else pa.nulls(len(values), type=pa.int64())
-                ),
-            ],
-            fields=[
-                pa.field("float", pa.float64(), nullable=True),
-                pa.field("string", pa.string(), nullable=True),
-                pa.field("boolean", pa.bool_(), nullable=True),
-                pa.field("int", pa.int64(), nullable=True),
-            ],
-        )
-
-    def _write_data_to_duckpond(
+    def _write_data_to_duck_pond(
         self,
-        metadata: dict,
+        dataset: str,
+        metadata: Dict[str, Any],
         times: pa.Array,
         group: str,
         class_name: str,
         label: str,
-        values: np.ndarray,
-        file_name: str,
-    ):
-        """Helper function to write data to DuckPond."""
-        value_structs = self._create_value_structs(values)
-        batch_table = pa.table(
-            {
-                "animal": pa.array(
-                    [metadata["animal"]] * len(values), type=pa.string()
-                ),
-                "deployment": pa.array(
-                    [str(metadata["deployment"])] * len(values),
-                    type=pa.string(),
-                ),
-                "recording": pa.array(
-                    [metadata["recording"]] * len(values), type=pa.string()
-                ),
-                "group": pa.array([group] * len(values), type=pa.string()),
-                "class": pa.array([class_name] * len(values), type=pa.string()),
-                "label": pa.array([label] * len(values), type=pa.string()),
-                "datetime": times,
-                "value": value_structs,
-            },
-            schema=self.duckpond.LAKE_CONFIGS["DATA"]["schema"],
+        values: Union[np.ndarray, List[Any]],
+    ) -> None:
+        """Helper function to write sensor data to DuckPond (Iceberg)."""
+        # Convert numpy array to list if needed (DuckPond expects mixed-type lists)
+        if isinstance(values, np.ndarray):
+            values = values.tolist()
+
+        # Use DuckPond's write_sensor_data method which handles wide format internally
+        self.duck_pond.write_sensor_data(
+            dataset=dataset,
+            metadata=metadata,
+            times=times,
+            group=group,
+            class_name=class_name,
+            label=label,
+            values=values,
         )
-        self.duckpond.write_to_delta(
-            data=batch_table,
-            lake="DATA",
-            mode="append",
-            partition_by=[
-                "animal",
-                "deployment",
-                "recording",
-                "group",
-                "class",
-                "label",
-            ],
-            name=file_name,
-            description="test",
-        )
-        del batch_table
+
+        # Clean up memory
         gc.collect()
 
-    def _write_events_to_duckpond(
+    def _write_events_to_duck_pond(
         self,
-        metadata: dict,
+        dataset: str,
+        metadata: Dict[str, Any],
         start_times: pa.Array,
         end_times: pa.Array,
-        group: str = None,
-        event_keys: list = None,
-        event_data: list = None,
-        short_descriptions: list[str] | None = None,
-        long_descriptions: list[str] | None = None,
-        file_name: str = None,
-    ):
-        """Helper function to write data to DuckPond."""
+        group: Optional[str] = None,
+        event_keys: Optional[List[str]] = None,
+        event_data: Optional[List[Dict[str, Any]]] = None,
+        short_descriptions: Optional[List[str]] = None,
+        long_descriptions: Optional[List[str]] = None,
+    ) -> None:
+        """Helper function to write event data to DuckPond (Iceberg)."""
         if short_descriptions is None:
             short_descriptions = [None] * len(event_keys)
         if long_descriptions is None:
@@ -214,9 +133,10 @@ class DataUploader:
 
         for i, is_point in enumerate(is_point_event):
             event = {
+                "dataset": dataset,  # New required field
                 "animal": metadata["animal"],
                 "deployment": str(metadata["deployment"]),
-                "recording": metadata["recording"],
+                "recording": metadata.get("recording"),  # Optional field
                 "group": group,
                 "event_key": event_keys[i],
                 "event_data": json.dumps(event_data[i]),
@@ -229,108 +149,94 @@ class DataUploader:
             else:
                 event["datetime_start"] = start_times[i]
                 event["datetime_end"] = end_times[i]
+                # State events require descriptions to be non-null in schema
+                if event["short_description"] is None:
+                    event["short_description"] = ""
+                if event["long_description"] is None:
+                    event["long_description"] = ""
                 state_events.append(event)
 
-        # Write point events
+        # Write point events using DuckPond
         if point_events:
-            batch_table = pa.table(
-                {
-                    "animal": pa.array(
-                        [e["animal"] for e in point_events], type=pa.string()
-                    ),
-                    "deployment": pa.array(
-                        [e["deployment"] for e in point_events], type=pa.string()
-                    ),
-                    "recording": pa.array(
-                        [e["recording"] for e in point_events], type=pa.string()
-                    ),
-                    "group": pa.array(
-                        [e["group"] for e in point_events], type=pa.string()
-                    ),
-                    "event_key": pa.array(
-                        [e["event_key"] for e in point_events], type=pa.string()
-                    ),
-                    "datetime": pa.array([e["datetime"] for e in point_events]),
-                    "event_data": pa.array(
-                        [e["event_data"] for e in point_events], type=pa.string()
-                    ),
-                    "short_description": pa.array(
-                        [e["short_description"] for e in point_events], type=pa.string()
-                    ),
-                    "long_description": pa.array(
-                        [e["long_description"] for e in point_events], type=pa.string()
-                    ),
-                },
-                schema=self.duckpond.LAKE_CONFIGS["POINT_EVENTS"]["schema"],
-            )
-            self.duckpond.write_to_delta(
-                data=batch_table,
-                lake="POINT_EVENTS",
-                mode="append",
-                partition_by=[
-                    "animal",
-                    "deployment",
-                    "recording",
-                    "group",
-                    "event_key",
-                ],
-                name=file_name,
-                description="test",
+            # Create schema for point events (matching DuckPond schema)
+            point_schema = pa.schema(
+                [
+                    pa.field("dataset", pa.string(), nullable=False),
+                    pa.field("animal", pa.string(), nullable=False),
+                    pa.field("deployment", pa.string(), nullable=False),
+                    pa.field("recording", pa.string(), nullable=True),
+                    pa.field("group", pa.string(), nullable=False),
+                    pa.field("event_key", pa.string(), nullable=False),
+                    pa.field("datetime", pa.timestamp("us"), nullable=False),
+                    pa.field("short_description", pa.string(), nullable=True),
+                    pa.field("long_description", pa.string(), nullable=True),
+                    pa.field("event_data", pa.string(), nullable=False),
+                ]
             )
 
-        # Write state events
-        if state_events:
             batch_table = pa.table(
-                {
-                    "animal": pa.array(
-                        [e["animal"] for e in state_events], type=pa.string()
-                    ),
-                    "deployment": pa.array(
-                        [e["deployment"] for e in state_events], type=pa.string()
-                    ),
-                    "recording": pa.array(
-                        [e["recording"] for e in state_events], type=pa.string()
-                    ),
-                    "group": pa.array(
-                        [e["group"] for e in state_events], type=pa.string()
-                    ),
-                    "event_key": pa.array(
-                        [e["event_key"] for e in state_events], type=pa.string()
-                    ),
-                    "datetime_start": pa.array(
-                        [e["datetime_start"] for e in state_events]
-                    ),
-                    "datetime_end": pa.array([e["datetime_end"] for e in state_events]),
-                    "event_data": pa.array(
-                        [e["event_data"] for e in state_events], type=pa.string()
-                    ),
-                    "short_description": pa.array(
-                        [e["short_description"] for e in state_events], type=pa.string()
-                    ),
-                    "long_description": pa.array(
-                        [e["long_description"] for e in state_events], type=pa.string()
-                    ),
-                },
-                schema=self.duckpond.LAKE_CONFIGS["STATE_EVENTS"]["schema"],
-            )
-            self.duckpond.write_to_delta(
-                data=batch_table,
-                lake="STATE_EVENTS",
-                mode="append",
-                partition_by=[
-                    "animal",
-                    "deployment",
-                    "recording",
-                    "group",
-                    "event_key",
+                [
+                    pa.array([e["dataset"] for e in point_events]),
+                    pa.array([e["animal"] for e in point_events]),
+                    pa.array([e["deployment"] for e in point_events]),
+                    pa.array([e["recording"] for e in point_events]),
+                    pa.array([e["group"] for e in point_events]),
+                    pa.array([e["event_key"] for e in point_events]),
+                    pa.array([e["datetime"] for e in point_events]),
+                    pa.array([e["short_description"] for e in point_events]),
+                    pa.array([e["long_description"] for e in point_events]),
+                    pa.array([e["event_data"] for e in point_events]),
                 ],
-                name=file_name,
-                description="test",
+                schema=point_schema,
+            )
+
+            self.duck_pond.write_to_iceberg(
+                batch_table, "point_events", dataset=dataset
+            )
+
+        # Write state events using DuckPond
+        if state_events:
+            # Create schema for state events (matching DuckPond schema)
+            state_schema = pa.schema(
+                [
+                    pa.field("dataset", pa.string(), nullable=False),
+                    pa.field("animal", pa.string(), nullable=False),
+                    pa.field("deployment", pa.string(), nullable=False),
+                    pa.field("recording", pa.string(), nullable=True),
+                    pa.field("group", pa.string(), nullable=False),
+                    pa.field("event_key", pa.string(), nullable=False),
+                    pa.field("datetime_start", pa.timestamp("us"), nullable=False),
+                    pa.field("datetime_end", pa.timestamp("us"), nullable=False),
+                    pa.field("short_description", pa.string(), nullable=False),
+                    pa.field("long_description", pa.string(), nullable=False),
+                    pa.field("event_data", pa.string(), nullable=False),
+                ]
+            )
+
+            batch_table = pa.table(
+                [
+                    pa.array([e["dataset"] for e in state_events]),
+                    pa.array([e["animal"] for e in state_events]),
+                    pa.array([e["deployment"] for e in state_events]),
+                    pa.array([e["recording"] for e in state_events]),
+                    pa.array([e["group"] for e in state_events]),
+                    pa.array([e["event_key"] for e in state_events]),
+                    pa.array([e["datetime_start"] for e in state_events]),
+                    pa.array([e["datetime_end"] for e in state_events]),
+                    pa.array([e["short_description"] for e in state_events]),
+                    pa.array([e["long_description"] for e in state_events]),
+                    pa.array([e["event_data"] for e in state_events]),
+                ],
+                schema=state_schema,
+            )
+
+            self.duck_pond.write_to_iceberg(
+                batch_table, "state_events", dataset=dataset
             )
 
         gc.collect()
 
-    def validate_netcdf(self, ds: xr.Dataset):
+    def validate_netcdf(self, ds: xr.Dataset) -> bool:
         """
         Validates netCDF file before upload.
 
@@ -373,7 +279,7 @@ class DataUploader:
 
         sample_dimensions = [dim for dim in ds.dims if dim.endswith("_samples")]
         for dim in sample_dimensions:
-            if not np.isdtype(ds[dim].dtype, np.datetime64):
+            if not np.issubdtype(ds[dim].dtype, np.datetime64):
                 raise NetCDFValidationError(
                     f"Dimension '{dim}' must contain datetime64 values."
                 )
@@ -391,7 +297,7 @@ class DataUploader:
                     raise NetCDFValidationError(
                         f"1D Variable '{var_name}' must have a dimension in '{sample_dimensions}', found '{var.dims[0]}'."
                     )
-                if "variable" not in var.attrs:
+                if "variable" not in var.attrs and "variables" not in var.attrs:
                     found = list(var.attrs.keys())
                     raise NetCDFValidationError(
                         f"Variable '{var_name}' must have a 'variable' attribute for flat arrays. Found '{found}'."
@@ -419,7 +325,9 @@ class DataUploader:
                 )
         return True
 
-    def _get_model_by_id(self, model_name: str, model_id: str, id_field: str = "id"):
+    def _get_model_by_id(
+        self, model_name: str, model_id: str, id_field: str = "id"
+    ) -> Any:
         """
         Generic method to get a model by ID from Notion database.
 
@@ -444,7 +352,7 @@ class DataUploader:
 
         return instance
 
-    def get_logger(self, logger_data):
+    def get_logger(self, logger_data: Dict[str, Any]) -> Any:
         """
         Get logger from Notion database.
 
@@ -454,7 +362,7 @@ class DataUploader:
         """
         return self._get_model_by_id("Logger", logger_data["logger_id"])
 
-    def get_recording(self, recording_data):
+    def get_recording(self, recording_data: Dict[str, Any]) -> Any:
         """
         Get recording from Notion database.
 
@@ -464,7 +372,7 @@ class DataUploader:
         """
         return self._get_model_by_id("Recording", recording_data["recording_id"])
 
-    def get_deployment(self, deployment_data):
+    def get_deployment(self, deployment_data: Dict[str, Any]) -> Any:
         """
         Get deployment from Notion database.
 
@@ -474,7 +382,7 @@ class DataUploader:
         """
         return self._get_model_by_id("Deployment", deployment_data["deployment_id"])
 
-    def get_animal(self, animal_data):
+    def get_animal(self, animal_data: Dict[str, Any]) -> Any:
         """
         Get animal from Notion database.
 
@@ -487,28 +395,42 @@ class DataUploader:
     def upload_netcdf(
         self,
         netcdf_file_path: str,
-        metadata: dict,
-        batch_size: int = 1000000,
-        rename_map: dict = {},
+        metadata: Dict[str, Any],
+        batch_size: int = 5_000_000,
+        rename_map: Optional[Dict[str, str]] = None,
         skip_validation: bool = False,
-    ):
+    ) -> None:
         """
-        Uploads a netCDF file to the database and DuckPond.
+        Uploads a netCDF file to the database and Ice Pond (Iceberg).
 
         Parameters:
         netcdf_file_path (str): Path to the netCDF file.
-        metadata (dict): Metadata dictionary.
+        metadata (Dict[str, Any]): Metadata dictionary.
             Required keys:
+                - dataset: Dataset identifier (str)
                 - animal: Animal ID (int)
                 - deployment: Deployment Name (str)
             Optional key:
                 - recording: Recording Name (str)
-        batch_size (int, optional): Size of data batches for processing. Defaults to 1 million
-        rename_map (dict, optional): A dictionary mapping original variable names to new names.
+        batch_size (int, optional): Size of data batches for processing. Defaults to 5 million which is safe for an 8GB RAM machine.
+        rename_map (Optional[Dict[str, str]], optional): A dictionary mapping original variable names to new names.
         skip_validation (bool, optional): Skip validation of the netCDF file. Defaults to False.
         """
 
+        # Extract dataset from metadata
+        if "dataset" not in metadata:
+            raise ValueError("metadata must contain 'dataset' key")
+        dataset = metadata["dataset"]
+
+        # Set default rename_map if None
+        if rename_map is None:
+            rename_map = {}
+
         ds = xr.open_dataset(netcdf_file_path)
+
+        # validate netcdf file
+        if not skip_validation:
+            self.validate_netcdf(ds)
 
         # Apply renaming if rename_map is provided
         if rename_map:
@@ -551,14 +473,14 @@ class DataUploader:
                     for i in range(len(start_times))
                 ]
 
-                self._write_events_to_duckpond(
+                self._write_events_to_duck_pond(
+                    dataset=dataset,
                     metadata=metadata,
                     start_times=start_times,
                     end_times=end_times,
                     group="events",
                     event_keys=event_keys,
                     event_data=event_data,
-                    file_name=netcdf_file_path,
                 )
 
         # Process other data variables
@@ -601,14 +523,14 @@ class DataUploader:
                                 )
 
                                 values = var_data.values[start:end, var_index]
-                                self._write_data_to_duckpond(
+                                self._write_data_to_duck_pond(
+                                    dataset=dataset,
                                     metadata=metadata,
                                     times=times,
                                     group=group,
                                     class_name=class_name,
                                     label=label.lower(),
                                     values=values,
-                                    file_name=netcdf_file_path,
                                 )
                     else:
                         # Handle single-variable data arrays
@@ -635,14 +557,14 @@ class DataUploader:
                             label = rename_map.get(label.lower(), label)
 
                             values = var_data.values[start:end]
-                            self._write_data_to_duckpond(
+                            self._write_data_to_duck_pond(
+                                dataset=dataset,
                                 metadata=metadata,
                                 times=times,
                                 group=group,
                                 class_name=class_name,
                                 label=label.lower(),
                                 values=values,
-                                file_name=netcdf_file_path,
                             )
 
                 pbar.update(1)

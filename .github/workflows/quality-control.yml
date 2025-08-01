@@ -40,8 +40,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      LOCAL_DELTA_LAKE_PATH: "./data/delta-lake"
-      CONTAINER_DELTA_LAKE_PATH: "/data/delta-lake"
+      LOCAL_ICEBERG_PATH: "./local_iceberg_warehouse"
+      CONTAINER_ICEBERG_PATH: "/app/iceberg_warehouse"
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.12

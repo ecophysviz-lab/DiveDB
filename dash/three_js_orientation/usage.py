@@ -8,8 +8,9 @@ from DiveDB.services.duck_pond import DuckPond
 app = dash.Dash(__name__)
 
 # Create sample data
-duckpond = DuckPond("/data/delta-2")
-dff = duckpond.get_delta_data(
+duck_pond = DuckPond.from_environment()
+dff = duck_pond.get_data(
+    dataset="EP Physiology",
     animal_ids="oror-002",
     frequency=1,
     labels=[
