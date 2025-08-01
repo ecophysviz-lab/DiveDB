@@ -106,8 +106,28 @@ fig = plot_tag_data_interactive5(
 
 # Set x-axis range to data range and set uirevision
 fig.update_layout(
-    xaxis=dict(range=[dff["datetime"].min(), dff["datetime"].max()]),
+    xaxis=dict(
+        range=[dff["datetime"].min(),
+        dff["datetime"].max()],
+    ),
     uirevision="constant",  # Maintain UI state across updates
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=-.15,
+        xanchor="right",
+        x=1,
+    ),
+    font_family="Figtree",
+    title_font_family="Figtree",
+    font=dict(
+        family="Figtree",
+        size=14,
+        weight='bold',
+    ),
+    paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
+    plot_bgcolor="rgba(245,245,245,1)",  # Transparent plot
+    margin=dict(l=0, r=0, t=0, b=0),
 )
 
 # Convert DataFrame to JSON
