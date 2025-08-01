@@ -175,3 +175,9 @@ data/*
 brave-sonar-390402-7644b983ce44.json
 files/*
 !files/.gitkeep
+
+# Iceberg warehouse directories
+local_iceberg_warehouse/
+*_iceberg_warehouse/
+iceberg_catalog.db
+iceberg_catalog.db-*
