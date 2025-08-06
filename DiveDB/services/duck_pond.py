@@ -937,9 +937,9 @@ class DuckPond:
                                                 value
                                             )  # Use transformed name for column
                                         else:
-                                            row_data[
-                                                attr_name
-                                            ] = value  # Use transformed name for column
+                                            row_data[attr_name] = (
+                                                value  # Use transformed name for column
+                                            )
                                     else:
                                         row_data[attr_name] = None
 
