@@ -632,17 +632,28 @@ class DuckPond:
         date_range: tuple[str, str] | None = None,
         frequency: int | None = None,
         limit: int | None = None,
+        pivoted: bool = False,
     ):
         """
         Get data from a specific dataset using direct Parquet access (bypassing Iceberg layer).
 
         Args:
             dataset: Dataset identifier (required)
-            ... (other parameters unchanged)
+            labels: Specific labels to include (if None, gets all distinct labels)
+            animal_ids: Animal ID filter
+            deployment_ids: Deployment ID filter
+            recording_ids: Recording ID filter
+            groups: Group filter
+            classes: Class filter
+            date_range: Date range tuple (start, end)
+            frequency: Resample frequency (if provided, returns DataFrame)
+            limit: Row limit
+            pivoted: If True, returns data with labels as columns grouped by datetime
 
         Returns:
         - If frequency is not None, returns a pd.DataFrame.
-        - If frequency is None, returns a DiveData object with pivoted data.
+        - If pivoted is True, returns DuckDB relation with labels as columns.
+        - Otherwise, returns a DiveData object with long-format data.
         """
 
         # Ensure dataset is initialized
@@ -717,8 +728,54 @@ class DuckPond:
         if limit:
             base_query += f" LIMIT {limit}"
 
-        # Execute query and get results as DuckDB relation
-        results = self.conn.sql(base_query)
+        # Handle pivoted data request
+        if pivoted:
+            # Get distinct labels if not provided
+            if not labels:
+                labels_query = (
+                    f"SELECT DISTINCT label FROM ({base_query}) AS sub_labels"
+                )
+                if limit:
+                    labels_query += f" LIMIT {limit * 10}"  # Reasonable upper bound for label discovery
+                labels = [row[0] for row in self.conn.sql(labels_query).fetchall()]
+
+            # Add labels filter to base query if labels were specified or discovered
+            if labels:
+                label_filter = get_predicate_string("label", labels)
+                if predicates:
+                    base_query += f" AND {label_filter}"
+                else:
+                    base_query += f" WHERE {label_filter}"
+
+            # Create pivot expressions using data_type to select correct val_* column
+            pivot_expressions = []
+            for label in labels:
+                pivot_expressions.append(
+                    f"""
+                    MAX(CASE WHEN label = '{label}' THEN
+                        CASE data_type
+                            WHEN 'double' THEN float_value
+                            WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                            WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                            ELSE TRY_CAST(string_value AS DOUBLE)
+                        END
+                    END) AS "{label}"
+                """
+                )
+
+            # Single optimized pivot query
+            pivot_query = f"""
+            SELECT
+                datetime, recording, class,
+                {', '.join(pivot_expressions)}
+            FROM ({base_query}) AS sub
+            GROUP BY datetime, recording, class
+            ORDER BY datetime
+            """
+
+            results = self.conn.sql(pivot_query)
+        else:
+            results = self.conn.sql(base_query)
 
         if frequency:
             # Pull data into memory for resampling
@@ -950,9 +1007,9 @@ class DuckPond:
                                                 value
                                             )  # Use transformed name for column
                                         else:
-                                            row_data[
-                                                attr_name
-                                            ] = value  # Use transformed name for column
+                                            row_data[attr_name] = (
+                                                value  # Use transformed name for column
+                                            )
                                     else:
                                         row_data[attr_name] = None
 

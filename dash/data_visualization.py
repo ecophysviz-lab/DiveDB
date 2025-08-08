@@ -30,12 +30,15 @@ dff = duck_pond.get_data(
         "roll",
         "heading",
     ],
+    pivoted=True,
     date_range=("2019-11-08T09:33:11+13:00", "2019-11-08T09:39:30+13:00"),
 )
-# Convert to UTC
-dff["datetime"] = dff["datetime"].dt.tz_convert("UTC")
-# convert the datetime in dff to +13 timezone
-dff["datetime"] = dff["datetime"] + pd.Timedelta(hours=13)
+# Ensure datetimes are timezone-aware in UTC first
+dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce")
+if dff["datetime"].dt.tz is None:
+    dff["datetime"] = dff["datetime"].dt.tz_localize("UTC")
+else:
+    dff["datetime"] = dff["datetime"].dt.tz_convert("UTC")
 
 # Convert datetime to timestamp (seconds since epoch) for slider control
 dff["timestamp"] = dff["datetime"].apply(lambda x: x.timestamp())
