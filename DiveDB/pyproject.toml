@@ -8,7 +8,7 @@ version = "0.1.0"
 dependencies = [
   "bs4",
   "dask",
-  "deltalake",
+  "pyiceberg[sql-sqlite,pyarrow]",
   "duckdb",
   "edfio",
   "importlib-metadata==4.8.3",
