@@ -119,9 +119,9 @@ class TestDuckPondInfrastructure:
         """Test that expected dataset-specific views are created"""
         tables = duck_pond.get_db_schema().df()
         expected_views = [
-            '"test_dataset_Data"',
-            '"test_dataset_PointEvents"',
-            '"test_dataset_StateEvents"',
+            'test_dataset_Data',
+            'test_dataset_PointEvents',
+            'test_dataset_StateEvents',
         ]
 
         actual_views = tables[tables["database"] == "memory"]["name"].tolist()

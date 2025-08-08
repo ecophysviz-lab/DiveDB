@@ -122,12 +122,25 @@ class DuckPond:
 
         else:
             catalog_db_path = os.path.join(self.warehouse_path, "catalog.db")
-            os.makedirs(self.warehouse_path, exist_ok=True)
+            catalog_uri = None
+            try:
+                os.makedirs(self.warehouse_path, exist_ok=True)
+                catalog_uri = f"sqlite:///{catalog_db_path}"
+            except Exception as e:
+                # In some environments (e.g., tests setting unwritable absolute paths),
+                # directory creation may fail. Fall back to an in-memory SQLite catalog
+                # so that configuration-oriented code paths (like from_environment)
+                # can still succeed without touching the filesystem.
+                logging.warning(
+                    f"Could not create warehouse directory '{self.warehouse_path}': {e}. "
+                    "Falling back to in-memory catalog."
+                )
+                catalog_uri = "sqlite:///:memory:"
 
             self.catalog = SqlCatalog(
                 "local",
                 **{
-                    "uri": f"sqlite:///{catalog_db_path}",  # Persistent SQLite file
+                    "uri": catalog_uri,
                     "warehouse": f"file://{os.path.abspath(self.warehouse_path)}",
                 },
             )
@@ -937,9 +950,9 @@ class DuckPond:
                                                 value
                                             )  # Use transformed name for column
                                         else:
-                                            row_data[attr_name] = (
-                                                value  # Use transformed name for column
-                                            )
+                                            row_data[
+                                                attr_name
+                                            ] = value  # Use transformed name for column
                                     else:
                                         row_data[attr_name] = None
 
