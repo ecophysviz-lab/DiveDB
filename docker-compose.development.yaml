@@ -8,6 +8,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ${LOCAL_DELTA_LAKE_PATH}:${CONTAINER_DELTA_LAKE_PATH}
+      - ${LOCAL_ICEBERG_PATH}:${CONTAINER_ICEBERG_PATH}
       - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
       - .:/app
