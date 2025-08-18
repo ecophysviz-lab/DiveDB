@@ -516,7 +516,7 @@ class DataUploader:
                                     type=self._get_datetime_type(ds.coords[time_coord]),
                                 )
 
-                                group = var_data.attrs.get("group", "ungrouped")
+                                group = var_data.attrs.get("group", None)
                                 class_name = var_name
                                 label = rename_map.get(
                                     sub_var_name.lower(), sub_var_name
@@ -543,7 +543,7 @@ class DataUploader:
                                 type=self._get_datetime_type(ds.coords[time_coord]),
                             )
 
-                            group = var_data.attrs.get("group", "ungrouped")
+                            group = var_data.attrs.get("group", None)
                             class_name = (
                                 var_name
                                 if "variables" in var_data.attrs
