@@ -1,0 +1,17 @@
+{
+  "name": "divedb-dash-styles",
+  "version": "1.0.0",
+  "description": "SASS compilation for DiveDB Dash application",
+  "main": "index.js",
+  "scripts": {
+    "build-css": "sass assets/styles.scss assets/styles.css --style=compressed",
+    "watch-css": "sass --watch assets/styles.scss:assets/styles.css --style=compressed",
+    "dev": "npm run watch-css"
+  },
+  "keywords": ["dash", "sass", "css", "divedb"],
+  "author": "DiveDB Team",
+  "license": "MIT",
+  "devDependencies": {
+    "sass": "^1.77.0"
+  }
+}

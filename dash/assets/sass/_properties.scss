@@ -1,0 +1,64 @@
+@use "variables" as *;
+@use "utilities" as *;
+
+@mixin properties {
+	@each $name, $color in $theme-colors {
+		--#{$name}: #{$color};
+		--#{$name}-rgb: #{ hexToRGBString($color) };
+	}
+
+	--primary: var(--green);
+	--secondary: var(--orange);
+
+	--paragraph: var(--white);
+	--background-color: var(--black);
+
+	--btn-primary-bg: var(--white);
+    --btn-primary-border: var(--white);
+	--btn-primary-color: var(--blue);
+	--btn-primary-bg-hover: var(--blue);
+	--btn-primary-color-hover: var(--blue);
+    --btn-primary-border-hover: var(--green);
+	--btn-secondary-bg: var(--gray);
+	--btn-secondary-color: var(--paragraph);
+	--btn-secondary-bg-hover: var(--background-color);
+	--btn-secondary-color-hover: var(--paragraph);
+
+    --bs-secondary-color: var(--white);
+
+	--border: rgba(var(--white-rgb), .15);
+    --border-width: 2px;
+	--error: var(--orange);
+
+    --bs-border-color: var(--blueMedium);
+    --bs-border-width: 1px;
+    --bs-border-width-lg: 4px;
+
+    --admin-bar-height: 32px;
+    --alert-bar-height: 0px;
+    --scrollbar-width: 0px;
+    --viewport-width: 100vw - var(--scrollbar-width);
+    --negative-viewport-width: (-1 * (100vw - var(--scrollbar-width)));
+
+    --bg-multiplier-x: 1;
+    --bg-multiplier-y: 1;
+}
+
+:root, *:before, *:after {
+	@include properties;
+}
+
+:root {
+    --bs-border-radius: 8px;
+    --divedb-header-height: 75px;
+    --btn-primary-color: #0066cc;
+    --btn-primary-bg: #fff;
+    --btn-primary-bg-hover: #ddd;
+    --btn-primary-color-hover: #0066cc;
+    --divedb-spacing: 12px;
+
+    --background-color: var(--blueDark);
+    --bs-list-group-border-color: var(--blueLight);
+
+    --bs-list-group-border-color: var(--blueLight) !important;
+}

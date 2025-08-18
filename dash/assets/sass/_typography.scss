@@ -1,0 +1,14 @@
+p {
+    color: var(--white);
+    line-height: 1.65;
+
+    &.sm {
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    &.xs {
+        font-size: 12px;
+        line-height: 1.2;
+    }
+}

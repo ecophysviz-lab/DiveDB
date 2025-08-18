@@ -258,7 +258,7 @@ def plot_tag_data_interactive5(
 
     # Configure shared x-axis and rangeslider at the bottom
     fig.update_layout(
-        title="Tag Data Visualization",
+        # title="Tag Data Visualization",
         xaxis=dict(
             rangeselector=dict(
                 buttons=[
