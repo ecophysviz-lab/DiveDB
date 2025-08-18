@@ -5,7 +5,7 @@
 DiveDB is designed to organize and analyze biologging data collected by any sensor on any marine mammal. By storing your data in a structured data lake, DiveDB enforces consistency, allowing you to query data across multiple dives, sensors, and animals. The primary goals of DiveDB include:
 
 - **Metadata Management**: Utilizing [Notion](https://www.notion.so/) databases to provide a collaborative interface for managing the metadata associated with each dive.
-- **Data Reliability and Consistency**: Employing [Delta Lake](https://delta.io/) to bring ACID transactions to big data workloads, ensuring data reliability and consistency.
+- **Data Reliability and Consistency**: Employing [Apache Iceberg](https://iceberg.apache.org/) to bring ACID transactions to big data workloads, ensuring data reliability and consistency.
 - **Analytical Query Workloads**: Using [DuckDB](https://duckdb.org/) for fast execution of analytical queries, making it ideal for data analysis tasks.
 - **Interactive Data Visualization**: Building web-based dashboards with [Dash](https://dash.plotly.com/) to visualize data processed by the application.
 
@@ -13,13 +13,14 @@ Built entirely using open-source dependencies, DiveDB is designed to be a flexib
 
 DiveDB is currently in active development, and we welcome feedback and contributions. Please open an issue or submit a pull request if you have any suggestions or encounter any bugs.
 
-<img width="1430" alt="Screenshot of dive data visualization" src="https://github.com/user-attachments/assets/84841ce3-a86f-47dc-b2bb-28097287797b">
+<img width="2348" height="1346" alt="Screenshot 2025-08-18 at 3 43 43 PM" src="https://github.com/user-attachments/assets/0597ef30-91da-4030-9220-7aea4dba0c62" />
+
 
 ## Table of Contents
 - [A Note on Docker 🐳](#a-note-on-docker-)
 - [Getting Started](#getting-started)
 - [Where to Store Your Data Lake](#where-to-store-your-data-lake)
-- [Delta Lake Schemas in DiveDB](#delta-lake-schemas-in-divedb)
+- [Iceberg Schemas in DiveDB](#iceberg-schemas-in-divedb)
   - [DataLake Schema](#1-datalake-schema)
   - [PointEventsLake Schema](#2-pointeventslake-schema)
   - [StateEventsLake Schema](#3-stateeventslake-schema)
