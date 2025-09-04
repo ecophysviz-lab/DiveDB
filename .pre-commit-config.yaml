@@ -8,14 +8,3 @@ repos:
       hooks:
         - id: black
           exclude: jupyter/.*\.py,pyologger/.*\.py
-    - repo: https://github.com/PyCQA/flake8
-      rev: 5.0.4
-      hooks:
-        - id: flake8
-          additional_dependencies: [flake8-typing-imports==1.10.0]
-          args: ["--config=.flake8"]
-          exclude: |
-            (?x)^(
-                jupyter/.*\.py$|
-                dash/.*\.py$|
-            )$

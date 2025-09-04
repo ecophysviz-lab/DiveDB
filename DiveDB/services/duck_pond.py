@@ -3,28 +3,22 @@ DuckPond - Apache Iceberg data lake interface (formerly Delta Lake)
 """
 
 import logging
-import os
 from typing import List, Literal, Dict, Optional
 
-import duckdb
-import pyarrow as pa
+import numpy as np
 import pandas as pd
-from pyiceberg.catalog.sql import SqlCatalog
-from pyiceberg.schema import Schema
-from pyiceberg.types import (
-    NestedField,
-    StringType,
-    TimestampType,
-    DoubleType,
-    BooleanType,
-    LongType,
-)
+import pyarrow as pa
 from pyiceberg.partitioning import PartitionSpec, PartitionField
 from pyiceberg.transforms import IdentityTransform
 
 from DiveDB.services.notion_orm import NotionORMManager
 from DiveDB.services.dive_data import DiveData
 from DiveDB.services.utils.sampling import resample
+from DiveDB.services.connection.warehouse_config import WarehouseConfig
+from DiveDB.services.connection.catalog_manager import CatalogManager
+from DiveDB.services.connection.duckdb_connection import DuckDBConnection
+from DiveDB.services.connection.notion_integration import NotionIntegration
+from DiveDB.services.connection.dataset_manager import DatasetManager
 
 
 class DuckPond:
@@ -44,106 +38,36 @@ class DuckPond:
         s3_region: Optional[str] = "us-east-1",  # Default region
         # Dataset-specific initialization
         datasets: Optional[List[str]] = None,  # List of dataset IDs to initialize
+        # Notion load parallelism
+        notion_parallelism: int = 8,
     ):
-        # Validate configuration
-        self.use_s3 = bool(
-            s3_endpoint and s3_access_key and s3_secret_key and s3_bucket
+        # Create configuration
+        self.config = WarehouseConfig.from_parameters(
+            warehouse_path=warehouse_path,
+            s3_endpoint=s3_endpoint,
+            s3_access_key=s3_access_key,
+            s3_secret_key=s3_secret_key,
+            s3_bucket=s3_bucket,
+            s3_region=s3_region,
         )
 
-        if self.use_s3:
-            # S3 configuration
-            self.s3_endpoint = s3_endpoint
-            self.s3_access_key = s3_access_key
-            self.s3_secret_key = s3_secret_key
-            self.s3_bucket = s3_bucket
-            self.s3_region = s3_region
-            self.warehouse_path = f"s3://{s3_bucket}/iceberg-warehouse"
-            logging.info(f"Using S3 backend: {self.s3_endpoint}")
-        else:
-            # Local filesystem configuration
-            if not warehouse_path:
-                warehouse_path = "./local_iceberg_warehouse"
-                logging.info(
-                    "No warehouse_path provided, using default: ./local_iceberg_warehouse"
-                )
-            self.warehouse_path = warehouse_path
-            logging.info(f"Using local filesystem backend: {self.warehouse_path}")
+        # Create catalog manager
+        self.catalog_manager = CatalogManager(self.config)
+        self.catalog = self.catalog_manager.catalog
 
-        self.conn = duckdb.connect()
+        # Create DuckDB connection manager
+        self.connection = DuckDBConnection(self.config)
+        self.conn = self.connection.conn
 
-        # Install and load extensions
-        try:
-            self.conn.execute("INSTALL iceberg;")
-            self.conn.execute("LOAD iceberg;")
-
-            if self.use_s3:
-                # Install and load S3 extension for DuckDB
-                self.conn.execute("INSTALL httpfs;")  # Required for S3
-                self.conn.execute("LOAD httpfs;")
-                logging.info("Loaded DuckDB S3 extensions")
-        except Exception as e:
-            logging.warning(f"Could not load extensions: {e}")
-
-        # Create catalog (local filesystem or S3-based)
-        if self.use_s3:
-            # S3-based catalog configuration for PyIceberg
-            # Use local persistent SQLite for catalog metadata, S3 for data storage
-            catalog_db_path = os.path.join(
-                os.path.expanduser("~"), ".iceberg", "s3_catalog.db"
-            )
-            os.makedirs(os.path.dirname(catalog_db_path), exist_ok=True)
-
-            self.catalog = SqlCatalog(
-                "s3_catalog",
-                **{
-                    "uri": f"sqlite:///{catalog_db_path}",
-                    "warehouse": self.warehouse_path,  # s3://bucket/iceberg-warehouse
-                    "s3.endpoint": self.s3_endpoint,
-                    "s3.access-key-id": self.s3_access_key,
-                    "s3.secret-access-key": self.s3_secret_key,
-                    "s3.region": self.s3_region,
-                },
-            )
-
-            # Configure DuckDB S3 settings for Ceph compatibility
-            self.conn.execute(
-                f"SET s3_endpoint='{self.s3_endpoint.replace('https://', '')}';"
-            )
-            self.conn.execute(f"SET s3_access_key_id='{self.s3_access_key}';")
-            self.conn.execute(f"SET s3_secret_access_key='{self.s3_secret_key}';")
-            self.conn.execute(f"SET s3_region='{self.s3_region}';")
-            # Additional settings for Ceph/MinIO compatibility
-            self.conn.execute("SET s3_use_ssl=true;")  # Enable SSL for security
-            self.conn.execute("SET s3_url_style='path';")  # Path-style URLs for Ceph
-
-            logging.info(
-                f"Configured DuckDB S3 settings for Ceph compatibility: {self.s3_endpoint}"
-            )
-
-        else:
-            catalog_db_path = os.path.join(self.warehouse_path, "catalog.db")
-            catalog_uri = None
-            try:
-                os.makedirs(self.warehouse_path, exist_ok=True)
-                catalog_uri = f"sqlite:///{catalog_db_path}"
-            except Exception as e:
-                # In some environments (e.g., tests setting unwritable absolute paths),
-                # directory creation may fail. Fall back to an in-memory SQLite catalog
-                # so that configuration-oriented code paths (like from_environment)
-                # can still succeed without touching the filesystem.
-                logging.warning(
-                    f"Could not create warehouse directory '{self.warehouse_path}': {e}. "
-                    "Falling back to in-memory catalog."
-                )
-                catalog_uri = "sqlite:///:memory:"
-
-            self.catalog = SqlCatalog(
-                "local",
-                **{
-                    "uri": catalog_uri,
-                    "warehouse": f"file://{os.path.abspath(self.warehouse_path)}",
-                },
-            )
+        # Legacy properties for backward compatibility
+        self.use_s3 = self.config.use_s3
+        self.warehouse_path = self.config.warehouse_path
+        if self.config.use_s3:
+            self.s3_endpoint = self.config.s3_endpoint
+            self.s3_access_key = self.config.s3_access_key
+            self.s3_secret_key = self.config.s3_secret_key
+            self.s3_bucket = self.config.s3_bucket
+            self.s3_region = self.config.s3_region
 
         # Initialize Notion ORM manager
         if notion_manager:
@@ -153,354 +77,259 @@ class DuckPond:
         else:
             self.notion_manager = None
 
-        # Track Notion table names
-        self._notion_table_names = []
+        # Initialize Notion integration
+        self.notion_integration = NotionIntegration(
+            notion_manager=self.notion_manager,
+            duckdb_connection=self.connection,
+            parallelism=notion_parallelism,
+        )
 
-        # Track initialized datasets
-        self.initialized_datasets = set()
+        # Initialize dataset manager
+        self.dataset_manager = DatasetManager(
+            config=self.config,
+            catalog_manager=self.catalog_manager,
+            duckdb_connection=self.connection,
+        )
 
-        self.lakes = [
-            "data",
-            "point_events",
-            "state_events",
-        ]
+        # Legacy properties for backward compatibility
+        self.initialized_datasets = self.dataset_manager.initialized_datasets
+        self.lakes = self.dataset_manager.lakes
+        self.LAKE_SCHEMAS = self.dataset_manager.LAKE_SCHEMAS
 
-        # Lake schemas
-        self.LAKE_SCHEMAS = {
-            "data": Schema(
-                NestedField(1, "dataset", StringType(), required=True),
-                NestedField(2, "animal", StringType(), required=True),
-                NestedField(3, "deployment", StringType(), required=True),
-                NestedField(4, "recording", StringType(), required=False),
-                NestedField(5, "group", StringType(), required=False),
-                NestedField(6, "class", StringType(), required=True),
-                NestedField(7, "label", StringType(), required=True),
-                NestedField(8, "datetime", TimestampType(), required=True),
-                NestedField(9, "val_dbl", DoubleType(), required=False),
-                NestedField(10, "val_int", LongType(), required=False),
-                NestedField(11, "val_bool", BooleanType(), required=False),
-                NestedField(12, "val_str", StringType(), required=False),
-                NestedField(
-                    13, "data_type", StringType(), required=True
-                ),  # 'double', 'int', 'bool', 'str'
-            ),
-            "point_events": Schema(
-                NestedField(1, "dataset", StringType(), required=True),
-                NestedField(2, "animal", StringType(), required=True),
-                NestedField(3, "deployment", StringType(), required=True),
-                NestedField(4, "recording", StringType(), required=False),
-                NestedField(5, "group", StringType(), required=False),
-                NestedField(6, "event_key", StringType(), required=True),
-                NestedField(7, "datetime", TimestampType(), required=True),
-                NestedField(8, "short_description", StringType(), required=False),
-                NestedField(9, "long_description", StringType(), required=False),
-                NestedField(10, "event_data", StringType(), required=True),
-            ),
-            "state_events": Schema(
-                NestedField(1, "dataset", StringType(), required=True),
-                NestedField(2, "animal", StringType(), required=True),
-                NestedField(3, "deployment", StringType(), required=True),
-                NestedField(4, "recording", StringType(), required=False),
-                NestedField(5, "group", StringType(), required=False),
-                NestedField(6, "event_key", StringType(), required=True),
-                NestedField(7, "datetime_start", TimestampType(), required=True),
-                NestedField(8, "datetime_end", TimestampType(), required=True),
-                NestedField(9, "short_description", StringType(), required=True),
-                NestedField(10, "long_description", StringType(), required=True),
-                NestedField(11, "event_data", StringType(), required=True),
-            ),
-        }
+        # In-memory discovery cache: { dataset: { 'triples': List[tuple(group,class,label)], 'groups': set[str] } }
+        self._channel_discovery_cache = {}
 
         # Initialize datasets if provided, otherwise discover existing ones
-        if datasets:
-            for dataset in datasets:
-                self._setup_dataset_tables(dataset)
-        else:
-            # Auto-discover existing datasets in the warehouse
-            self._discover_and_load_existing_datasets()
+        self.dataset_manager.initialize_datasets(datasets)
 
-        # Load Notion databases if available
-        if self.notion_manager:
-            self._load_notion_databases()
+    # ------------------------------
+    # Channel discovery and metadata
+    # ------------------------------
 
-    def _setup_dataset_tables(self, dataset: str):
-        """Create Iceberg tables for a specific dataset"""
-        # Create namespace for dataset
-        try:
-            self.catalog.create_namespace_if_not_exists(dataset)
-            logging.info(f"Created/verified namespace: {dataset}")
-        except Exception as e:
-            logging.debug(f"Namespace {dataset} may already exist: {e}")
-
-        # Create tables with updated partitioning (no dataset field needed since it's the namespace)
-        for lake_name in self.lakes:
-            table_name = f"{dataset}.{lake_name}"
-            try:
-                # Updated partition spec - remove dataset since it's now the namespace
-                partition_spec = PartitionSpec(
-                    PartitionField(
-                        source_id=2,  # animal field (now becomes first partition field)
-                        field_id=1001,
-                        transform=IdentityTransform(),
-                        name="animal",
-                    ),
-                    PartitionField(
-                        source_id=3,  # deployment field
-                        field_id=1002,
-                        transform=IdentityTransform(),
-                        name="deployment",
-                    ),
-                )
-
-                self.catalog.create_table_if_not_exists(
-                    identifier=table_name,
-                    schema=self.LAKE_SCHEMAS[lake_name],
-                    partition_spec=partition_spec,
-                )
-                logging.info(f"Created/loaded Iceberg table: {table_name}")
-
-            except Exception as e:
-                logging.error(f"Failed to create table {table_name}: {e}")
-
-        # Create views for this dataset
-        self._create_dataset_views(dataset)
-
-        # Track this dataset as initialized
-        self.initialized_datasets.add(dataset)
-
-    def _discover_and_load_existing_datasets(self):
+    def _discover_dataset_channels(self, dataset: str):
         """
-        Discover existing datasets in the Iceberg warehouse and load views for them.
-        A dataset is considered valid if it has at least the 'data' table.
+        Discover distinct (group, class, label) present in the dataset's Data view and cache in-memory.
+        Returns a tuple of (triples, groups_set). triples is List[tuple(group, class, label)].
         """
-        try:
-            discovered_datasets = []
+        self.dataset_manager.ensure_dataset_initialized(dataset)
 
-            if self.use_s3:
-                discovered_datasets = self._discover_s3_datasets()
-            else:
-                discovered_datasets = self._discover_local_datasets()
+        cached = self._channel_discovery_cache.get(dataset)
+        if cached:
+            return cached["triples"], cached["groups"]
 
-            logging.info(
-                f"Loading views for {len(discovered_datasets)} discovered datasets"
-            )
-            for dataset in discovered_datasets:
-                try:
-                    # Set up tables and views for discovered dataset
-                    self._setup_dataset_tables(dataset)
-                    logging.info(f"Loaded views for dataset: {dataset}")
-                except Exception as e:
-                    logging.warning(
-                        f"Failed to load views for dataset '{dataset}': {e}"
+        view_name = self.get_view_name(dataset, "data")
+
+        query_vars = f"""
+            SELECT "group", class, label
+            FROM {view_name}
+            WHERE label IS NOT NULL
+            GROUP BY 1,2,3
+            ORDER BY 1,2,3
+        """
+        query_groups = f"""
+            SELECT "group"
+            FROM {view_name}
+            WHERE "group" IS NOT NULL
+            GROUP BY 1
+            ORDER BY 1
+        """
+
+        triples = [(r[0], r[1], r[2]) for r in self.conn.sql(query_vars).fetchall()]
+        groups = set(r[0] for r in self.conn.sql(query_groups).fetchall())
+
+        self._channel_discovery_cache[dataset] = {"triples": triples, "groups": groups}
+        return triples, groups
+
+    def get_available_channels(
+        self,
+        dataset: str,
+        include_metadata: bool = True,
+        pack_groups: bool = True,
+    ) -> List[Dict]:
+        """
+        Discover available channels for a dataset and optionally hydrate metadata from Signal DB.
+
+        Args:
+            dataset: Dataset identifier
+            include_metadata: If True, join metadata from Signal DB via Standardized Channel DB lookup
+            include: Which kinds to return: variables, groups, or both
+            pack_groups: If True, groups are returned as one collection with all standardized children
+
+        Returns:
+            List[Dict] of channels/groups as specified
+        """
+
+        triples, present_groups = self._discover_dataset_channels(dataset)
+
+        # Prepare lookup mappings
+        channel_id_to_signal_id: Dict[str, str] = {}
+        original_alias_to_channel_id: Dict[str, str] = {}
+        signal_metadata_map: Dict[str, Dict] = {}
+
+        if include_metadata and self.notion_manager:
+            (
+                channel_id_to_signal_id,
+                original_alias_to_channel_id,
+                signal_metadata_map,
+            ) = self.notion_integration.get_metadata_mappings()
+
+        # Build a presence map for labels per group for quick lookup
+        group_to_labels_present: Dict[str, set] = {}
+        for g, c, label in triples:
+            if g is None:
+                continue
+            group_to_labels_present.setdefault(g, set()).add(str(label))
+
+        results: List[Dict] = []
+
+        # Variables view
+        for g, c, label in triples:
+            label_norm = (str(label) or "").strip()
+
+            # Look up Signal DB ID for this channel
+            signal_id = None
+            chan_key = label_norm.lower()
+
+            # Try direct channel_id lookup first
+            if chan_key in channel_id_to_signal_id:
+                signal_id = channel_id_to_signal_id[chan_key]
+            # Try alias lookup
+            elif chan_key in original_alias_to_channel_id:
+                mapped_channel_id = original_alias_to_channel_id[chan_key]
+                signal_id = channel_id_to_signal_id.get(mapped_channel_id.lower())
+
+            # Get metadata from Signal DB if signal ID found
+            signal_meta = None
+            if signal_id:
+                signal_meta = signal_metadata_map.get(signal_id)
+
+            # Build item with metadata from Signal DB (no fallbacks)
+            item = {
+                "kind": "variable",
+                "group": g,
+                "class": c,
+                "label": label_norm,
+                "channel_id": label_norm,  # Use the label as channel_id
+                "parent_signal": signal_meta.get("name") if signal_meta else None,
+                "y_label": signal_meta.get("label") if signal_meta else None,
+                "y_description": (
+                    signal_meta.get("description") if signal_meta else None
+                ),
+                "y_units": (
+                    signal_meta.get("standardized_unit") if signal_meta else None
+                ),
+                "line_label": signal_meta.get("label") if signal_meta else None,
+                "color": signal_meta.get("color") if signal_meta else None,
+                "icon": signal_meta.get("icon") if signal_meta else None,
+            }
+            results.append(item)
+
+        # Group collections
+        for group_name in sorted(present_groups):
+            if not pack_groups:
+                # Return a simple group stub without packing
+                results.append(
+                    {
+                        "kind": "group",
+                        "group": group_name,
+                    }
+                )
+                continue
+
+            # Try to get metadata for this group from Signal DB (by name lookup)
+            group_meta = None
+            # Find Signal DB record with matching name
+            for signal_id, metadata in signal_metadata_map.items():
+                if metadata.get("name", "").lower() == group_name.lower():
+                    group_meta = metadata
+                    break
+
+            channels_payload: List[Dict] = []
+            # Include labels present in dataset for this group
+            for lbl in sorted(group_to_labels_present.get(group_name, set())):
+                # Look up Signal DB ID for this specific channel
+                lbl_key = lbl.lower()
+                channel_signal_id = None
+                if lbl_key in channel_id_to_signal_id:
+                    channel_signal_id = channel_id_to_signal_id[lbl_key]
+                elif lbl_key in original_alias_to_channel_id:
+                    mapped_channel_id = original_alias_to_channel_id[lbl_key]
+                    channel_signal_id = channel_id_to_signal_id.get(
+                        mapped_channel_id.lower()
                     )
 
-        except Exception as e:
-            logging.warning(f"Failed to discover existing datasets: {e}")
-            logging.info("Starting with empty warehouse - no existing datasets found")
+                # Get metadata from Signal DB for this channel's signal ID
+                channel_signal_meta = None
+                if channel_signal_id:
+                    channel_signal_meta = signal_metadata_map.get(channel_signal_id)
 
-    def _discover_local_datasets(self):
-        """Discover datasets by scanning the local filesystem warehouse directory"""
-
-        discovered_datasets = []
-
-        if not os.path.exists(self.warehouse_path):
-            logging.debug(f"Warehouse path does not exist: {self.warehouse_path}")
-            return discovered_datasets
-
-        try:
-            # List directories in warehouse - each directory is potentially a dataset namespace
-            for item in os.listdir(self.warehouse_path):
-                item_path = os.path.join(self.warehouse_path, item)
-
-                # Skip files, hidden or system directories
-                if (
-                    not os.path.isdir(item_path)
-                    or item.startswith(".")
-                    or item.startswith("_")
-                ):
-                    continue
-
-                # Check if this directory contains a 'data' subdirectory (indicating a dataset)
-                data_path = os.path.join(item_path, "data")
-                if os.path.exists(data_path) and os.path.isdir(data_path):
-                    # Remove .db extension if present to get the actual dataset name
-                    dataset_name = item[:-3] if item.endswith(".db") else item
-                    discovered_datasets.append(dataset_name)
-                    logging.info(f"Discovered dataset: {dataset_name}")
-
-        except Exception as e:
-            logging.debug(f"Error scanning local warehouse: {e}")
-
-        return discovered_datasets
-
-    def _discover_s3_datasets(self):
-        """Discover datasets in S3 warehouse (limited by catalog capabilities)"""
-        discovered_datasets = []
-
-        try:
-            # Try to list namespaces through catalog
-            namespaces = self.catalog.list_namespaces()
-            logging.info(f"Found {len(namespaces)} namespaces in S3 warehouse")
-
-            for namespace_tuple in namespaces:
-                # Namespace comes as a tuple, convert to string
-                namespace = (
-                    namespace_tuple[0]
-                    if isinstance(namespace_tuple, tuple)
-                    else str(namespace_tuple)
+                channels_payload.append(
+                    {
+                        "channel_id": lbl,
+                        "parent_signal": (
+                            channel_signal_meta.get("name")
+                            if channel_signal_meta
+                            else None
+                        ),
+                        "y_label": (
+                            channel_signal_meta.get("label")
+                            if channel_signal_meta
+                            else None
+                        ),
+                        "y_description": (
+                            channel_signal_meta.get("description")
+                            if channel_signal_meta
+                            else None
+                        ),
+                        "y_units": (
+                            channel_signal_meta.get("standardized_unit")
+                            if channel_signal_meta
+                            else None
+                        ),
+                        "line_label": (
+                            channel_signal_meta.get("label")
+                            if channel_signal_meta
+                            else None
+                        ),
+                        "color": (
+                            channel_signal_meta.get("color")
+                            if channel_signal_meta
+                            else None
+                        ),
+                        "label": lbl,
+                        "exists_in_dataset": True,
+                        "icon": (
+                            channel_signal_meta.get("icon")
+                            if channel_signal_meta
+                            else None
+                        ),
+                    }
                 )
 
-                # Skip empty or system namespaces
-                if not namespace or namespace.startswith("_"):
-                    continue
+            group_item = {
+                "kind": "group",
+                "group": group_name,
+                "present_in_dataset": len(
+                    group_to_labels_present.get(group_name, set())
+                )
+                > 0,
+                "channels": channels_payload,
+                "coverage": {
+                    "available": len(channels_payload),
+                    "present": sum(
+                        1 for ch in channels_payload if ch.get("exists_in_dataset")
+                    ),
+                },
+                # Add group-level metadata from Signal DB
+                "description": group_meta.get("description") if group_meta else None,
+                "label": group_meta.get("label") if group_meta else None,
+                "y_units": group_meta.get("standardized_unit") if group_meta else None,
+                "color": group_meta.get("color") if group_meta else None,
+                "icon": group_meta.get("icon") if group_meta else None,
+            }
+            results.append(group_item)
 
-                # Check if this namespace has our expected tables
-                tables = self.catalog.list_tables(namespace)
-                table_names = [
-                    table[1] if isinstance(table, tuple) else str(table)
-                    for table in tables
-                ]
-
-                # A dataset must have at least the 'data' table
-                if "data" in table_names:
-                    discovered_datasets.append(namespace)
-                    logging.info(f"Discovered S3 dataset: {namespace}")
-
-        except Exception as e:
-            logging.debug(f"Error discovering S3 datasets through catalog: {e}")
-
-        return discovered_datasets
-
-    def _create_dataset_views(self, dataset: str):
-        """Create DuckDB views for a specific dataset using direct Parquet access"""
-        for lake_name in self.lakes:
-            table_name = f"{dataset}.{lake_name}"
-            # Create dataset-first view names with proper quoting
-            if lake_name == "data":
-                view_name = f'"{dataset}_Data"'
-            elif lake_name == "point_events":
-                view_name = f'"{dataset}_PointEvents"'
-            elif lake_name == "state_events":
-                view_name = f'"{dataset}_StateEvents"'
-
-            try:
-                # Load table and get metadata location
-                table = self.catalog.load_table(table_name)
-
-                # Build direct Parquet path instead of using iceberg_scan
-                if self.use_s3:
-                    # For S3, construct the data path
-                    dataset_db = f"{dataset}.db"
-                    # Structure: warehouse/dataset.db/table_type/data/**/*.parquet
-                    parquet_path = f"{self.warehouse_path}/{dataset_db}/{lake_name}/data/**/*.parquet"
-                else:
-                    # For local filesystem, construct the file path
-                    data_dir = os.path.join(
-                        self.warehouse_path, f"{dataset}.db", lake_name, "data"
-                    )
-                    parquet_path = f"file://{os.path.abspath(data_dir)}/**/*.parquet"
-
-                logging.debug(f"Hive-partitioned Parquet path: {parquet_path}")
-
-                # Check if table has any snapshots (data)
-                snapshots = table.snapshots()
-                if not snapshots:
-                    # Create empty placeholder view with correct schema
-                    if lake_name == "data":
-                        self.conn.execute(
-                            f"""
-                            DROP VIEW IF EXISTS {view_name};
-                            CREATE VIEW {view_name} AS
-                            SELECT
-                                CAST(NULL AS VARCHAR) as dataset,
-                                CAST(NULL AS VARCHAR) as animal,
-                                CAST(NULL AS VARCHAR) as deployment,
-                                CAST(NULL AS VARCHAR) as recording,
-                                CAST(NULL AS VARCHAR) as "group",
-                                CAST(NULL AS VARCHAR) as class,
-                                CAST(NULL AS VARCHAR) as label,
-                                CAST(NULL AS TIMESTAMP) as datetime,
-                                CAST(NULL AS DOUBLE) as value,
-                                CAST(NULL AS DOUBLE) as float_value,
-                                CAST(NULL AS BIGINT) as int_value,
-                                CAST(NULL AS BOOLEAN) as boolean_value,
-                                CAST(NULL AS VARCHAR) as string_value
-                            WHERE FALSE;
-                        """
-                        )
-                    else:
-                        # Create empty placeholder for events tables
-                        schema_fields = self.LAKE_SCHEMAS[lake_name].fields
-                        select_fields = []
-                        for field in schema_fields:
-                            if field.field_type == StringType():
-                                select_fields.append(
-                                    f"CAST(NULL AS VARCHAR) as {field.name}"
-                                )
-                            elif field.field_type == TimestampType():
-                                select_fields.append(
-                                    f"CAST(NULL AS TIMESTAMP) as {field.name}"
-                                )
-                            else:
-                                select_fields.append(
-                                    f"CAST(NULL AS VARCHAR) as {field.name}"
-                                )
-
-                        self.conn.execute(
-                            f"""
-                            DROP VIEW IF EXISTS {view_name};
-                            CREATE VIEW {view_name} AS
-                            SELECT {', '.join(select_fields)}
-                            WHERE FALSE;
-                        """
-                        )
-                    logging.info(f"Created empty placeholder view: {view_name}")
-                else:
-                    # Table has data, use read_parquet with hive_partitioning
-                    if lake_name == "data":
-                        # Create view that converts wide format back to single value column
-                        self.conn.execute(
-                            f"""
-                            DROP VIEW IF EXISTS {view_name};
-                            CREATE VIEW {view_name} AS
-                            SELECT
-                                dataset,
-                                animal,
-                                deployment,
-                                recording,
-                                "group",
-                                class,
-                                label,
-                                datetime,
-                                CASE data_type
-                                    WHEN 'double' THEN val_dbl
-                                    WHEN 'int' THEN CAST(val_int AS DOUBLE)
-                                    WHEN 'bool' THEN CAST(val_bool AS DOUBLE)
-                                    WHEN 'str' THEN TRY_CAST(val_str AS DOUBLE)
-                                    ELSE NULL
-                                END as value,
-                                -- Also expose individual typed columns for new queries
-                                val_dbl as float_value,
-                                val_int as int_value,
-                                val_bool as boolean_value,
-                                val_str as string_value,
-                                data_type
-                            FROM read_parquet('{parquet_path}', hive_partitioning = true);
-                        """
-                        )
-                    else:
-                        # For events tables, create simple pass-through view
-                        self.conn.execute(
-                            f"""
-                            DROP VIEW IF EXISTS {view_name};
-                            CREATE VIEW {view_name} AS
-                            SELECT * FROM read_parquet('{parquet_path}', hive_partitioning = true);
-                        """
-                        )
-                    logging.info(f"Created DuckDB view: {view_name}")
-
-            except Exception as e:
-                logging.warning(f"Could not create view for {dataset}.{lake_name}: {e}")
+        return results
 
     @classmethod
     def from_environment(cls, **kwargs):
@@ -515,27 +344,15 @@ class DuckPond:
         - S3_BUCKET: S3 bucket name
         - S3_REGION: S3 region (optional, defaults to us-east-1)
         """
-        import os
-
-        # Check for S3 configuration first
-        s3_endpoint = os.getenv("S3_ENDPOINT")
-        s3_access_key = os.getenv("S3_ACCESS_KEY")
-        s3_secret_key = os.getenv("S3_SECRET_KEY")
-        s3_bucket = os.getenv("S3_BUCKET")
-        s3_region = os.getenv("S3_REGION", "us-east-1")
-
-        # Check for local warehouse path (support both env var names for compatibility)
-        warehouse_path = os.getenv("LOCAL_ICEBERG_PATH") or os.getenv(
-            "CONTAINER_ICEBERG_PATH"
-        )
+        config = WarehouseConfig.from_environment()
 
         return cls(
-            warehouse_path=warehouse_path if not s3_endpoint else None,
-            s3_endpoint=s3_endpoint,
-            s3_access_key=s3_access_key,
-            s3_secret_key=s3_secret_key,
-            s3_bucket=s3_bucket,
-            s3_region=s3_region,
+            warehouse_path=config.warehouse_path if not config.use_s3 else None,
+            s3_endpoint=config.s3_endpoint,
+            s3_access_key=config.s3_access_key,
+            s3_secret_key=config.s3_secret_key,
+            s3_bucket=config.s3_bucket,
+            s3_region=config.s3_region,
             **kwargs,
         )
 
@@ -555,12 +372,6 @@ class DuckPond:
                 # Configure Hive partitioning
                 partition_spec = PartitionSpec(
                     PartitionField(
-                        source_id=1,  # dataset field
-                        field_id=1000,
-                        transform=IdentityTransform(),
-                        name="dataset",
-                    ),
-                    PartitionField(
                         source_id=2,  # animal field
                         field_id=1001,
                         transform=IdentityTransform(),
@@ -571,6 +382,18 @@ class DuckPond:
                         field_id=1002,
                         transform=IdentityTransform(),
                         name="deployment",
+                    ),
+                    PartitionField(
+                        source_id=6,  # class field
+                        field_id=1003,
+                        transform=IdentityTransform(),
+                        name="class",
+                    ),
+                    PartitionField(
+                        source_id=7,  # label field
+                        field_id=1004,
+                        transform=IdentityTransform(),
+                        name="label",
                     ),
                 )
 
@@ -587,13 +410,13 @@ class DuckPond:
     def write_to_iceberg(
         self,
         data: pa.Table,
-        lake: Literal["data", "point_events", "state_events"],
+        lake: Literal["data", "events"],
         dataset: str,
         mode: str = "append",
     ):
         """Write data to dataset-specific Iceberg table"""
         # Ensure dataset is initialized
-        self.ensure_dataset_initialized(dataset)
+        self.dataset_manager.ensure_dataset_initialized(dataset)
 
         table_name = f"{dataset}.{lake}"
 
@@ -610,7 +433,7 @@ class DuckPond:
             logging.info(f"Successfully wrote {len(data)} rows to {table_name}")
 
             # Refresh views after writing to update metadata location
-            self._create_dataset_views(dataset)
+            self.dataset_manager._create_dataset_views(dataset)
 
         except Exception as e:
             logging.error(f"Failed to write to {table_name}: {e}")
@@ -657,7 +480,7 @@ class DuckPond:
         """
 
         # Ensure dataset is initialized
-        self.ensure_dataset_initialized(dataset)
+        self.dataset_manager.ensure_dataset_initialized(dataset)
 
         def get_predicate_string(predicate: str, values: List[str]):
             if not values:
@@ -728,18 +551,65 @@ class DuckPond:
         if limit:
             base_query += f" LIMIT {limit}"
 
-        # Handle pivoted data request
-        if pivoted:
+        # Handle frequency resampling FIRST (before pivoting)
+        if frequency:
+            # Get data in long format for resampling
+            results = self.conn.sql(base_query)
+            df = results.df()
+
+            # Create numeric value column based on data_type
+            df["numeric_value"] = df.apply(
+                lambda row: (
+                    row["float_value"]
+                    if row["data_type"] == "double" and pd.notna(row["float_value"])
+                    else row["int_value"]
+                    if row["data_type"] == "int" and pd.notna(row["int_value"])
+                    else row["boolean_value"]
+                    if row["data_type"] == "bool" and pd.notna(row["boolean_value"])
+                    else pd.to_numeric(row["string_value"], errors="coerce")
+                    if pd.notna(row["string_value"])
+                    else np.nan
+                ),
+                axis=1,
+            )
+
+            # Resample each label separately
+            resampled_dfs = []
+            for label_name in df["label"].unique():
+                label_df = df[df["label"] == label_name][
+                    ["datetime", "label", "numeric_value"]
+                ].copy()
+                label_df = label_df.dropna(subset=["numeric_value"])
+                if len(label_df) > 0:
+                    label_resampled = resample(label_df, frequency)
+                    resampled_dfs.append(label_resampled)
+
+            # Combine resampled data
+            combined_df = pd.concat(resampled_dfs, ignore_index=True)
+
+            # Pivot if requested
+            if pivoted:
+                pivoted_df = combined_df.pivot_table(
+                    index="datetime",
+                    columns="label",
+                    values="numeric_value",
+                    aggfunc="first",
+                ).reset_index()
+                pivoted_df.columns.name = None
+                return pivoted_df
+            else:
+                return combined_df
+
+        # Handle pivoted data request without frequency resampling
+        elif pivoted:
             # Get distinct labels if not provided
             if not labels:
                 labels_query = (
                     f"SELECT DISTINCT label FROM ({base_query}) AS sub_labels"
                 )
-                if limit:
-                    labels_query += f" LIMIT {limit * 10}"  # Reasonable upper bound for label discovery
                 labels = [row[0] for row in self.conn.sql(labels_query).fetchall()]
 
-            # Add labels filter to base query if labels were specified or discovered
+            # Add labels filter to base query
             if labels:
                 label_filter = get_predicate_string("label", labels)
                 if predicates:
@@ -747,100 +617,58 @@ class DuckPond:
                 else:
                     base_query += f" WHERE {label_filter}"
 
-            # Create pivot expressions using data_type to select correct val_* column
+            # Create pivot expressions
             pivot_expressions = []
             for label in labels:
                 pivot_expressions.append(
                     f"""
-                    MAX(CASE WHEN label = '{label}' THEN
+                    FIRST(CASE WHEN label = '{label}' THEN
                         CASE data_type
                             WHEN 'double' THEN float_value
                             WHEN 'int' THEN CAST(int_value AS DOUBLE)
                             WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
                             ELSE TRY_CAST(string_value AS DOUBLE)
                         END
-                    END) AS "{label}"
+                    END ORDER BY datetime) AS "{label}"
                 """
                 )
 
-            # Single optimized pivot query
+            # Pivot query
             pivot_query = f"""
             SELECT
-                datetime, recording, class,
+                datetime,
                 {', '.join(pivot_expressions)}
             FROM ({base_query}) AS sub
-            GROUP BY datetime, recording, class
+            GROUP BY datetime
             ORDER BY datetime
             """
 
             results = self.conn.sql(pivot_query)
+            return results.df()
         else:
+            # Return long-format data
             results = self.conn.sql(base_query)
-
-        if frequency:
-            # Pull data into memory for resampling
-            df = results.df()
-            df = df.drop(["recording", "class"], axis=1)
-
-            df_resampled = resample(df, frequency)
-
-            return df_resampled
-        else:
-            # Return the DuckDB relation without pulling data into memory
             return DiveData(results, self.conn, notion_manager=self.notion_manager)
 
     def ensure_dataset_initialized(self, dataset: str):
         """Ensure a dataset's tables and views are initialized"""
-        if dataset not in self.initialized_datasets:
-            self._setup_dataset_tables(dataset)
+        return self.dataset_manager.ensure_dataset_initialized(dataset)
 
     def get_all_datasets(self) -> List[str]:
         """Get list of all initialized datasets"""
-        return list(self.initialized_datasets)
+        return self.dataset_manager.get_all_datasets()
 
     def list_dataset_tables(self, dataset: str) -> List[str]:
         """List tables for a specific dataset"""
-        if dataset not in self.initialized_datasets:
-            return []
-        return [f"{dataset}.{lake}" for lake in self.lakes]
+        return self.dataset_manager.list_dataset_tables(dataset)
 
     def dataset_exists(self, dataset: str) -> bool:
         """Check if a dataset has been initialized"""
-        return dataset in self.initialized_datasets
+        return self.dataset_manager.dataset_exists(dataset)
 
     def remove_dataset(self, dataset: str):
         """Remove a dataset and all its tables (use with caution!)"""
-        if dataset not in self.initialized_datasets:
-            logging.warning(f"Dataset '{dataset}' not found in initialized datasets")
-            return
-
-        # Drop tables
-        for lake_name in self.lakes:
-            table_name = f"{dataset}.{lake_name}"
-            try:
-                self.catalog.drop_table(table_name)
-                logging.info(f"Dropped table: {table_name}")
-            except Exception as e:
-                logging.warning(f"Could not drop table {table_name}: {e}")
-
-        # Drop views
-        for lake_name in self.lakes:
-            if lake_name == "data":
-                view_name = f'"{dataset}_Data"'
-            elif lake_name == "point_events":
-                view_name = f'"{dataset}_PointEvents"'
-            elif lake_name == "state_events":
-                view_name = f'"{dataset}_StateEvents"'
-
-            try:
-                self.conn.execute(f"DROP VIEW IF EXISTS {view_name}")
-                logging.info(f"Dropped view: {view_name}")
-            except Exception as e:
-                logging.warning(f"Could not drop view {view_name}: {e}")
-
-        # Remove from tracking
-        self.initialized_datasets.discard(dataset)
-        logging.info(f"Removed dataset '{dataset}' from tracking")
+        return self.dataset_manager.remove_dataset(dataset)
 
     def get_view_name(self, dataset: str, table_type: str) -> str:
         """
@@ -848,7 +676,7 @@ class DuckPond:
 
         Args:
             dataset: Dataset identifier (e.g., "EP Physiology")
-            table_type: Type of table - "data", "point_events", or "state_events"
+            table_type: Type of table - "data" or "events"
 
         Returns:
             Quoted view name ready for SQL queries
@@ -856,18 +684,16 @@ class DuckPond:
         Examples:
             >>> duck_pond.get_view_name("EP Physiology", "data")
             '"EP Physiology_Data"'
-            >>> duck_pond.get_view_name("EP Physiology", "point_events")
-            '"EP Physiology_PointEvents"'
+            >>> duck_pond.get_view_name("EP Physiology", "events")
+            '"EP Physiology_Events"'
         """
         if table_type == "data":
             return f'"{dataset}_Data"'
-        elif table_type == "point_events":
-            return f'"{dataset}_PointEvents"'
-        elif table_type == "state_events":
-            return f'"{dataset}_StateEvents"'
+        elif table_type == "events":
+            return f'"{dataset}_Events"'
         else:
             raise ValueError(
-                f"Invalid table_type: {table_type}. Must be 'data', 'point_events', or 'state_events'"
+                f"Invalid table_type: {table_type}. Must be 'data' or 'events'"
             )
 
     def get_db_schema(self):
@@ -880,15 +706,10 @@ class DuckPond:
 
         Returns:
             List of view names for all initialized datasets
-
-        Examples:
-            >>> duck_pond.list_all_views()
-            ['"EP Physiology_Data"', '"EP Physiology_PointEvents"', '"EP Physiology_StateEvents"',
-             '"Pilot Study_Data"', '"Pilot Study_PointEvents"', '"Pilot Study_StateEvents"']
         """
         all_views = []
         for dataset in self.initialized_datasets:
-            for table_type in ["data", "point_events", "state_events"]:
+            for table_type in ["data", "events"]:
                 all_views.append(self.get_view_name(dataset, table_type))
         return sorted(all_views)
 
@@ -901,148 +722,21 @@ class DuckPond:
 
         Returns:
             List of view names for the specified dataset
-
-        Examples:
-            >>> duck_pond.list_dataset_views("EP Physiology")
-            ['"EP Physiology_Data"', '"EP Physiology_PointEvents"', '"EP Physiology_StateEvents"']
         """
         if dataset not in self.initialized_datasets:
             return []
 
         return [
-            self.get_view_name(dataset, table_type)
-            for table_type in ["data", "point_events", "state_events"]
+            self.get_view_name(dataset, table_type) for table_type in ["data", "events"]
         ]
-
-    def test_s3_connectivity(self):
-        """Test S3 connectivity and direct Parquet access"""
-        if not self.use_s3:
-            return {"status": "skipped", "reason": "Not using S3 backend"}
-
-        try:
-            # Test basic S3 connectivity
-            test_query = "SELECT 1 as test_value"
-            result = self.conn.sql(test_query).df()
-
-            # Test S3 configuration
-            settings = {}
-            for setting in ["s3_endpoint", "s3_region", "s3_access_key_id"]:
-                try:
-                    setting_result = self.conn.sql(
-                        f"SELECT current_setting('{setting}') as value"
-                    ).df()
-                    settings[setting] = setting_result.iloc[0]["value"]
-                except Exception:
-                    settings[setting] = "not_set"
-
-            return {
-                "status": "success",
-                "basic_query": len(result) > 0,
-                "s3_settings": settings,
-            }
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
 
     def close_connection(self):
         """Close the connection"""
-        self.conn.close()
-
-    def _load_notion_databases(self):
-        """Load all available Notion databases into DuckDB tables"""
-        if not self.notion_manager:
-            return
-
-        try:
-            # Get all available database names from the notion manager
-            for db_map_key, db_id in self.notion_manager.db_map.items():
-                try:
-                    model_name = None
-
-                    # Try different model names to see which one results in our db_map_key
-                    possible_model_names = [
-                        db_map_key.replace(" DB", ""),  # Remove " DB" suffix
-                        db_map_key.replace(" DB", "") + "s",  # Remove " DB" and add "s"
-                        db_map_key,  # Try the key directly
-                    ]
-
-                    for candidate in possible_model_names:
-                        # Simulate the get_model transformation
-                        test_db_name = (
-                            f"{candidate} DB"
-                            if not candidate.endswith(" DB")
-                            else candidate
-                        )
-                        test_db_name = test_db_name.replace("s DB", " DB")
-
-                        if test_db_name == db_map_key:
-                            model_name = candidate
-                            break
-
-                    if not model_name:
-                        logging.warning(
-                            f"Could not determine model name for database '{db_map_key}'"
-                        )
-                        continue
-
-                    # Now use the existing get_model logic
-                    model = self.notion_manager.get_model(model_name)
-
-                    # Query all data from the model
-                    records = model.objects.all()
-
-                    if records:
-                        data_rows = []
-                        for record in records:
-                            row_data = {"id": record.id}
-
-                            # Get all properties that were parsed by NotionModel._from_notion_page
-                            for prop_name in record._meta.schema.keys():
-                                if hasattr(record, prop_name):
-                                    value = getattr(record, prop_name)
-                                    # Handle different value types
-                                    if value is not None:
-                                        attr_name = prop_name.replace(" ", "_").lower()
-                                        if isinstance(value, (list, dict)):
-                                            row_data[attr_name] = str(
-                                                value
-                                            )  # Use transformed name for column
-                                        else:
-                                            row_data[attr_name] = (
-                                                value  # Use transformed name for column
-                                            )
-                                    else:
-                                        row_data[attr_name] = None
-
-                            data_rows.append(row_data)
-
-                        # Create DuckDB table - use db_map key directly as table name
-                        table_name = model_name + "s"
-                        self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-                        df = pd.DataFrame(data_rows)
-                        self.conn.register(table_name, df)
-
-                        # Track this table name
-                        self._notion_table_names.append(table_name)
-
-                        logging.info(
-                            f"Loaded Notion database '{db_map_key}' into DuckDB table '{table_name}' with {len(df)} records"
-                        )
-
-                except Exception as e:
-                    logging.warning(
-                        f"Failed to load Notion database '{db_map_key}': {e}"
-                    )
-                    continue
-
-        except Exception as e:
-            logging.error(f"Error loading Notion databases: {e}")
+        self.connection.close()
 
     def list_notion_tables(self) -> List[str]:
         """List all available Notion tables in DuckDB"""
-        if not self.notion_manager:
-            return []
-
-        return self._notion_table_names.copy()
+        return self.notion_integration.list_notion_tables()
 
     def _create_wide_values(self, values):
         """
@@ -1098,7 +792,7 @@ class DuckPond:
             pa.array(data_type, type=pa.string()),  # data_type (required field)
         )
 
-    def write_sensor_data(
+    def write_signal_data(
         self,
         dataset: str,
         metadata: dict,
@@ -1109,14 +803,14 @@ class DuckPond:
         values,  # list with mixed types
     ):
         """
-        Write sensor data using the new wide format.
-        High-level method for writing sensor data to the Iceberg data lake.
+        Write signal data using the new wide format.
+        High-level method for writing signal data to the Iceberg data lake.
 
         Args:
-            dataset: Dataset identifier (new field!)
+            dataset: Dataset identifier
             metadata: Dict with 'animal', 'deployment', 'recording' keys
             times: PyArrow timestamp array
-            group: Data group (e.g., 'sensor_data')
+            group: Data group (e.g., 'signal_data')
             class_name: Data class (e.g., 'accelerometer')
             label: Data label (e.g., 'acc_x')
             values: Mixed-type list to be transformed

@@ -1,5 +1,9 @@
 import numpy as np
 import pandas as pd
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def upsample(df, original_fs, target_fs):
@@ -16,6 +20,9 @@ def upsample(df, original_fs, target_fs):
     """
     original_length = len(df)
     upsampling_factor = int(target_fs / original_fs)
+    logger.info(
+        f"Original FS: {original_fs}, Target FS: {target_fs}, Upsampling Factor: {upsampling_factor}"
+    )
 
     # Step 1: Repeat the data to upsample
     new_df = pd.DataFrame()
@@ -55,7 +62,7 @@ def downsample(df, original_fs, target_fs):
     if target_fs >= original_fs:
         return df
     conversion_factor = int(original_fs / target_fs)
-    print(
+    logger.info(
         f"Original FS: {original_fs}, Target FS: {target_fs}, Conversion Factor: {conversion_factor}"
     )
     return df.iloc[::conversion_factor, :].reset_index(drop=True)

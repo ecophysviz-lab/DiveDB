@@ -210,6 +210,21 @@ class NotionModel:
         instance.created_time = page_data.get("created_time")
         instance.last_edited_time = page_data.get("last_edited_time")
 
+        # Extract page icon (root-level property)
+        icon_data = page_data.get("icon")
+        if icon_data:
+            icon_type = icon_data.get("type")
+            if icon_type == "emoji":
+                instance.icon = icon_data.get("emoji")
+            elif icon_type == "file":
+                instance.icon = icon_data.get("file", {}).get("url")
+            elif icon_type == "external":
+                instance.icon = icon_data.get("external", {}).get("url")
+            else:
+                instance.icon = None
+        else:
+            instance.icon = None
+
         # Parse properties
         properties = page_data.get("properties", {})
         for prop_name, prop_data in properties.items():

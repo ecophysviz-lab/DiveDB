@@ -120,8 +120,7 @@ class TestDuckPondInfrastructure:
         tables = duck_pond.get_db_schema().df()
         expected_views = [
             "test_dataset_Data",
-            "test_dataset_PointEvents",
-            "test_dataset_StateEvents",
+            "test_dataset_Events",
         ]
 
         actual_views = tables[tables["database"] == "memory"]["name"].tolist()
@@ -180,8 +179,8 @@ class TestDuckPondInfrastructure:
         data_table = duck_pond.catalog.load_table("test_dataset.data")
         partition_spec = data_table.spec()
 
-        # Should have 2 partition fields: animal, deployment (dataset is now namespace)
-        assert len(partition_spec.fields) == 2
+        # Should have 4 partition fields: animal, deployment, class, label (dataset is now namespace)
+        assert len(partition_spec.fields) == 4
 
         # Check partition field names
         partition_names = [field.name for field in partition_spec.fields]
@@ -190,6 +189,8 @@ class TestDuckPondInfrastructure:
         )  # Dataset is no longer a partition field
         assert "animal" in partition_names
         assert "deployment" in partition_names
+        assert "class" in partition_names
+        assert "label" in partition_names
 
     def test_close_connection(self, duck_pond):
         """Test that connection can be closed cleanly"""
@@ -358,7 +359,7 @@ class TestDuckPondDataTransformation:
         values = [1.5, 10, True, "sensor_error", False]
 
         # Write data
-        rows_written = duck_pond.write_sensor_data(
+        rows_written = duck_pond.write_signal_data(
             dataset=dataset,
             metadata=metadata,
             times=times,
@@ -410,7 +411,7 @@ class TestDuckPondDataTransformation:
             # Use list instead of numpy array to preserve original types
             values = [1.0]
 
-            duck_pond.write_sensor_data(
+            duck_pond.write_signal_data(
                 dataset=dataset_name,
                 metadata=metadata,
                 times=times,
@@ -440,14 +441,7 @@ class TestDuckPondDataTransformation:
 
         # Test get_view_name
         assert duck_pond.get_view_name(dataset, "data") == '"EP Physiology_Data"'
-        assert (
-            duck_pond.get_view_name(dataset, "point_events")
-            == '"EP Physiology_PointEvents"'
-        )
-        assert (
-            duck_pond.get_view_name(dataset, "state_events")
-            == '"EP Physiology_StateEvents"'
-        )
+        assert duck_pond.get_view_name(dataset, "events") == '"EP Physiology_Events"'
 
         # Test invalid table type
         try:
@@ -460,14 +454,15 @@ class TestDuckPondDataTransformation:
         views = duck_pond.list_dataset_views(dataset)
         expected_views = [
             '"EP Physiology_Data"',
-            '"EP Physiology_PointEvents"',
-            '"EP Physiology_StateEvents"',
+            '"EP Physiology_Events"',
         ]
         assert views == expected_views
 
         # Test list_all_views
         all_views = duck_pond.list_all_views()
-        assert len(all_views) >= 6  # At least test_dataset + EP Physiology views
+        assert (
+            len(all_views) >= 4
+        )  # At least test_dataset + EP Physiology views (2 views each)
         assert '"EP Physiology_Data"' in all_views
         assert '"test_dataset_Data"' in all_views
 

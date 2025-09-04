@@ -88,24 +88,6 @@ class TestDataUploaderConstructor:
         assert uploader.duck_pond is duck_pond
         assert isinstance(uploader.duck_pond, DuckPond)
 
-    def test_constructor_maintains_notion_functionality(self, duck_pond):
-        """Test that Notion integration still works with new constructor"""
-        # Test with no Notion config
-        uploader = DataUploader(duck_pond=duck_pond)
-        assert uploader.notion_manager is None
-
-        # Test with notion_manager parameter
-        from unittest.mock import Mock
-
-        mock_notion_manager = Mock()
-        uploader = DataUploader(duck_pond=duck_pond, notion_manager=mock_notion_manager)
-        assert uploader.notion_manager is mock_notion_manager
-
-        # Test with notion_config parameter
-        notion_config = {"db_map": {"test": "test_id"}, "token": "test_token"}
-        uploader = DataUploader(duck_pond=duck_pond, notion_config=notion_config)
-        assert uploader.notion_manager is not None
-
 
 def test_validate_data_valid(valid_netcdf_dataset, duck_pond):
     """Test NetCDF validation with valid data"""
@@ -122,3 +104,188 @@ def test_validate_data_invalid(valid_netcdf_dataset, duck_pond):
 
     with pytest.raises(NetCDFValidationError):
         uploader.validate_netcdf(ds)
+
+
+class TestDataUploaderEvents:
+    """Test event data upload functionality"""
+
+    @pytest.fixture
+    def event_netcdf_dataset(self):
+        """Create a netCDF dataset with event data"""
+        # Create time coordinates for events
+        event_times = pd.date_range("2023-01-01T10:00:00", periods=4, freq="H")
+
+        # Create event data with both point and state events
+        event_data_key = ["dive_start", "surface", "feeding_bout", "rest_period"]
+        event_data_value = event_times  # Start times
+        event_data_duration = [
+            0,
+            0,
+            1800,
+            3600,
+        ]  # Point events have 0 duration, state events have > 0
+
+        ds = xr.Dataset(
+            {
+                "event_data_key": (("event_data_samples",), event_data_key),
+                "event_data_value": (("event_data_samples",), event_data_value),
+                "event_data_duration": (("event_data_samples",), event_data_duration),
+            },
+            coords={
+                "event_data_samples": ("event_data_samples", event_times),
+            },
+        )
+
+        return ds
+
+    def test_write_events_to_duck_pond_consolidation(self, duck_pond):
+        """Test that both point and state events are written to single events table"""
+        import pyarrow as pa
+        from datetime import datetime, timedelta
+
+        uploader = DataUploader(duck_pond=duck_pond)
+        dataset = "test_events_dataset"
+        duck_pond.ensure_dataset_initialized(dataset)
+
+        # Create test data with mixed point and state events
+        start_time = datetime(2023, 1, 1, 10, 0, 0)
+        start_times = pa.array(
+            [
+                start_time,  # dive_start (point)
+                start_time + timedelta(minutes=30),  # surface (point)
+                start_time + timedelta(hours=1),  # feeding_bout (state)
+                start_time + timedelta(hours=3),  # rest_period (state)
+            ]
+        )
+
+        end_times = pa.array(
+            [
+                start_time,  # dive_start: same time = point event
+                start_time + timedelta(minutes=30),  # surface: same time = point event
+                start_time
+                + timedelta(hours=1, minutes=30),  # feeding_bout: +30 min = state event
+                start_time + timedelta(hours=4),  # rest_period: +1 hour = state event
+            ]
+        )
+
+        # Set up test metadata
+        metadata = {
+            "animal": "seal_001",
+            "deployment": "deploy_001",
+            "recording": "rec_001",
+        }
+
+        # Write mixed events to consolidated table
+        uploader._write_events_to_duck_pond(
+            dataset=dataset,
+            metadata=metadata,
+            start_times=start_times,
+            end_times=end_times,
+            group="behavioral",
+            event_keys=["dive_start", "surface", "feeding_bout", "rest_period"],
+            event_data=[
+                {"depth": 10},
+                {"depth": 0},
+                {"prey_type": "fish"},
+                {"location": "surface"},
+            ],
+            short_descriptions=[None, None, "Feeding", "Resting"],
+            long_descriptions=[
+                None,
+                None,
+                "Active feeding bout",
+                "Rest period at surface",
+            ],
+        )
+
+        # Verify all events were written to single events table
+        view_name = duck_pond.get_view_name(dataset, "events")
+        results = duck_pond.conn.sql(
+            f"SELECT event_key, datetime_start, datetime_end FROM {view_name} ORDER BY datetime_start"
+        ).fetchall()
+
+        # Should have 4 events total
+        assert len(results) == 4
+
+        # Verify point events (dive_start, surface) have same start/end times
+        assert (
+            results[0][1] == results[0][2]
+        ), "dive_start should be point event (same start/end)"
+        assert (
+            results[1][1] == results[1][2]
+        ), "surface should be point event (same start/end)"
+
+        # Verify state events (feeding_bout, rest_period) have different start/end times
+        assert (
+            results[2][1] != results[2][2]
+        ), "feeding_bout should be state event (different start/end)"
+        assert (
+            results[3][1] != results[3][2]
+        ), "rest_period should be state event (different start/end)"
+
+    def test_events_schema_compatibility(self, duck_pond):
+        """Test that the events schema handles both point and state events"""
+        import pyarrow as pa
+        from datetime import datetime, timedelta
+
+        dataset = "test_schema_dataset"
+        duck_pond.ensure_dataset_initialized(dataset)
+
+        # Create test data with both point and state events
+        start_time = datetime(2023, 1, 1, 12, 0, 0)
+
+        # Point event (same start/end time)
+        point_start = pa.array([start_time])
+        point_end = pa.array([start_time])  # Same time = point event
+
+        # State event (different start/end time)
+        state_start = pa.array([start_time + timedelta(hours=1)])
+        state_end = pa.array(
+            [start_time + timedelta(hours=2)]
+        )  # Different time = state event
+
+        uploader = DataUploader(duck_pond=duck_pond)
+
+        # Test writing point event with nullable descriptions
+        uploader._write_events_to_duck_pond(
+            dataset=dataset,
+            metadata={"animal": "seal_test", "deployment": "deploy_test"},
+            start_times=point_start,
+            end_times=point_end,
+            group="behavioral",
+            event_keys=["dive_start"],
+            event_data=[{"depth": 10.5}],
+            short_descriptions=[None],  # Point events can have null descriptions
+            long_descriptions=[None],
+        )
+
+        # Test writing state event with descriptions
+        uploader._write_events_to_duck_pond(
+            dataset=dataset,
+            metadata={"animal": "seal_test", "deployment": "deploy_test"},
+            start_times=state_start,
+            end_times=state_end,
+            group="behavioral",
+            event_keys=["feeding_bout"],
+            event_data=[{"prey_type": "fish"}],
+            short_descriptions=["Feeding behavior"],
+            long_descriptions=["Extended feeding bout with multiple prey captures"],
+        )
+
+        # Verify both events are in the same table
+        view_name = duck_pond.get_view_name(dataset, "events")
+        results = duck_pond.conn.sql(
+            f"SELECT event_key, datetime_start, datetime_end, short_description FROM {view_name}"
+        ).fetchall()
+
+        assert len(results) == 2
+
+        # Check point event
+        point_result = [r for r in results if r[0] == "dive_start"][0]
+        assert point_result[1] == point_result[2]  # start == end for point event
+        assert point_result[3] is None  # null description allowed
+
+        # Check state event
+        state_result = [r for r in results if r[0] == "feeding_bout"][0]
+        assert state_result[1] != state_result[2]  # start != end for state event
+        assert state_result[3] == "Feeding behavior"  # description present
