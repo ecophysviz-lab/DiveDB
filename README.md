@@ -342,7 +342,7 @@ db_map = {
 notion_orm = NotionORMManager(db_map=db_map, token=os.getenv("NOTION_API_KEY"))
 
 # Get model class and query data
-Animal = notion_orm.get_model("Animal")
+Animal = notion_orm.get_model("Animal DB")
 animal = Animal.get_animal({"Animal ID": "mian-013"})
 
 # Access relationships

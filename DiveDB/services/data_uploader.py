@@ -13,7 +13,6 @@ import json
 import math
 
 from DiveDB.services.duck_pond import DuckPond
-from DiveDB.services.notion_orm import NotionORMManager
 
 
 class NetCDFValidationError(Exception):
@@ -28,8 +27,6 @@ class DataUploader:
     def __init__(
         self,
         duck_pond: Optional[DuckPond] = None,
-        notion_manager: Optional[NotionORMManager] = None,
-        notion_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Initialize DataUploader with optional DuckPond instance and Notion configuration.
@@ -40,15 +37,6 @@ class DataUploader:
             notion_config: Dictionary with 'db_map' and 'token' keys for Notion ORM (ignored if notion_manager is provided)
         """
         self.duck_pond = duck_pond or DuckPond.from_environment()
-
-        if notion_manager:
-            self.notion_manager = notion_manager
-        elif notion_config:
-            self.notion_manager = NotionORMManager(
-                db_map=notion_config["db_map"], token=notion_config["token"]
-            )
-        else:
-            self.notion_manager = None
 
     def _get_datetime_type(self, time_data_array: xr.DataArray) -> pa.DataType:
         """Function to get the datetime type from a PyArrow array."""
@@ -87,13 +75,12 @@ class DataUploader:
         label: str,
         values: Union[np.ndarray, List[Any]],
     ) -> None:
-        """Helper function to write sensor data to DuckPond (Iceberg)."""
+        """Helper function to write signal data to DuckPond (Iceberg)."""
         # Convert numpy array to list if needed (DuckPond expects mixed-type lists)
         if isinstance(values, np.ndarray):
             values = values.tolist()
 
-        # Use DuckPond's write_sensor_data method which handles wide format internally
-        self.duck_pond.write_sensor_data(
+        self.duck_pond.write_signal_data(
             dataset=dataset,
             metadata=metadata,
             times=times,
@@ -124,80 +111,30 @@ class DataUploader:
         if long_descriptions is None:
             long_descriptions = [None] * len(event_keys)
 
-        # Determine if events are point or state based on duration
-        is_point_event = (end_times - start_times) == np.timedelta64(0, "s")
-
-        # Collect point and state events separately
-        point_events = []
-        state_events = []
-
-        for i, is_point in enumerate(is_point_event):
+        # Collect all events in a single list
+        events = []
+        for i in range(len(event_keys)):
+            # For point events, end_time equals start_time
+            # For state events, end_time is different from start_time
             event = {
-                "dataset": dataset,  # New required field
+                "dataset": dataset,
                 "animal": metadata["animal"],
                 "deployment": str(metadata["deployment"]),
                 "recording": metadata.get("recording"),  # Optional field
                 "group": group,
                 "event_key": event_keys[i],
-                "event_data": json.dumps(event_data[i]),
+                "datetime_start": start_times[i],
+                "datetime_end": end_times[i],
                 "short_description": short_descriptions[i],
                 "long_description": long_descriptions[i],
+                "event_data": json.dumps(event_data[i]),
             }
-            if is_point:
-                event["datetime"] = start_times[i]
-                point_events.append(event)
-            else:
-                event["datetime_start"] = start_times[i]
-                event["datetime_end"] = end_times[i]
-                # State events require descriptions to be non-null in schema
-                if event["short_description"] is None:
-                    event["short_description"] = ""
-                if event["long_description"] is None:
-                    event["long_description"] = ""
-                state_events.append(event)
+            events.append(event)
 
-        # Write point events using DuckPond
-        if point_events:
-            # Create schema for point events (matching DuckPond schema)
-            point_schema = pa.schema(
-                [
-                    pa.field("dataset", pa.string(), nullable=False),
-                    pa.field("animal", pa.string(), nullable=False),
-                    pa.field("deployment", pa.string(), nullable=False),
-                    pa.field("recording", pa.string(), nullable=True),
-                    pa.field("group", pa.string(), nullable=False),
-                    pa.field("event_key", pa.string(), nullable=False),
-                    pa.field("datetime", pa.timestamp("us"), nullable=False),
-                    pa.field("short_description", pa.string(), nullable=True),
-                    pa.field("long_description", pa.string(), nullable=True),
-                    pa.field("event_data", pa.string(), nullable=False),
-                ]
-            )
-
-            batch_table = pa.table(
-                [
-                    pa.array([e["dataset"] for e in point_events]),
-                    pa.array([e["animal"] for e in point_events]),
-                    pa.array([e["deployment"] for e in point_events]),
-                    pa.array([e["recording"] for e in point_events]),
-                    pa.array([e["group"] for e in point_events]),
-                    pa.array([e["event_key"] for e in point_events]),
-                    pa.array([e["datetime"] for e in point_events]),
-                    pa.array([e["short_description"] for e in point_events]),
-                    pa.array([e["long_description"] for e in point_events]),
-                    pa.array([e["event_data"] for e in point_events]),
-                ],
-                schema=point_schema,
-            )
-
-            self.duck_pond.write_to_iceberg(
-                batch_table, "point_events", dataset=dataset
-            )
-
-        # Write state events using DuckPond
-        if state_events:
-            # Create schema for state events (matching DuckPond schema)
-            state_schema = pa.schema(
+        # Write all events using single schema and table
+        if events:
+            # Create unified schema for all events (matching DuckPond events schema)
+            events_schema = pa.schema(
                 [
                     pa.field("dataset", pa.string(), nullable=False),
                     pa.field("animal", pa.string(), nullable=False),
@@ -207,32 +144,30 @@ class DataUploader:
                     pa.field("event_key", pa.string(), nullable=False),
                     pa.field("datetime_start", pa.timestamp("us"), nullable=False),
                     pa.field("datetime_end", pa.timestamp("us"), nullable=False),
-                    pa.field("short_description", pa.string(), nullable=False),
-                    pa.field("long_description", pa.string(), nullable=False),
+                    pa.field("short_description", pa.string(), nullable=True),
+                    pa.field("long_description", pa.string(), nullable=True),
                     pa.field("event_data", pa.string(), nullable=False),
                 ]
             )
 
             batch_table = pa.table(
                 [
-                    pa.array([e["dataset"] for e in state_events]),
-                    pa.array([e["animal"] for e in state_events]),
-                    pa.array([e["deployment"] for e in state_events]),
-                    pa.array([e["recording"] for e in state_events]),
-                    pa.array([e["group"] for e in state_events]),
-                    pa.array([e["event_key"] for e in state_events]),
-                    pa.array([e["datetime_start"] for e in state_events]),
-                    pa.array([e["datetime_end"] for e in state_events]),
-                    pa.array([e["short_description"] for e in state_events]),
-                    pa.array([e["long_description"] for e in state_events]),
-                    pa.array([e["event_data"] for e in state_events]),
+                    pa.array([e["dataset"] for e in events]),
+                    pa.array([e["animal"] for e in events]),
+                    pa.array([e["deployment"] for e in events]),
+                    pa.array([e["recording"] for e in events]),
+                    pa.array([e["group"] for e in events]),
+                    pa.array([e["event_key"] for e in events]),
+                    pa.array([e["datetime_start"] for e in events]),
+                    pa.array([e["datetime_end"] for e in events]),
+                    pa.array([e["short_description"] for e in events]),
+                    pa.array([e["long_description"] for e in events]),
+                    pa.array([e["event_data"] for e in events]),
                 ],
-                schema=state_schema,
+                schema=events_schema,
             )
 
-            self.duck_pond.write_to_iceberg(
-                batch_table, "state_events", dataset=dataset
-            )
+            self.duck_pond.write_to_iceberg(batch_table, "events", dataset=dataset)
 
         gc.collect()
 
@@ -340,10 +275,10 @@ class DataUploader:
 
         Raises: ValueError: If notion_manager is not configured or model not found
         """
-        if not self.notion_manager:
+        if not self.duck_pond.notion_manager:
             raise ValueError("Notion configuration required for database operations")
 
-        Model = self.notion_manager.get_model(model_name)
+        Model = self.duck_pond.notion_manager.get_model(model_name)
         filter_kwargs = {id_field: model_id}
         instance = Model.objects.filter(**filter_kwargs).first()
 
@@ -419,8 +354,10 @@ class DataUploader:
 
         # Extract dataset from metadata
         if "dataset" not in metadata:
-            raise ValueError("metadata must contain 'dataset' key")
+            raise ValueError("metadata must contain 'dataset' key (string)")
         dataset = metadata["dataset"]
+        if not isinstance(dataset, str):
+            raise TypeError("The 'dataset' value must be set (string)")
 
         # Set default rename_map if None
         if rename_map is None:
@@ -552,6 +489,8 @@ class DataUploader:
                             label = (
                                 var_data.attrs["variable"]
                                 if "variable" in var_data.attrs
+                                else var_data.attrs["variables"]
+                                if "variables" in var_data.attrs
                                 else var_name
                             )
                             label = rename_map.get(label.lower(), label)

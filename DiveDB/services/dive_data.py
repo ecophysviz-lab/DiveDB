@@ -64,9 +64,9 @@ def get_metadata(divedata):
     ]
 
     # Get models for the Notion databases
-    Recording = divedata.notion_manager.get_model("Recordings")
-    Animal = divedata.notion_manager.get_model("Animals")
-    Deployment = divedata.notion_manager.get_model("Deployments")
+    Recording = divedata.notion_manager.get_model("Recordings DB")
+    Animal = divedata.notion_manager.get_model("Animals DB")
+    Deployment = divedata.notion_manager.get_model("Deployments DB")
 
     for recording_id in recording_ids:
         recording_metadata = {}
