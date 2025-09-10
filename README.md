@@ -371,6 +371,52 @@ for recording in recordings:
 - No real-time sync or webhooks
 - Subject to Notion API rate limits
 
+## Immich Integration
+
+DiveDB includes an integration with [Immich](https://immich.app/), an open-source photo and video management system. This integration enables seamless access to media assets (images and videos) associated with datasets stored in Immich albums.
+
+### Key Features
+
+- **Deployment Media Discovery**: Search for media assets using deployment IDs (mapped to Immich album names)
+- **Metadata Retrieval**: Access detailed metadata including EXIF data, timestamps, geolocation, and tags
+- **Playback URL Generation**: Generate authenticated URLs for media playback in Dash dashboards
+
+### Quick Start
+
+```python
+from immich_integration import ImmichService
+
+# Initialize service (uses environment variables)
+immich = ImmichService()
+
+# Search for media by deployment ID (album name)
+media_result = immich.find_media_by_deployment_id("DepID_2019-11-08_apfo-001")
+if media_result["success"]:
+    assets = media_result["data"]
+    print(f"Found {len(assets)} media assets")
+
+# Get detailed metadata and URLs for specific media
+details_result = immich.get_media_details(asset_id="asset-uuid-here")
+if details_result["success"]:
+    metadata = details_result["data"]["metadata"]
+    urls = details_result["data"]["urls"]
+    print(f"Original URL: {urls['authenticated_original']}")
+```
+
+### Environment Variables
+
+Configure the following in your `.env` file:
+
+```bash
+# Immich API Configuration
+IMMICH_API_KEY=your_immich_api_key_here
+IMMICH_BASE_URL=https://your-immich-instance.com/api
+```
+
+### Integration with Dash
+
+The Immich service is designed to work seamlessly with DiveDB's Dash visualization components, enabling media playback synchronized with biologging data timelines.
+
 ## Additional Commands
 
 - **To Stop the Containers:**
