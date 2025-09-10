@@ -28,6 +28,7 @@ dependencies = [
   "pyarrow",
   "pyedflib",
   "pytest",
+  "requests",
   "pytest-mock",
   "pytest-recording",
   "python-keystoneclient",

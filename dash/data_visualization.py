@@ -1,8 +1,10 @@
 import dash
+import os
+import sys
 import pandas as pd
 from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
-import os
+from pathlib import Path
 
 from DiveDB.services.duck_pond import DuckPond
 from DiveDB.services.notion_orm import NotionORMManager
@@ -10,6 +12,12 @@ from graph_utils import plot_tag_data_interactive5
 from layout import create_layout
 from callbacks import register_callbacks
 from clientside_callbacks import register_clientside_callbacks
+
+# Add DiveDB root to path for Immich integration
+sys.path.append(str(Path(__file__).parent.parent))
+
+# Now import Immich integration (after adding to path)
+from immich_integration import ImmichService  # noqa: E402
 
 load_dotenv()
 
@@ -27,6 +35,9 @@ notion_manager = NotionORMManager(
 )
 duck_pond = DuckPond.from_environment(notion_manager=notion_manager)
 
+# Initialize Immich service
+immich_service = ImmichService()
+
 app = dash.Dash(
     __name__,
     external_stylesheets=[
@@ -35,14 +46,113 @@ app = dash.Dash(
     ],
 )
 
+# Hard-coded dataset and deployment IDs
+DATASET_ID = "apfo-adult-penguin_hr-sr_penguin-ranch_JKB-PP"
+DEPLOYMENT_ID = "DepID_2019-11-08_apfo-001"  # Deployment ID format: date + animal ID
+
 channel_dff = duck_pond.get_available_channels(
-    dataset="apfo-adult-penguin_hr-sr_penguin-ranch_JKB-PP",
+    dataset=DATASET_ID,
     include_metadata=True,
     pack_groups=True,
 )
 
+# Fetch available video assets from Immich for this deployment
+print(f"🔍 Fetching video assets from Immich for deployment: {DEPLOYMENT_ID}")
+media_result = immich_service.find_media_by_deployment_id(
+    DEPLOYMENT_ID, media_type="VIDEO", shared=True
+)
+
+if media_result["success"]:
+    video_assets = media_result["data"]
+    album_info = media_result.get("album_info", {})
+
+    print(f"✅ Found deployment album: {album_info.get('name', 'Unknown')}")
+    print(f"📁 Album ID: {album_info.get('id', 'Unknown')}")
+    print(f"🎬 Total video assets: {len(video_assets)}")
+
+    # Prepare video options for React component
+    video_options = []
+    if video_assets:
+        print("\n📊 Processing video assets:")
+        for i, asset in enumerate(video_assets):
+            asset_id = asset.get("id")
+            filename = asset.get("originalFileName", "Unknown")
+            created = asset.get("fileCreatedAt", "Unknown")
+            file_created = asset.get("fileCreatedAt", "Unknown")
+
+            print(f"  {i + 1}. VIDEO: {filename}")
+            print(f"      Created: {created}")
+            print(f"      Asset ID: {asset_id}")
+
+            # Create individual share link for this asset
+            share_result = immich_service.create_asset_share_link(asset_id)
+            asset_share_key = None
+
+            if share_result["success"]:
+                asset_share_key = share_result["share_data"]["key"]
+                print(f"      🔑 Created asset share key: {asset_share_key[:8]}...")
+            else:
+                print(
+                    f"      ⚠️ Failed to create share key: {share_result.get('error', 'Unknown')}"
+                )
+
+            # Get detailed metadata for this asset
+            details_result = immich_service.get_media_details(asset_id)
+
+            if details_result["success"]:
+                metadata = details_result["data"]["metadata"]
+                urls = details_result["data"]["urls"]
+
+                # Create share URLs using the individual asset share key
+                share_video_url = (
+                    f"{urls.get('video_playback')}?key={asset_share_key}"
+                    if asset_share_key
+                    else None
+                )
+                share_thumbnail_url = (
+                    f"{urls.get('thumbnail')}?key={asset_share_key}"
+                    if asset_share_key
+                    else urls.get("thumbnail")
+                )
+
+                video_option = {
+                    "id": asset_id,
+                    "filename": filename,
+                    "fileCreatedAt": file_created,
+                    "shareUrl": share_video_url,
+                    "originalUrl": urls.get("original"),  # Fallback if share fails
+                    "thumbnailUrl": share_thumbnail_url,
+                    "metadata": {
+                        "duration": metadata.get("duration"),
+                        "originalFilename": metadata.get("original_filename"),
+                        "type": metadata.get("type"),
+                    },
+                }
+
+                # Debug logging
+                print(f"      🎬 Video playback URL: {urls.get('video_playback')}")
+                print(f"      🔗 Asset share URL: {share_video_url}")
+                print(f"      📷 Original URL fallback: {urls.get('original')}")
+                video_options.append(video_option)
+                print(
+                    f"      ✅ Metadata loaded - Duration: {metadata.get('duration', 'Unknown')}"
+                )
+            else:
+                print(
+                    f"      ❌ Failed to load metadata: {details_result.get('error', 'Unknown')}"
+                )
+
+        print(f"\n✅ Prepared {len(video_options)} video options for React component")
+    else:
+        print("⚠️ No video assets found in deployment album")
+else:
+    print(f"❌ Failed to fetch media: {media_result.get('error', 'Unknown error')}")
+    video_options = []
+
+print("🔗 Deployment media integration complete!\n")
+
 dff = duck_pond.get_data(
-    dataset="apfo-adult-penguin_hr-sr_penguin-ranch_JKB-PP",
+    dataset=DATASET_ID,
     animal_ids="apfo-001",
     frequency=1,
     labels=[
@@ -67,6 +177,21 @@ else:
 # Convert datetime to timestamp (seconds since epoch) for slider control
 dff["timestamp"] = dff["datetime"].apply(lambda x: x.timestamp())
 dff["depth"] = dff["depth"].apply(lambda x: x * -1)
+
+# Define the restricted time range (biologging data bounds) for video synchronization
+data_start_time = dff["datetime"].min()
+data_end_time = dff["datetime"].max()
+restricted_time_range = {
+    "start": data_start_time.isoformat(),
+    "end": data_end_time.isoformat(),
+    "startTimestamp": dff["timestamp"].min(),
+    "endTimestamp": dff["timestamp"].max(),
+}
+
+print("📊 Biologging data time range for video sync:")
+print(f"   Start: {data_start_time}")
+print(f"   End: {data_end_time}")
+print(f"   Duration: {(data_end_time - data_start_time).total_seconds():.1f} seconds\n")
 
 # Replace the existing figure creation with a call to the new function
 fig = plot_tag_data_interactive5(
@@ -160,7 +285,13 @@ fig.update_layout(
 data_json = dff[["datetime", "pitch", "roll", "heading"]].to_json(orient="split")
 
 # Create the app layout using the modular layout system
-app.layout = create_layout(fig, data_json, dff)
+app.layout = create_layout(
+    fig,
+    data_json,
+    dff,
+    video_options=video_options,
+    restricted_time_range=restricted_time_range,
+)
 
 # Register callbacks
 register_callbacks(app, dff)

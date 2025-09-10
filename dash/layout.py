@@ -345,7 +345,9 @@ def create_main_content(fig):
     )
 
 
-def create_right_sidebar(data_json, video_min_timestamp):
+def create_right_sidebar(
+    data_json, video_min_timestamp, video_options=None, restricted_time_range=None
+):
     """Create the right sidebar with 3D model and video."""
     return html.Div(
         [
@@ -435,6 +437,10 @@ def create_right_sidebar(data_json, video_min_timestamp):
                                                 videoSrc="/assets/fixed_video_output_00001_excerpt.mp4",
                                                 playheadTime=video_min_timestamp,
                                                 isPlaying=False,
+                                                videoOptions=video_options or [],
+                                                selectedVideoId=None,
+                                                restrictedTimeRange=restricted_time_range
+                                                or {},
                                             ),
                                             html.Button(
                                                 [
@@ -1098,7 +1104,7 @@ def create_app_stores(dff):
     ]
 
 
-def create_layout(fig, data_json, dff):
+def create_layout(fig, data_json, dff, video_options=None, restricted_time_range=None):
     """Create the complete app layout."""
     return html.Div(
         [
@@ -1108,7 +1114,12 @@ def create_layout(fig, data_json, dff):
                     create_header(),
                     create_left_sidebar(),
                     create_main_content(fig),
-                    create_right_sidebar(data_json, dff["timestamp"].min()),
+                    create_right_sidebar(
+                        data_json,
+                        dff["timestamp"].min(),
+                        video_options=video_options,
+                        restricted_time_range=restricted_time_range,
+                    ),
                     create_footer(dff),
                 ],
                 className="grid",
