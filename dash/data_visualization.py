@@ -1,3 +1,15 @@
+"""
+⚠️⚠️⚠️ TIMEZONE HACK WARNING ⚠️⚠️⚠️
+
+This file contains a temporary hardcoded timezone correction for video timestamps.
+Videos from Immich are incorrectly stored as UTC when they should be +13:00 timezone.
+
+TODO: Fix video timezone metadata at the source (Immich system) and remove the
+correct_video_timezone() function and all related timezone corrections.
+
+⚠️⚠️⚠️ TIMEZONE HACK WARNING ⚠️⚠️⚠️
+"""
+
 import dash
 import os
 import sys
@@ -37,6 +49,33 @@ duck_pond = DuckPond.from_environment(notion_manager=notion_manager)
 
 # Initialize Immich service
 immich_service = ImmichService()
+
+
+def correct_video_timezone(utc_timestamp_str):
+    """
+    ⚠️⚠️⚠️ TEMPORARY TIMEZONE HACK - FIX AT SOURCE ⚠️⚠️⚠️
+
+    Videos in Immich are incorrectly stored as UTC when they should be +13:00.
+    This function treats the UTC timestamp as if it were actually in +13:00 timezone.
+
+    TODO: Fix video timezone metadata in Immich source system!
+
+    Args:
+        utc_timestamp_str: String like "2019-11-08T15:50:50.000Z" (incorrectly marked as UTC)
+
+    Returns:
+        Corrected timestamp string in proper +13:00 timezone
+    """
+    if not utc_timestamp_str or not utc_timestamp_str.endswith("Z"):
+        return utc_timestamp_str
+
+    # Remove Z suffix and treat as local time in +13:00
+    local_time_str = utc_timestamp_str.replace("Z", "+13:00")
+
+    print(f"   🔧 Timezone correction: {utc_timestamp_str} → {local_time_str}")
+
+    return local_time_str
+
 
 app = dash.Dash(
     __name__,
@@ -81,8 +120,9 @@ if media_result["success"]:
             file_created = asset.get("fileCreatedAt", "Unknown")
 
             print(f"  {i + 1}. VIDEO: {filename}")
-            print(f"      Created: {created}")
-            print(f"      Asset ID: {asset_id}")
+
+            # ⚠️ APPLY TIMEZONE CORRECTION - Videos incorrectly stored as UTC in Immich
+            corrected_created = correct_video_timezone(file_created)
 
             # Create individual share link for this asset
             share_result = immich_service.create_asset_share_link(asset_id)
@@ -90,7 +130,6 @@ if media_result["success"]:
 
             if share_result["success"]:
                 asset_share_key = share_result["share_data"]["key"]
-                print(f"      🔑 Created asset share key: {asset_share_key[:8]}...")
             else:
                 print(
                     f"      ⚠️ Failed to create share key: {share_result.get('error', 'Unknown')}"
@@ -118,7 +157,7 @@ if media_result["success"]:
                 video_option = {
                     "id": asset_id,
                     "filename": filename,
-                    "fileCreatedAt": file_created,
+                    "fileCreatedAt": corrected_created,  # ⚠️ Using timezone-corrected timestamp
                     "shareUrl": share_video_url,
                     "originalUrl": urls.get("original"),  # Fallback if share fails
                     "thumbnailUrl": share_thumbnail_url,
@@ -129,14 +168,7 @@ if media_result["success"]:
                     },
                 }
 
-                # Debug logging
-                print(f"      🎬 Video playback URL: {urls.get('video_playback')}")
-                print(f"      🔗 Asset share URL: {share_video_url}")
-                print(f"      📷 Original URL fallback: {urls.get('original')}")
                 video_options.append(video_option)
-                print(
-                    f"      ✅ Metadata loaded - Duration: {metadata.get('duration', 'Unknown')}"
-                )
             else:
                 print(
                     f"      ❌ Failed to load metadata: {details_result.get('error', 'Unknown')}"
@@ -294,7 +326,7 @@ app.layout = create_layout(
 )
 
 # Register callbacks
-register_callbacks(app, dff)
+register_callbacks(app, dff, video_options)
 register_clientside_callbacks(app)
 
 

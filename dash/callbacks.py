@@ -6,7 +6,7 @@ from dash import Output, Input, State, callback_context
 import pandas as pd
 
 
-def register_callbacks(app, dff):
+def register_callbacks(app, dff, video_options=None):
     """Register all server-side callbacks with the given app instance."""
 
     @app.callback(
@@ -163,3 +163,56 @@ def register_callbacks(app, dff):
         )
         existing_fig["layout"]["uirevision"] = "constant"
         return existing_fig
+
+    # Add video selection callback if video options are available
+    if video_options:
+        # Create inputs for all video indicators
+        video_ids = [f"video-{video.get('id', 'unknown')}" for video in video_options]
+        print(f"🔧 Registering video callbacks for IDs: {video_ids}")
+
+        video_inputs = [Input(vid, "n_clicks") for vid in video_ids]
+
+        @app.callback(
+            Output("selected-video", "data"), video_inputs, prevent_initial_call=True
+        )
+        def select_video(*n_clicks_list):
+            """Select video when any timeline indicator is clicked."""
+            print(f"🔧 Video callback triggered! n_clicks_list: {n_clicks_list}")
+
+            ctx = callback_context
+            print(f"🔧 Callback context: {ctx.triggered}")
+
+            if ctx.triggered and ctx.triggered[0]["value"]:
+                clicked_id = ctx.triggered[0]["prop_id"].split(".")[0]
+                print(f"🔧 Clicked ID: {clicked_id}")
+
+                # Extract video ID from button ID (format: "video-{video_id}")
+                video_button_id = clicked_id.replace("video-", "")
+                print(f"🔧 Looking for video ID: {video_button_id}")
+
+                # Find the corresponding video in video_options
+                for vid in video_options:
+                    if vid.get("id") == video_button_id:
+                        print(f"🎬 Selected video: {vid.get('filename', 'Unknown')}")
+                        return vid
+
+                print(f"⚠️ No matching video found for ID: {video_button_id}")
+            return dash.no_update
+
+    @app.callback(
+        Output("video-trimmer", "videoSrc"),
+        Input("selected-video", "data"),
+    )
+    def update_video_player(selected_video):
+        """Update VideoPreview component with selected video."""
+        print(f"🎥 Video player update triggered with: {selected_video}")
+
+        if selected_video:
+            video_url = selected_video.get("shareUrl") or selected_video.get(
+                "originalUrl"
+            )
+            print(f"🎥 Loading video URL: {video_url}")
+            return video_url
+
+        print("🎥 No video selected, returning None")
+        return None

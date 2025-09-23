@@ -18,21 +18,21 @@ test:
 	pytest
 
 build-all-dash:
-	$(MAKE) build-bash component=three_js_orientation
-	$(MAKE) build-bash component=video_preview
+	$(MAKE) build-dash component=three_js_orientation
+	$(MAKE) build-dash component=video_preview
 
 watch-dash-components:
 	fswatch dash/video_preview/src/lib dash/three_js_orientation/src/lib --event=Updated | \
 	while read -r path event; do \
 		component_name=$$(echo "$$path" | sed 's|.*/dash/\([^/]*\)/.*|\1|'); \
 		echo "Change detected in $$path. Rebuilding $$component_name..."; \
-		$(MAKE) build-bash component="$$component_name" SKIP_NPM=1; \
+		$(MAKE) build-dash component="$$component_name" SKIP_NPM=1; \
 	done
 
 run-dash:
 	python dash/data_visualization.py
 
-build-bash:
+build-dash:
 	@echo "Building $(component)..."
 	@cd dash/$(component) && \
 	$(if $(SKIP_NPM),,echo "  → Installing npm dependencies..." && npm i $(if $(DEBUG),,> /dev/null 2>&1) && ) \
