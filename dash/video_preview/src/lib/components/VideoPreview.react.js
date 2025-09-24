@@ -12,6 +12,7 @@ const VideoPreview = ({
   playheadTime,
   isPlaying, // Prop for controlling playback
 }) => {
+  console.log("🎥 VideoPreview render - videoSrc:", videoSrc);
   const videoRef = useRef(null);
   const [duration, setDuration] = useState(0);
   const [startTime, setStartTime] = useState(propStartTime || 0);
@@ -106,7 +107,7 @@ const VideoPreview = ({
 
   return (
     <div id={id} style={{ ...style }}>
-      {videoSrc ? (
+      {videoSrc && videoSrc.trim() ? (
         <div>
           <video
             ref={videoRef}
@@ -205,7 +206,7 @@ const VideoPreview = ({
           <h3 style={{ margin: "0 0 8px 0", color: "#475569" }}>
             No video selected
           </h3>
-          <p style={{ margin: 0, fontSize: "14px" }}>
+          <p style={{ margin: 0, fontSize: "14px", color: "#475569" }}>
             Click a video indicator on the timeline to play
           </p>
         </div>
@@ -216,7 +217,7 @@ const VideoPreview = ({
 
 VideoPreview.propTypes = {
   id: PropTypes.string,
-  videoSrc: PropTypes.string,
+  videoSrc: PropTypes.string, // Optional prop (no .isRequired means it can be undefined)
   startTime: PropTypes.number,
   endTime: PropTypes.number,
   setProps: PropTypes.func,
@@ -228,7 +229,7 @@ VideoPreview.propTypes = {
 VideoPreview.defaultProps = {
   style: {},
   isPlaying: false,
-  videoSrc: null,
+  videoSrc: undefined, // Explicitly set to undefined
 };
 
 export default VideoPreview;

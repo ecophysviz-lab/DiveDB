@@ -28,7 +28,6 @@ from clientside_callbacks import register_clientside_callbacks
 # Add DiveDB root to path for Immich integration
 sys.path.append(str(Path(__file__).parent.parent))
 
-# Now import Immich integration (after adding to path)
 from immich_integration import ImmichService  # noqa: E402
 
 load_dotenv()
@@ -89,7 +88,7 @@ app = dash.Dash(
 DATASET_ID = "apfo-adult-penguin_hr-sr_penguin-ranch_JKB-PP"
 DEPLOYMENT_ID = "DepID_2019-11-08_apfo-001"  # Deployment ID format: date + animal ID
 
-channel_dff = duck_pond.get_available_channels(
+channel_options = duck_pond.get_available_channels(
     dataset=DATASET_ID,
     include_metadata=True,
     pack_groups=True,
@@ -104,22 +103,16 @@ media_result = immich_service.find_media_by_deployment_id(
 if media_result["success"]:
     video_assets = media_result["data"]
     album_info = media_result.get("album_info", {})
-
-    print(f"✅ Found deployment album: {album_info.get('name', 'Unknown')}")
-    print(f"📁 Album ID: {album_info.get('id', 'Unknown')}")
     print(f"🎬 Total video assets: {len(video_assets)}")
 
     # Prepare video options for React component
     video_options = []
     if video_assets:
-        print("\n📊 Processing video assets:")
         for i, asset in enumerate(video_assets):
             asset_id = asset.get("id")
             filename = asset.get("originalFileName", "Unknown")
             created = asset.get("fileCreatedAt", "Unknown")
             file_created = asset.get("fileCreatedAt", "Unknown")
-
-            print(f"  {i + 1}. VIDEO: {filename}")
 
             # ⚠️ APPLY TIMEZONE CORRECTION - Videos incorrectly stored as UTC in Immich
             corrected_created = correct_video_timezone(file_created)
@@ -173,15 +166,11 @@ if media_result["success"]:
                 print(
                     f"      ❌ Failed to load metadata: {details_result.get('error', 'Unknown')}"
                 )
-
-        print(f"\n✅ Prepared {len(video_options)} video options for React component")
     else:
         print("⚠️ No video assets found in deployment album")
 else:
     print(f"❌ Failed to fetch media: {media_result.get('error', 'Unknown error')}")
     video_options = []
-
-print("🔗 Deployment media integration complete!\n")
 
 dff = duck_pond.get_data(
     dataset=DATASET_ID,

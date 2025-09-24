@@ -215,4 +215,4 @@ def register_callbacks(app, dff, video_options=None):
             return video_url
 
         print("🎥 No video selected, returning None")
-        return None
+        return ""

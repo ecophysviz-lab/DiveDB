@@ -521,7 +521,7 @@ def create_right_sidebar(
                                         [
                                             video_preview.VideoPreview(
                                                 id="video-trimmer",
-                                                videoSrc=None,  # No video selected initially
+                                                videoSrc="",  # Empty string as placeholder until proper rebuild
                                                 playheadTime=video_min_timestamp,
                                                 isPlaying=False,
                                             ),
