@@ -1,4 +1,4 @@
-.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash run-dash build-bash
+.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash run-dash build-dash
 
 COMPOSE_CMD = docker compose -f docker-compose.development.yaml
 

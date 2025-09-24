@@ -95,7 +95,6 @@ channel_options = duck_pond.get_available_channels(
 )
 
 # Fetch available video assets from Immich for this deployment
-print(f"🔍 Fetching video assets from Immich for deployment: {DEPLOYMENT_ID}")
 media_result = immich_service.find_media_by_deployment_id(
     DEPLOYMENT_ID, media_type="VIDEO", shared=True
 )
@@ -103,7 +102,6 @@ media_result = immich_service.find_media_by_deployment_id(
 if media_result["success"]:
     video_assets = media_result["data"]
     album_info = media_result.get("album_info", {})
-    print(f"🎬 Total video assets: {len(video_assets)}")
 
     # Prepare video options for React component
     video_options = []

@@ -12,7 +12,6 @@ const VideoPreview = ({
   playheadTime,
   isPlaying, // Prop for controlling playback
 }) => {
-  console.log("🎥 VideoPreview render - videoSrc:", videoSrc);
   const videoRef = useRef(null);
   const [duration, setDuration] = useState(0);
   const [startTime, setStartTime] = useState(propStartTime || 0);
@@ -23,7 +22,6 @@ const VideoPreview = ({
   // Reset video state when videoSrc changes
   useEffect(() => {
     if (videoSrc) {
-      console.log("🎥 VideoPreview: New video source set:", videoSrc);
       setDuration(0);
       setStartTime(propStartTime || 0);
       setEndTime(propEndTime || 0);
@@ -70,7 +68,6 @@ const VideoPreview = ({
 
   const handleLoadedMetadata = () => {
     const videoDuration = videoRef.current.duration;
-    console.log("🎥 VideoPreview: Video metadata loaded, duration:", videoDuration);
     setDuration(videoDuration);
 
     if (propStartTime === undefined) {
@@ -84,8 +81,8 @@ const VideoPreview = ({
   };
 
   const handleVideoError = (e) => {
-    console.error("🎥 VideoPreview: Video loading error:", e);
-    console.error("🎥 VideoPreview: Failed video source:", videoSrc);
+    console.error("VideoPreview: Video loading error:", e);
+    console.error("VideoPreview: Failed video source:", videoSrc);
   };
 
   const handleTrimChange = (values) => {
@@ -199,7 +196,6 @@ const VideoPreview = ({
             backgroundColor: "#f8fafc",
             border: "2px dashed #cbd5e1",
             borderRadius: "12px",
-            color: "#64748b",
             margin: "20px",
           }}
         >
@@ -217,7 +213,7 @@ const VideoPreview = ({
 
 VideoPreview.propTypes = {
   id: PropTypes.string,
-  videoSrc: PropTypes.string, // Optional prop (no .isRequired means it can be undefined)
+  videoSrc: PropTypes.string,
   startTime: PropTypes.number,
   endTime: PropTypes.number,
   setProps: PropTypes.func,
@@ -229,7 +225,6 @@ VideoPreview.propTypes = {
 VideoPreview.defaultProps = {
   style: {},
   isPlaying: false,
-  videoSrc: undefined, // Explicitly set to undefined
 };
 
 export default VideoPreview;

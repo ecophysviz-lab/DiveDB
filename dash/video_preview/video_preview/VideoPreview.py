@@ -34,7 +34,7 @@ class VideoPreview(Component):
 
     - startTime (number; optional)
 
-    - videoSrc (string; default undefined)"""
+    - videoSrc (string; optional)"""
 
     _children_props = []
     _base_nodes = ["children"]
