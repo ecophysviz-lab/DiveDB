@@ -201,18 +201,31 @@ def register_callbacks(app, dff, video_options=None):
 
     @app.callback(
         Output("video-trimmer", "videoSrc"),
+        Output("video-trimmer", "videoMetadata"),
+        Output("video-trimmer", "datasetStartTime"),
         Input("selected-video", "data"),
     )
     def update_video_player(selected_video):
-        """Update VideoPreview component with selected video."""
+        """Update VideoPreview component with selected video and metadata."""
         print(f"🎥 Video player update triggered with: {selected_video}")
+
+        # Always provide dataset start time for temporal alignment
+        dataset_start_time = dff["timestamp"].min()
 
         if selected_video:
             video_url = selected_video.get("shareUrl") or selected_video.get(
                 "originalUrl"
             )
             print(f"🎥 Loading video URL: {video_url}")
-            return video_url
+
+            # Extract relevant metadata for temporal alignment
+            video_metadata = {
+                "fileCreatedAt": selected_video.get("fileCreatedAt"),
+                "duration": selected_video.get("metadata", {}).get("duration"),
+                "filename": selected_video.get("filename"),
+            }
+
+            return video_url, video_metadata, dataset_start_time
 
         print("🎥 No video selected, returning None")
-        return ""
+        return "", None, dataset_start_time

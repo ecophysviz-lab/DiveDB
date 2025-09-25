@@ -10,22 +10,23 @@
 }
 
 \usage{
-videoPreview(id=NULL, endTime=NULL, isPlaying=NULL, playheadTime=NULL,
-startTime=NULL, style=NULL, videoSrc=NULL)
+videoPreview(id=NULL, datasetStartTime=NULL, isPlaying=NULL,
+playheadTime=NULL, style=NULL, videoMetadata=NULL,
+videoSrc=NULL)
 }
 
 \arguments{
 \item{id}{Character. }
 
-\item{endTime}{Numeric. }
+\item{datasetStartTime}{Numeric. }
 
 \item{isPlaying}{Logical. }
 
 \item{playheadTime}{Numeric. }
 
-\item{startTime}{Numeric. }
-
 \item{style}{Named list. }
+
+\item{videoMetadata}{Named list. }
 
 \item{videoSrc}{Character. }
 }

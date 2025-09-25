@@ -50,32 +50,6 @@ duck_pond = DuckPond.from_environment(notion_manager=notion_manager)
 immich_service = ImmichService()
 
 
-def correct_video_timezone(utc_timestamp_str):
-    """
-    ⚠️⚠️⚠️ TEMPORARY TIMEZONE HACK - FIX AT SOURCE ⚠️⚠️⚠️
-
-    Videos in Immich are incorrectly stored as UTC when they should be +13:00.
-    This function treats the UTC timestamp as if it were actually in +13:00 timezone.
-
-    TODO: Fix video timezone metadata in Immich source system!
-
-    Args:
-        utc_timestamp_str: String like "2019-11-08T15:50:50.000Z" (incorrectly marked as UTC)
-
-    Returns:
-        Corrected timestamp string in proper +13:00 timezone
-    """
-    if not utc_timestamp_str or not utc_timestamp_str.endswith("Z"):
-        return utc_timestamp_str
-
-    # Remove Z suffix and treat as local time in +13:00
-    local_time_str = utc_timestamp_str.replace("Z", "+13:00")
-
-    print(f"   🔧 Timezone correction: {utc_timestamp_str} → {local_time_str}")
-
-    return local_time_str
-
-
 app = dash.Dash(
     __name__,
     external_stylesheets=[
@@ -112,9 +86,6 @@ if media_result["success"]:
             created = asset.get("fileCreatedAt", "Unknown")
             file_created = asset.get("fileCreatedAt", "Unknown")
 
-            # ⚠️ APPLY TIMEZONE CORRECTION - Videos incorrectly stored as UTC in Immich
-            corrected_created = correct_video_timezone(file_created)
-
             # Create individual share link for this asset
             share_result = immich_service.create_asset_share_link(asset_id)
             asset_share_key = None
@@ -148,7 +119,7 @@ if media_result["success"]:
                 video_option = {
                     "id": asset_id,
                     "filename": filename,
-                    "fileCreatedAt": corrected_created,  # ⚠️ Using timezone-corrected timestamp
+                    "fileCreatedAt": file_created,
                     "shareUrl": share_video_url,
                     "originalUrl": urls.get("original"),  # Fallback if share fails
                     "thumbnailUrl": share_thumbnail_url,

@@ -62,37 +62,47 @@ def calculate_video_timeline_position(video, timeline_start_ts, timeline_end_ts)
         timeline_duration = timeline_end_ts - timeline_start_ts
 
         if timeline_duration <= 0:
-            return 0, 0
+            return {"start": 0, "end": 0, "status": "error"}
 
         start_ratio = (video_start_ts - timeline_start_ts) / timeline_duration
         end_ratio = (video_end_ts - timeline_start_ts) / timeline_duration
 
-        print(f"🎬 {video.get('filename', 'Unknown')[:30]}...")
-        print(f"   Start ratio: {start_ratio:.3f}, End ratio: {end_ratio:.3f}")
+        # Handle videos that are completely outside the timeline
+        if start_ratio > 1.0 or end_ratio < 0.0:
+            if start_ratio > 1.0:
+                # Video after timeline - show at far right
+                return {"start": 0.95, "end": 1.0, "status": "after"}
+            else:
+                # Video before timeline - show at far left
+                return {"start": 0.0, "end": 0.05, "status": "before"}
 
-        # 🚨 DEMO MODE: Spread videos across timeline artificially for UI testing
-        # TODO: Fix actual time synchronization between videos and sensor data
-        video_filename = video.get("filename", "")
-        if "CC-35_10-55-24" in video_filename:  # Video 1
-            demo_start, demo_end = 0.1, 0.3
-            print(f"   📍 DEMO: Placing video 1 at {demo_start}-{demo_end}")
-            return demo_start, demo_end
-        elif "CC-35_09-53-07" in video_filename:  # Video 2
-            demo_start, demo_end = 0.4, 0.6
-            print(f"   📍 DEMO: Placing video 2 at {demo_start}-{demo_end}")
-            return demo_start, demo_end
-        elif "CC-35_08-50-50" in video_filename:  # Video 3
-            demo_start, demo_end = 0.7, 0.9
-            print(f"   📍 DEMO: Placing video 3 at {demo_start}-{demo_end}")
-            return demo_start, demo_end
+        # Handle videos that extend beyond the timeline bounds
+        # Clamp ratios to 0.0-1.0 range but preserve relative positioning
+        clamped_start = max(0.0, min(1.0, start_ratio))
+        clamped_end = max(0.0, min(1.0, end_ratio))
 
-        # Fallback for any other videos
-        start_ratio = max(0.0, min(1.0, start_ratio))
-        end_ratio = max(0.0, min(1.0, end_ratio))
-        return start_ratio, end_ratio
-    except (ValueError, KeyError, TypeError):
-        # Return default position if parsing fails
-        return 0, 0
+        # Determine video status based on timeline relationship
+        if start_ratio >= 0 and end_ratio <= 1:
+            # Video is completely within timeline bounds
+            status = "within"
+        else:
+            # Video spans across timeline boundaries
+            status = "overlapping"
+
+        # Ensure we have a valid range with minimum width
+        if clamped_end <= clamped_start:
+            # Video has been clamped to invalid range - ensure minimal visibility
+            if start_ratio < 0:
+                clamped_start = 0.0
+                clamped_end = 0.05
+            else:
+                clamped_start = 0.95
+                clamped_end = 1.0
+
+        return {"start": clamped_start, "end": clamped_end, "status": status}
+    except (ValueError, KeyError, TypeError) as e:
+        print(f"   ❌ Error calculating video position: {e}")
+        return {"start": 0, "end": 0, "status": "error"}
 
 
 def create_header():
@@ -522,6 +532,8 @@ def create_right_sidebar(
                                             video_preview.VideoPreview(
                                                 id="video-trimmer",
                                                 videoSrc="",  # Empty string as placeholder until proper rebuild
+                                                videoMetadata=None,  # Will be populated when video is selected
+                                                datasetStartTime=video_min_timestamp,
                                                 playheadTime=video_min_timestamp,
                                                 isPlaying=False,
                                             ),
@@ -596,26 +608,42 @@ def create_saved_indicator(
 
 
 def create_video_indicator(
-    video_id, tooltip_content, start_ratio, end_ratio, timestamp_min, timestamp_max
+    video_id, tooltip_content, position_data, timestamp_min, timestamp_max
 ):
     """Create a video available indicator."""
     timestamp_range = timestamp_max - timestamp_min
+    start_ratio = position_data["start"]
+    end_ratio = position_data["end"]
+    status = position_data["status"]
+
+    # Determine CSS classes based on video status
+    base_class = "video_available_indicator"
+    status_class = f"video_status_{status}"
+    full_class = f"{base_class} {status_class}"
+
+    # Add visual styling hints for out-of-view videos
+    button_style = {
+        "cursor": "pointer",
+        "background": "transparent",
+        "border": "none",
+        "width": "100%",
+        "height": "100%",
+        "position": "absolute",
+        "top": "0",
+        "left": "0",
+    }
+
+    # Add visual indicators for out-of-view videos
+    if status in ["before", "after"]:
+        button_style["opacity"] = "0.5"  # Make out-of-view videos semi-transparent
+        button_style["filter"] = "grayscale(0.5)"  # Add slight desaturation
     return html.Div(
         [
             html.Button(
                 [],
                 className="video-indicator-btn",
                 id=video_id,
-                style={
-                    "cursor": "pointer",
-                    "background": "transparent",
-                    "border": "none",
-                    "width": "100%",
-                    "height": "100%",
-                    "position": "absolute",
-                    "top": "0",
-                    "left": "0",
-                },
+                style=button_style,
             ),
             dbc.Tooltip(
                 tooltip_content,
@@ -623,7 +651,7 @@ def create_video_indicator(
                 placement="top",
             ),
         ],
-        className="video_available_indicator",
+        className=full_class,
         style={
             "--start": int(timestamp_range * start_ratio),
             "--end": int(timestamp_range * end_ratio),
@@ -642,9 +670,13 @@ def create_footer(dff, video_options=None):
     video_indicators = []
     if video_options:
         for i, video in enumerate(video_options):
-            start_ratio, end_ratio = calculate_video_timeline_position(
+            position_data = calculate_video_timeline_position(
                 video, timestamp_min, timestamp_max
             )
+
+            # Skip videos with error status
+            if position_data["status"] == "error":
+                continue
 
             # Create tooltip text with video info
             filename = video.get("filename", "Unknown Video")
@@ -668,12 +700,23 @@ def create_footer(dff, video_options=None):
                         html.Div(f"Duration: {start_time} - {end_time}")
                     )
 
+            # Add status indicator to tooltip
+            status_messages = {
+                "within": "📍 Fully within timeline",
+                "overlapping": "📍 Spans timeline boundaries",
+                "before": "⏮️ Before timeline (out of view)",
+                "after": "⏭️ After timeline (out of view)",
+                "error": "❌ Error processing video",
+            }
+            status_msg = status_messages.get(position_data["status"], "")
+            if status_msg:
+                tooltip_content.append(html.Div(status_msg, className="video-status"))
+
             video_indicators.append(
                 create_video_indicator(
                     f"video-{video.get('id', i)}",
                     tooltip_content,
-                    start_ratio,
-                    end_ratio,
+                    position_data,
                     timestamp_min,
                     timestamp_max,
                 )

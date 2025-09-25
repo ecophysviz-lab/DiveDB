@@ -26,13 +26,13 @@ class VideoPreview(Component):
 
     - id (string; optional)
 
-    - endTime (number; optional)
+    - datasetStartTime (number; optional)
 
     - isPlaying (boolean; default False)
 
     - playheadTime (number; optional)
 
-    - startTime (number; optional)
+    - videoMetadata (dict; optional)
 
     - videoSrc (string; optional)"""
 
@@ -45,8 +45,8 @@ class VideoPreview(Component):
         self,
         id: typing.Optional[typing.Union[str, dict]] = None,
         videoSrc: typing.Optional[str] = None,
-        startTime: typing.Optional[NumberType] = None,
-        endTime: typing.Optional[NumberType] = None,
+        videoMetadata: typing.Optional[dict] = None,
+        datasetStartTime: typing.Optional[NumberType] = None,
         style: typing.Optional[typing.Any] = None,
         playheadTime: typing.Optional[NumberType] = None,
         isPlaying: typing.Optional[bool] = None,
@@ -54,21 +54,21 @@ class VideoPreview(Component):
     ):
         self._prop_names = [
             "id",
-            "endTime",
+            "datasetStartTime",
             "isPlaying",
             "playheadTime",
-            "startTime",
             "style",
+            "videoMetadata",
             "videoSrc",
         ]
         self._valid_wildcard_attributes = []
         self.available_properties = [
             "id",
-            "endTime",
+            "datasetStartTime",
             "isPlaying",
             "playheadTime",
-            "startTime",
             "style",
+            "videoMetadata",
             "videoSrc",
         ]
         self.available_wildcard_properties = []
