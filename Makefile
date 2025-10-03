@@ -1,4 +1,4 @@
-.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash run-dash build-dash
+.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash dash build-dash
 
 COMPOSE_CMD = docker compose -f docker-compose.development.yaml
 
@@ -29,7 +29,7 @@ watch-dash-components:
 		$(MAKE) build-dash component="$$component_name" SKIP_NPM=1; \
 	done
 
-run-dash:
+dash:
 	python dash/data_visualization.py
 
 build-dash:
