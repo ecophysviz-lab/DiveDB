@@ -10,10 +10,16 @@ const VideoPreview = ({
   style,
   playheadTime,
   isPlaying, // Prop for controlling playback
+  showControls = true, // Prop for controlling video controls visibility
+  timeOffset = 0, // Prop for timeline offset in seconds
 }) => {
   const videoRef = useRef(null);
   const [duration, setDuration] = useState(0);
   const [isVideoActive, setIsVideoActive] = useState(false); // Track if video should be active for current playhead
+  const [controlsVisible, setControlsVisible] = useState(showControls); // Internal state for controls visibility
+  const [localOffset, setLocalOffset] = useState(timeOffset); // Local offset state
+  const [offsetPanelOpen, setOffsetPanelOpen] = useState(false); // Collapsible panel state
+  const [fineControlsOpen, setFineControlsOpen] = useState(false); // Fine adjustment controls state
   const lastPlayheadTime = useRef(null);
   const lastPlayingState = useRef(false);
   const videoStartTime = useRef(null); // Cache video start timestamp
@@ -23,6 +29,10 @@ const VideoPreview = ({
     if (videoSrc) {
       setDuration(0);
       setIsVideoActive(false);
+      setControlsVisible(showControls); // Reset controls state for new video
+      setLocalOffset(0); // Reset offset to 0 for new video
+      setOffsetPanelOpen(false); // Close offset panel for new video
+      setFineControlsOpen(false); // Close fine controls for new video
       lastPlayheadTime.current = null;
       lastPlayingState.current = false;
       videoStartTime.current = null;
@@ -31,7 +41,7 @@ const VideoPreview = ({
         videoRef.current.currentTime = 0;
       }
     }
-  }, [videoSrc]);
+  }, [videoSrc, showControls]);
 
   // Helper function to parse video duration from HH:MM:SS.mmm format
   const parseVideoDuration = (durationStr) => {
@@ -50,26 +60,72 @@ const VideoPreview = ({
     return 0;
   };
 
+  // Helper function to format offset in a readable way
+  const formatOffset = (offsetSeconds) => {
+    const absOffset = Math.abs(offsetSeconds);
+    const sign = offsetSeconds >= 0 ? "+" : "-";
+    
+    if (absOffset < 60) {
+      return `${sign}${absOffset.toFixed(1)}s`;
+    } else if (absOffset < 3600) {
+      const minutes = Math.floor(absOffset / 60);
+      const seconds = (absOffset % 60).toFixed(1);
+      return `${sign}${minutes}m ${seconds}s`;
+    } else {
+      const hours = Math.floor(absOffset / 3600);
+      const minutes = Math.floor((absOffset % 3600) / 60);
+      const seconds = (absOffset % 60).toFixed(1);
+      return `${sign}${hours}h ${minutes}m ${seconds}s`;
+    }
+  };
+
+  // Helper function to format time in UTC 24-hour format (matching playhead format)
+  const formatUTCTime = (dateString) => {
+    try {
+      const dateObject = new Date(dateString);
+      const hours = dateObject.getUTCHours();
+      const minutes = dateObject.getUTCMinutes();
+      const seconds = dateObject.getUTCSeconds();
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } catch (e) {
+      console.error("Error formatting UTC time:", e);
+      return "Invalid time";
+    }
+  };
+
+  // Helper function to update offset and notify parent
+  const updateOffset = (newOffset) => {
+    setLocalOffset(newOffset);
+    if (setProps) {
+      setProps({ timeOffset: newOffset });
+    }
+  };
+
   // Helper function to calculate video position and active state
   const calculateVideoPosition = () => {
     if (!videoMetadata || !playheadTime) return null;
 
-    // Cache video start time for performance
+    // Cache original video start time for performance
     if (videoStartTime.current === null) {
       videoStartTime.current = new Date(videoMetadata.fileCreatedAt.replace("Z", "+00:00")).getTime() / 1000;
     }
 
+    // Apply time offset to video start time (positive offset = video appears later)
+    const adjustedVideoStartTime = videoStartTime.current + localOffset;
     const videoDurationSeconds = parseVideoDuration(videoMetadata.duration);
-    const videoEndTime = videoStartTime.current + videoDurationSeconds;
+    const adjustedVideoEndTime = adjustedVideoStartTime + videoDurationSeconds;
 
-    // Check if playhead is within video's temporal range
-    const isActive = playheadTime >= videoStartTime.current && playheadTime <= videoEndTime;
-    const videoPosition = isActive ? playheadTime - videoStartTime.current : 0;
+    // Check if playhead is within adjusted video's temporal range
+    const isActive = playheadTime >= adjustedVideoStartTime && playheadTime <= adjustedVideoEndTime;
+    const videoPosition = isActive ? playheadTime - adjustedVideoStartTime : 0;
 
     return {
       isActive,
       videoPosition: Math.max(0, Math.min(videoDurationSeconds, videoPosition)),
-      videoDurationSeconds
+      videoDurationSeconds,
+      originalVideoStartTime: videoStartTime.current,
+      adjustedVideoStartTime,
+      adjustedVideoEndTime
     };
   };
 
@@ -141,47 +197,254 @@ const VideoPreview = ({
     console.error("VideoPreview: Failed video source:", videoSrc);
   };
 
+  const toggleControls = () => {
+    setControlsVisible(!controlsVisible);
+  };
 
   return (
     <div id={id} style={{ ...style }}>
       {videoSrc && videoSrc.trim() ? (
-        <div style={{ position: 'relative' }}>
-          <video
-            ref={videoRef}
-            src={videoSrc}
-            onLoadedMetadata={handleLoadedMetadata}
-            onError={handleVideoError}
-            width="100%"
-            controls
-            style={{
-              borderRadius: "8px",
-              backgroundColor: "#000000",
-              opacity: isVideoActive ? 1 : 0.5, // Dim video when not temporally active
-            }}
-          />
-          {!isVideoActive && videoMetadata && (
-            <div
+        <div>
+          {/* Video container */}
+          <div style={{ position: 'relative', marginBottom: "8px" }}>
+            <video
+              ref={videoRef}
+              src={videoSrc}
+              onLoadedMetadata={handleLoadedMetadata}
+              onError={handleVideoError}
+              width="100%"
+              controls={controlsVisible}
+              style={{
+                borderRadius: "8px",
+                backgroundColor: "#000000",
+                opacity: isVideoActive ? 1 : 0.5, // Dim video when not temporally active
+              }}
+            />
+            {/* Controls toggle button in top right */}
+            <button
+              onClick={toggleControls}
               style={{
                 position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                backgroundColor: "rgba(0, 0, 0, 0.8)",
+                top: "8px",
+                right: "8px",
+                backgroundColor: "rgba(0, 0, 0, 0.7)",
                 color: "white",
-                padding: "12px 20px",
-                borderRadius: "8px",
-                textAlign: "center",
-                fontSize: "14px",
-                maxWidth: "90%",
-                boxSizing: "border-box",
+                border: "none",
+                borderRadius: "4px",
+                padding: "4px 8px",
+                fontSize: "12px",
+                cursor: "pointer",
+                zIndex: 10,
+                transition: "background-color 0.2s",
               }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = "rgba(0, 0, 0, 0.9)"}
+              onMouseLeave={(e) => e.target.style.backgroundColor = "rgba(0, 0, 0, 0.7)"}
             >
-              <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
-                Video not active
+              {controlsVisible ? "Hide Controls" : "Show Controls"}
+            </button>
+            {!isVideoActive && videoMetadata && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  backgroundColor: "rgba(0, 0, 0, 0.8)",
+                  color: "white",
+                  padding: "12px 20px",
+                  borderRadius: "8px",
+                  textAlign: "center",
+                  fontSize: "14px",
+                  maxWidth: "90%",
+                  boxSizing: "border-box",
+                }}
+              >
+                <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+                  Video not active
+                </div>
+                <div style={{ fontSize: "12px", opacity: 0.9 }}>
+                  Timeline is outside video time range
+                </div>
               </div>
-              <div style={{ fontSize: "12px", opacity: 0.9 }}>
-                Timeline is outside video time range
-              </div>
+            )}
+          </div>
+
+          {/* Timeline offset controls - positioned below video */}
+          {videoMetadata && (
+            <div style={{ marginTop: "8px" }}>
+              {/* Toggle button for offset panel */}
+              <button
+                onClick={() => setOffsetPanelOpen(!offsetPanelOpen)}
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  padding: "6px 12px",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  marginBottom: offsetPanelOpen ? "8px" : "0px",
+                  transition: "all 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = "rgba(0, 0, 0, 0.9)"}
+                onMouseLeave={(e) => e.target.style.backgroundColor = "rgba(0, 0, 0, 0.7)"}
+              >
+                🕒 {formatOffset(localOffset)} {offsetPanelOpen ? "▲" : "▼"}
+              </button>
+              
+              {/* Collapsible offset controls panel */}
+              {offsetPanelOpen && (
+                <div style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.9)",
+                  color: "white",
+                  padding: "16px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  border: "1px solid rgba(255, 255, 255, 0.1)"
+                }}>
+                  <div style={{ marginBottom: "12px", fontWeight: "bold", fontSize: "14px" }}>
+                    Timeline Offset Adjustment
+                  </div>
+                  
+                  {/* Slider control */}
+                  <div style={{ marginBottom: "16px" }}>
+                    <label style={{ display: "block", marginBottom: "6px", fontWeight: "500" }}>
+                      Coarse: {formatOffset(localOffset)}
+                    </label>
+                    <input
+                      type="range"
+                      min="-3600"
+                      max="3600"
+                      step="60"
+                      value={localOffset}
+                      onChange={(e) => updateOffset(parseFloat(e.target.value))}
+                      style={{
+                        width: "100%",
+                        height: "6px",
+                        background: "rgba(255, 255, 255, 0.2)",
+                        borderRadius: "3px",
+                        outline: "none"
+                      }}
+                    />
+                    <div style={{ 
+                      display: "flex", 
+                      justifyContent: "space-between", 
+                      fontSize: "10px",
+                      marginTop: "4px",
+                      opacity: 0.7
+                    }}>
+                      <span>-1hr</span>
+                      <span>0</span>
+                      <span>+1hr</span>
+                    </div>
+                  </div>
+                  
+                  {/* Fine adjustment toggle/input */}
+                  <div style={{ marginBottom: "16px" }}>
+                    {!fineControlsOpen ? (
+                      // Show toggle button when fine controls are closed
+                      <button
+                        onClick={() => setFineControlsOpen(true)}
+                        style={{
+                          backgroundColor: "transparent",
+                          color: "rgba(255, 255, 255, 0.8)",
+                          border: "1px solid rgba(255, 255, 255, 0.3)",
+                          borderRadius: "4px",
+                          padding: "6px 12px",
+                          fontSize: "11px",
+                          cursor: "pointer",
+                          fontWeight: "500",
+                          transition: "all 0.2s"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                          e.target.style.color = "white";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = "transparent";
+                          e.target.style.color = "rgba(255, 255, 255, 0.8)";
+                        }}
+                      >
+                        + Fine adjustment (seconds)
+                      </button>
+                    ) : (
+                      // Show fine controls when open
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                          <label style={{ fontWeight: "500" }}>
+                            Fine (seconds):
+                          </label>
+                          <button
+                            onClick={() => setFineControlsOpen(false)}
+                            style={{
+                              backgroundColor: "transparent",
+                              color: "rgba(255, 255, 255, 0.6)",
+                              border: "none",
+                              fontSize: "10px",
+                              cursor: "pointer",
+                              padding: "2px 4px"
+                            }}
+                            onMouseEnter={(e) => e.target.style.color = "white"}
+                            onMouseLeave={(e) => e.target.style.color = "rgba(255, 255, 255, 0.6)"}
+                          >
+                            ✕ close
+                          </button>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={localOffset}
+                            onChange={(e) => updateOffset(parseFloat(e.target.value) || 0)}
+                            style={{
+                              flex: 1,
+                              padding: "8px",
+                              backgroundColor: "rgba(255, 255, 255, 0.1)",
+                              border: "1px solid rgba(255, 255, 255, 0.3)",
+                              borderRadius: "4px",
+                              color: "white",
+                              fontSize: "12px"
+                            }}
+                          />
+                          <button
+                            onClick={() => updateOffset(0)}
+                            style={{
+                              padding: "8px 12px",
+                              backgroundColor: "rgba(255, 255, 255, 0.2)",
+                              border: "1px solid rgba(255, 255, 255, 0.3)",
+                              borderRadius: "4px",
+                              color: "white",
+                              fontSize: "11px",
+                              cursor: "pointer",
+                              fontWeight: "500"
+                            }}
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Visual feedback */}
+                  <div style={{ 
+                    fontSize: "11px", 
+                    opacity: 0.8,
+                    borderTop: "1px solid rgba(255, 255, 255, 0.2)",
+                    paddingTop: "12px"
+                  }}>
+                    <div style={{ marginBottom: "2px" }}>
+                      <strong>Original:</strong> {formatUTCTime(videoMetadata.fileCreatedAt)} UTC
+                    </div>
+                    <div>
+                      <strong>Adjusted:</strong> {formatUTCTime(new Date(new Date(videoMetadata.fileCreatedAt).getTime() + localOffset * 1000).toISOString())} UTC
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -217,11 +480,15 @@ VideoPreview.propTypes = {
   style: PropTypes.object,
   playheadTime: PropTypes.number,
   isPlaying: PropTypes.bool,
+  showControls: PropTypes.bool,
+  timeOffset: PropTypes.number,
 };
 
 VideoPreview.defaultProps = {
   style: {},
   isPlaying: false,
+  showControls: true,
+  timeOffset: 0,
 };
 
 export default VideoPreview;

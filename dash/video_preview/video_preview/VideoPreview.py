@@ -32,6 +32,10 @@ class VideoPreview(Component):
 
     - playheadTime (number; optional)
 
+    - showControls (boolean; default True)
+
+    - timeOffset (number; default 0)
+
     - videoMetadata (dict; optional)
 
     - videoSrc (string; optional)"""
@@ -50,6 +54,8 @@ class VideoPreview(Component):
         style: typing.Optional[typing.Any] = None,
         playheadTime: typing.Optional[NumberType] = None,
         isPlaying: typing.Optional[bool] = None,
+        showControls: typing.Optional[bool] = None,
+        timeOffset: typing.Optional[NumberType] = None,
         **kwargs,
     ):
         self._prop_names = [
@@ -57,7 +63,9 @@ class VideoPreview(Component):
             "datasetStartTime",
             "isPlaying",
             "playheadTime",
+            "showControls",
             "style",
+            "timeOffset",
             "videoMetadata",
             "videoSrc",
         ]
@@ -67,7 +75,9 @@ class VideoPreview(Component):
             "datasetStartTime",
             "isPlaying",
             "playheadTime",
+            "showControls",
             "style",
+            "timeOffset",
             "videoMetadata",
             "videoSrc",
         ]

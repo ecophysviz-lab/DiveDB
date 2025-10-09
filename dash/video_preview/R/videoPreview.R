@@ -1,9 +1,9 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
 #' @export
-videoPreview <- function(id=NULL, datasetStartTime=NULL, isPlaying=NULL, playheadTime=NULL, style=NULL, videoMetadata=NULL, videoSrc=NULL) {
+videoPreview <- function(id=NULL, datasetStartTime=NULL, isPlaying=NULL, playheadTime=NULL, showControls=NULL, style=NULL, timeOffset=NULL, videoMetadata=NULL, videoSrc=NULL) {
     
-    props <- list(id=id, datasetStartTime=datasetStartTime, isPlaying=isPlaying, playheadTime=playheadTime, style=style, videoMetadata=videoMetadata, videoSrc=videoSrc)
+    props <- list(id=id, datasetStartTime=datasetStartTime, isPlaying=isPlaying, playheadTime=playheadTime, showControls=showControls, style=style, timeOffset=timeOffset, videoMetadata=videoMetadata, videoSrc=videoSrc)
     if (length(props) > 0) {
         props <- props[!vapply(props, is.null, logical(1))]
     }
@@ -11,7 +11,7 @@ videoPreview <- function(id=NULL, datasetStartTime=NULL, isPlaying=NULL, playhea
         props = props,
         type = 'VideoPreview',
         namespace = 'video_preview',
-        propNames = c('id', 'datasetStartTime', 'isPlaying', 'playheadTime', 'style', 'videoMetadata', 'videoSrc'),
+        propNames = c('id', 'datasetStartTime', 'isPlaying', 'playheadTime', 'showControls', 'style', 'timeOffset', 'videoMetadata', 'videoSrc'),
         package = 'videoPreview'
         )
 

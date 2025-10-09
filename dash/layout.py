@@ -536,6 +536,7 @@ def create_right_sidebar(
                                                 datasetStartTime=video_min_timestamp,
                                                 playheadTime=video_min_timestamp,
                                                 isPlaying=False,
+                                                showControls=False,
                                             ),
                                             html.Button(
                                                 [
@@ -1270,6 +1271,12 @@ def create_app_stores(dff):
         dcc.Store(id="playhead-time", data=dff["timestamp"].min()),
         dcc.Store(id="is-playing", data=False),
         dcc.Store(id="selected-video", data=None),  # Store for selected video data
+        dcc.Store(
+            id="manual-video-override", data=None
+        ),  # Store for sticky manual selection
+        dcc.Store(
+            id="video-time-offset", data=0
+        ),  # Store for video timeline offset in seconds
     ]
 
 

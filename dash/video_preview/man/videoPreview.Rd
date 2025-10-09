@@ -11,8 +11,8 @@
 
 \usage{
 videoPreview(id=NULL, datasetStartTime=NULL, isPlaying=NULL,
-playheadTime=NULL, style=NULL, videoMetadata=NULL,
-videoSrc=NULL)
+playheadTime=NULL, showControls=NULL, style=NULL,
+timeOffset=NULL, videoMetadata=NULL, videoSrc=NULL)
 }
 
 \arguments{
@@ -24,7 +24,11 @@ videoSrc=NULL)
 
 \item{playheadTime}{Numeric. }
 
+\item{showControls}{Logical. }
+
 \item{style}{Named list. }
+
+\item{timeOffset}{Numeric. }
 
 \item{videoMetadata}{Named list. }
 

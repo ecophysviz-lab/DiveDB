@@ -12,12 +12,14 @@ Keyword arguments:
 - `datasetStartTime` (Real; optional)
 - `isPlaying` (Bool; optional)
 - `playheadTime` (Real; optional)
+- `showControls` (Bool; optional)
 - `style` (Dict; optional)
+- `timeOffset` (Real; optional)
 - `videoMetadata` (Dict; optional)
 - `videoSrc` (String; optional)
 """
 function videopreview(; kwargs...)
-        available_props = Symbol[:id, :datasetStartTime, :isPlaying, :playheadTime, :style, :videoMetadata, :videoSrc]
+        available_props = Symbol[:id, :datasetStartTime, :isPlaying, :playheadTime, :showControls, :style, :timeOffset, :videoMetadata, :videoSrc]
         wild_props = Symbol[]
         return Component("videopreview", "VideoPreview", "video_preview", available_props, wild_props; kwargs...)
 end
