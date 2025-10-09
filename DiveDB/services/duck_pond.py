@@ -650,6 +650,101 @@ class DuckPond:
             results = self.conn.sql(base_query)
             return DiveData(results, self.conn, notion_manager=self.notion_manager)
 
+    def get_events(
+        self,
+        dataset: str,
+        animal_ids: str | List[str] | None = None,
+        deployment_ids: str | List[str] | None = None,
+        recording_ids: str | List[str] | None = None,
+        event_keys: str | List[str] | None = None,
+        date_range: tuple[str, str] | None = None,
+        limit: int | None = None,
+    ):
+        """
+        Get events from a specific dataset.
+
+        Args:
+            dataset: Dataset identifier (required)
+            animal_ids: Animal ID filter
+            deployment_ids: Deployment ID filter
+            recording_ids: Recording ID filter
+            event_keys: Event key filter
+            date_range: Date range tuple (start, end)
+            limit: Row limit
+
+        Returns:
+            pd.DataFrame with columns: dataset, animal, deployment, recording,
+            group, event_key, datetime_start, datetime_end, short_description,
+            long_description, event_data
+        """
+        # Ensure dataset is initialized
+        self.dataset_manager.ensure_dataset_initialized(dataset)
+
+        def get_predicate_string(predicate: str, values: List[str]):
+            if not values:
+                return ""
+            if len(values) == 1:
+                return f"{predicate} = '{values[0]}'"
+            quoted_values = ", ".join(f"'{value}'" for value in values)
+            return f"{predicate} IN ({quoted_values})"
+
+        # Convert single strings to lists
+        if isinstance(animal_ids, str):
+            animal_ids = [animal_ids]
+        if isinstance(deployment_ids, str):
+            deployment_ids = [deployment_ids]
+        if isinstance(recording_ids, str):
+            recording_ids = [recording_ids]
+        if isinstance(event_keys, str):
+            event_keys = [event_keys]
+
+        # Build query using the dataset-specific Events view
+        view_name = self.get_view_name(dataset, "events")
+
+        base_query = f"""
+            SELECT
+                dataset,
+                animal,
+                deployment,
+                recording,
+                "group",
+                event_key,
+                datetime_start,
+                datetime_end,
+                short_description,
+                long_description,
+                event_data
+            FROM {view_name}
+        """
+
+        # Build WHERE clause
+        predicates = []
+        if animal_ids:
+            predicates.append(get_predicate_string("animal", animal_ids))
+        if deployment_ids:
+            predicates.append(get_predicate_string("deployment", deployment_ids))
+        if recording_ids:
+            predicates.append(get_predicate_string("recording", recording_ids))
+        if event_keys:
+            predicates.append(get_predicate_string("event_key", event_keys))
+        if date_range:
+            # Events that overlap with the date range
+            predicates.append(
+                f"datetime_start <= '{date_range[1]}' AND datetime_end >= '{date_range[0]}'"
+            )
+
+        if predicates:
+            base_query += " WHERE " + " AND ".join(predicates)
+
+        base_query += " ORDER BY datetime_start"
+
+        if limit:
+            base_query += f" LIMIT {limit}"
+
+        # Execute query and return DataFrame
+        results = self.conn.sql(base_query)
+        return results.df()
+
     def ensure_dataset_initialized(self, dataset: str):
         """Ensure a dataset's tables and views are initialized"""
         return self.dataset_manager.ensure_dataset_initialized(dataset)

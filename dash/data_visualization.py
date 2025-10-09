@@ -155,6 +155,13 @@ dff = duck_pond.get_data(
     date_range=("2019-11-08T09:33:11+13:00", "2019-11-08T09:39:30+13:00"),
 )
 
+# Fetch events for this deployment
+events_df = duck_pond.get_events(
+    dataset=DATASET_ID,
+    animal_ids="apfo-001",
+    date_range=("2019-11-08T09:33:11+13:00", "2019-11-08T09:39:30+13:00"),
+)
+
 # Ensure datetimes are timezone-aware in UTC first
 dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce")
 if dff["datetime"].dt.tz is None:
@@ -274,6 +281,7 @@ app.layout = create_layout(
     dff,
     video_options=video_options,
     restricted_time_range=restricted_time_range,
+    events_df=events_df,
 )
 
 # Register callbacks

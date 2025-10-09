@@ -559,3 +559,216 @@ class TestDuckPondS3Configuration:
             for var, value in original_values.items():
                 if value is not None:
                     os.environ[var] = value
+
+
+class TestDuckPondEvents:
+    """Test get_events() method functionality"""
+
+    @pytest.fixture
+    def events_schema(self):
+        """Create the PyArrow schema for events matching DuckPond's Iceberg schema"""
+        return pa.schema(
+            [
+                pa.field("dataset", pa.string(), nullable=False),
+                pa.field("animal", pa.string(), nullable=False),
+                pa.field("deployment", pa.string(), nullable=False),
+                pa.field("recording", pa.string(), nullable=True),
+                pa.field("group", pa.string(), nullable=True),
+                pa.field("event_key", pa.string(), nullable=False),
+                pa.field("datetime_start", pa.timestamp("us"), nullable=False),
+                pa.field("datetime_end", pa.timestamp("us"), nullable=False),
+                pa.field("short_description", pa.string(), nullable=True),
+                pa.field("long_description", pa.string(), nullable=True),
+                pa.field("event_data", pa.string(), nullable=False),
+            ]
+        )
+
+    @pytest.fixture
+    def sample_events(self, events_schema):
+        """Create sample event data"""
+        return pa.table(
+            [
+                pa.array(["test_dataset"] * 3),  # dataset
+                pa.array(["seal_001", "seal_001", "seal_002"]),  # animal
+                pa.array(["deploy_001", "deploy_001", "deploy_002"]),  # deployment
+                pa.array(["rec_001", "rec_001", "rec_002"]),  # recording
+                pa.array(["dive", "dive", "surface"]),  # group
+                pa.array(["deep_dive", "shallow_dive", "surface_rest"]),  # event_key
+                pa.array(
+                    [
+                        pd.Timestamp("2024-01-01T10:00:00"),
+                        pd.Timestamp("2024-01-01T11:00:00"),
+                        pd.Timestamp("2024-01-01T12:00:00"),
+                    ]
+                ),  # datetime_start
+                pa.array(
+                    [
+                        pd.Timestamp("2024-01-01T10:05:00"),
+                        pd.Timestamp("2024-01-01T11:03:00"),
+                        pd.Timestamp("2024-01-01T12:10:00"),
+                    ]
+                ),  # datetime_end
+                pa.array(
+                    ["Dive to 100m", "Shallow dive to 20m", "Resting at surface"]
+                ),  # short_description
+                pa.array(
+                    [
+                        "Long deep dive description",
+                        "Long shallow dive description",
+                        "Long surface rest description",
+                    ]
+                ),  # long_description
+                pa.array(
+                    ['{"depth": 100}', '{"depth": 20}', '{"depth": 0}']
+                ),  # event_data
+            ],
+            schema=events_schema,
+        )
+
+    def test_get_events_basic(self, duck_pond, sample_events):
+        """Test basic event retrieval"""
+        # Write events to the database
+        duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
+
+        # Get all events
+        events_df = duck_pond.get_events(dataset="test_dataset")
+
+        # Verify we got the correct number of events
+        assert len(events_df) == 3
+
+        # Verify columns are present
+        expected_columns = [
+            "dataset",
+            "animal",
+            "deployment",
+            "recording",
+            "group",
+            "event_key",
+            "datetime_start",
+            "datetime_end",
+            "short_description",
+            "long_description",
+            "event_data",
+        ]
+        for col in expected_columns:
+            assert col in events_df.columns
+
+        # Verify data is correct
+        assert events_df["event_key"].tolist() == [
+            "deep_dive",
+            "shallow_dive",
+            "surface_rest",
+        ]
+
+    def test_get_events_with_animal_filter(self, duck_pond, sample_events):
+        """Test event filtering by animal ID"""
+        duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
+
+        # Get events for seal_001 only
+        events_df = duck_pond.get_events(dataset="test_dataset", animal_ids="seal_001")
+
+        assert len(events_df) == 2
+        assert all(events_df["animal"] == "seal_001")
+
+    def test_get_events_with_multiple_filters(self, duck_pond, sample_events):
+        """Test event filtering by multiple criteria"""
+        duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
+
+        # Get events for seal_001 and deployment_001
+        events_df = duck_pond.get_events(
+            dataset="test_dataset", animal_ids="seal_001", deployment_ids="deploy_001"
+        )
+
+        assert len(events_df) == 2
+        assert all(events_df["animal"] == "seal_001")
+        assert all(events_df["deployment"] == "deploy_001")
+
+    def test_get_events_with_event_key_filter(self, duck_pond, sample_events):
+        """Test event filtering by event key"""
+        duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
+
+        # Get only deep_dive events
+        events_df = duck_pond.get_events(dataset="test_dataset", event_keys="deep_dive")
+
+        assert len(events_df) == 1
+        assert events_df["event_key"].iloc[0] == "deep_dive"
+
+    def test_get_events_date_range(self, duck_pond, sample_events):
+        """Test event filtering by date range"""
+        duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
+
+        # Get events that overlap with a specific time range
+        events_df = duck_pond.get_events(
+            dataset="test_dataset",
+            date_range=("2024-01-01T10:00:00", "2024-01-01T11:30:00"),
+        )
+
+        # Should get the first two events (deep_dive and shallow_dive)
+        assert len(events_df) == 2
+        assert events_df["event_key"].tolist() == ["deep_dive", "shallow_dive"]
+
+    def test_get_events_date_range_overlap(self, duck_pond, sample_events):
+        """Test that date range correctly catches overlapping events"""
+        duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
+
+        # Query a range that partially overlaps with the first event
+        events_df = duck_pond.get_events(
+            dataset="test_dataset",
+            date_range=("2024-01-01T10:02:00", "2024-01-01T10:03:00"),
+        )
+
+        # Should still get the deep_dive event because it overlaps
+        assert len(events_df) == 1
+        assert events_df["event_key"].iloc[0] == "deep_dive"
+
+    def test_get_events_with_limit(self, duck_pond, sample_events):
+        """Test limiting the number of results"""
+        duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
+
+        # Get only first 2 events
+        events_df = duck_pond.get_events(dataset="test_dataset", limit=2)
+
+        assert len(events_df) == 2
+
+    def test_get_events_empty_table(self, duck_pond):
+        """Test get_events with no data returns empty DataFrame"""
+        # Get events from empty table
+        events_df = duck_pond.get_events(dataset="test_dataset")
+
+        # Should return empty DataFrame
+        assert len(events_df) == 0
+        assert isinstance(events_df, pd.DataFrame)
+
+    def test_get_events_no_matches(self, duck_pond, sample_events):
+        """Test get_events returns empty DataFrame when no events match filter"""
+        duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
+
+        # Query for non-existent animal
+        events_df = duck_pond.get_events(dataset="test_dataset", animal_ids="seal_999")
+
+        assert len(events_df) == 0
+        assert isinstance(events_df, pd.DataFrame)
+
+    def test_get_events_list_filters(self, duck_pond, sample_events):
+        """Test that list filters work correctly"""
+        duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
+
+        # Query with list of animal IDs
+        events_df = duck_pond.get_events(
+            dataset="test_dataset", animal_ids=["seal_001", "seal_002"]
+        )
+
+        assert len(events_df) == 3
+        assert set(events_df["animal"].unique()) == {"seal_001", "seal_002"}
+
+    def test_get_events_ordered_by_start_time(self, duck_pond, sample_events):
+        """Test that events are returned ordered by start time"""
+        duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
+
+        events_df = duck_pond.get_events(dataset="test_dataset")
+
+        # Verify chronological order
+        start_times = pd.to_datetime(events_df["datetime_start"])
+        assert all(
+            start_times[i] <= start_times[i + 1] for i in range(len(start_times) - 1)
+        )

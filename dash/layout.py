@@ -662,7 +662,245 @@ def create_video_indicator(
     )
 
 
-def create_footer(dff, video_options=None):
+def create_event_indicator(
+    event_id,
+    tooltip_content,
+    start_ratio,
+    end_ratio,
+    timestamp_min,
+    timestamp_max,
+    color=None,
+):
+    """Create an event indicator for the timeline."""
+    timestamp_range = timestamp_max - timestamp_min
+
+    # Ensure minimum width for very short events
+    min_width_ratio = 0.005  # 0.5% of timeline
+    if end_ratio - start_ratio < min_width_ratio:
+        # Expand event to minimum width, centered on original position
+        center = (start_ratio + end_ratio) / 2
+        start_ratio = max(0, center - min_width_ratio / 2)
+        end_ratio = min(1, center + min_width_ratio / 2)
+
+    # Build style dict with color if provided
+    style = {
+        "--start": int(timestamp_range * start_ratio),
+        "--end": int(timestamp_range * end_ratio),
+        "--length": int(timestamp_range),
+    }
+    if color:
+        style["--event-color"] = color
+
+    return html.Div(
+        [
+            html.Button(
+                [],
+                className="",
+                id=event_id,
+                style={"backgroundColor": color} if color else {},
+            ),
+            dbc.Tooltip(
+                tooltip_content,
+                target=event_id,
+                className="tooltip-saved",
+                placement="top",
+            ),
+        ],
+        className="saved_indicator",
+        style=style,
+    )
+
+
+def get_event_color_palette():
+    """Return a predefined color palette for the first 4 event types."""
+    return [
+        "#3498db",  # Blue
+        "#2ecc71",  # Green
+        "#e74c3c",  # Red
+        "#f39c12",  # Orange
+    ]
+
+
+def generate_random_color(seed_text):
+    """Generate a deterministic but visually distinct color based on seed text."""
+    import hashlib
+
+    # Use hash of the text to generate consistent colors for same event types
+    hash_obj = hashlib.md5(seed_text.encode())
+    hash_hex = hash_obj.hexdigest()
+
+    # Extract RGB values from hash (use first 6 chars)
+    r = int(hash_hex[0:2], 16)
+    g = int(hash_hex[2:4], 16)
+    b = int(hash_hex[4:6], 16)
+
+    # Ensure colors are not too dark or too light
+    # Adjust to be in the range 60-200 for better visibility
+    r = 60 + (r % 140)
+    g = 60 + (g % 140)
+    b = 60 + (b % 140)
+
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def assign_event_colors(events_df):
+    """Assign colors to events based on their event_key."""
+    if events_df is None or len(events_df) == 0:
+        return {}
+
+    # Get unique event types
+    unique_event_keys = events_df["event_key"].unique()
+
+    # Get predefined palette
+    palette = get_event_color_palette()
+
+    # Create color mapping
+    color_map = {}
+    for idx, event_key in enumerate(unique_event_keys):
+        if idx < len(palette):
+            # Use predefined color for first 4 types
+            color_map[event_key] = palette[idx]
+        else:
+            # Generate random color for additional types
+            color_map[event_key] = generate_random_color(event_key)
+
+    return color_map
+
+
+def generate_event_indicators_row(events_df, timestamp_min, timestamp_max):
+    """Generate the event indicators rows for the timeline (one row per event type)."""
+    # If no events, return empty list
+    if events_df is None or len(events_df) == 0:
+        return []
+
+    # Assign colors to event types
+    color_map = assign_event_colors(events_df)
+
+    # Group events by event_key
+    event_types = events_df["event_key"].unique()
+
+    # Create a row for each event type
+    rows = []
+    for event_type in event_types:
+        # Filter events for this type
+        type_events = events_df[events_df["event_key"] == event_type]
+
+        # Generate indicators for this event type
+        event_indicators = []
+        for i, event in type_events.iterrows():
+            # Calculate position using datetime_start and datetime_end
+            start_ts = pd.to_datetime(event["datetime_start"]).timestamp()
+            end_ts = pd.to_datetime(event["datetime_end"]).timestamp()
+
+            start_ratio = (start_ts - timestamp_min) / (timestamp_max - timestamp_min)
+            end_ratio = (end_ts - timestamp_min) / (timestamp_max - timestamp_min)
+
+            # Clamp ratios to [0, 1] range for events extending beyond timeline
+            start_ratio = max(0.0, min(1.0, start_ratio))
+            end_ratio = max(0.0, min(1.0, end_ratio))
+
+            # Format times for tooltip
+            start_time = pd.to_datetime(event["datetime_start"]).strftime("%H:%M:%S")
+            end_time = pd.to_datetime(event["datetime_end"]).strftime("%H:%M:%S")
+
+            # Get color for this event type
+            event_color = color_map.get(event["event_key"], "#95a5a6")  # Default gray
+
+            # Create tooltip with event details
+            tooltip_content = [
+                html.Div(
+                    event["event_key"],
+                    className="event-key",
+                    style={"fontWeight": "bold"},
+                )
+            ]
+
+            tooltip_content.append(
+                html.Div(f"{start_time} - {end_time}", className="event-time")
+            )
+
+            if pd.notna(event.get("short_description")):
+                tooltip_content.append(html.Div(event["short_description"]))
+
+            event_indicators.append(
+                create_event_indicator(
+                    f"event-{i}",
+                    tooltip_content,
+                    start_ratio,
+                    end_ratio,
+                    timestamp_min,
+                    timestamp_max,
+                    color=event_color,
+                )
+            )
+
+        # Create a row for this event type
+        rows.append(
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            html.Div(
+                                [
+                                    html.Div(
+                                        [
+                                            html.Span(
+                                                "●",
+                                                style={
+                                                    "color": color_map.get(
+                                                        event_type, "#95a5a6"
+                                                    ),
+                                                    "fontSize": "10x",
+                                                    "marginRight": "4px",
+                                                },
+                                            ),
+                                            html.Span(
+                                                truncate_middle(
+                                                    event_type, max_length=20
+                                                ),
+                                                style={
+                                                    "fontSize": "12px",
+                                                    "color": color_map.get(
+                                                        event_type, "#95a5a6"
+                                                    ),
+                                                    "maxWidth": "24px",
+                                                    "overflow": "hidden",
+                                                    "textOverflow": "ellipsis",
+                                                    "whiteSpace": "nowrap",
+                                                },
+                                            ),
+                                        ],
+                                        style={
+                                            "display": "flex",
+                                            "alignItems": "center",
+                                        },
+                                    ),
+                                ],
+                                className="sm",
+                            ),
+                        ],
+                        width={"size": "auto"},
+                    ),
+                    dbc.Col(
+                        [
+                            html.Div(
+                                event_indicators,
+                                className="saved",
+                                style={"backgroundColor": "transparent"},
+                            ),
+                        ],
+                        className="",
+                    ),
+                ],
+                align="center",
+                className="g-4",
+            )
+        )
+
+    return rows
+
+
+def create_footer(dff, video_options=None, events_df=None):
     """Create the footer with playhead controls and timeline."""
     timestamp_min = dff["timestamp"].min()
     timestamp_max = dff["timestamp"].max()
@@ -821,69 +1059,10 @@ def create_footer(dff, video_options=None):
                             align="center",
                             className="g-4",
                         ),
-                        dbc.Row(
-                            [
-                                dbc.Col(
-                                    [
-                                        html.Div(
-                                            [
-                                                html.Img(
-                                                    src="/assets/images/saved.svg",
-                                                    id="saved-icon",
-                                                ),
-                                                dbc.Tooltip(
-                                                    "Saved Timestamps",
-                                                    target="saved-icon",
-                                                    placement="top",
-                                                ),
-                                            ],
-                                            className="icon sm",
-                                        ),
-                                    ],
-                                    width={"size": "auto"},
-                                ),
-                                dbc.Col(
-                                    [
-                                        html.Div(
-                                            [
-                                                create_saved_indicator(
-                                                    "saved-1",
-                                                    "09:33:42",
-                                                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-                                                    0.075,
-                                                    0.45,
-                                                    timestamp_min,
-                                                    timestamp_max,
-                                                ),
-                                                create_saved_indicator(
-                                                    "saved-2",
-                                                    "09:36:42",
-                                                    "Donec nunc mi, faucibus sed vestibulum non, lacinia nec nisl. Integer volutpat odio a elit malesuada hendrerit. Maecenas nec massa urna.",
-                                                    0.55,
-                                                    0.45,
-                                                    timestamp_min,
-                                                    timestamp_max,
-                                                ),
-                                                create_saved_indicator(
-                                                    "saved-3",
-                                                    "09:37:31",
-                                                    "Pellentesque cursus hendrerit justo, sit amet volutpat massa mattis id.",
-                                                    0.675,
-                                                    0.45,
-                                                    timestamp_min,
-                                                    timestamp_max,
-                                                ),
-                                            ],
-                                            className="saved",
-                                        ),
-                                    ],
-                                    className="",
-                                ),
-                            ],
-                            align="center",
-                            className="g-4",
-                        ),
                     ]
+                    + generate_event_indicators_row(
+                        events_df, timestamp_min, timestamp_max
+                    )
                     + (
                         [
                             dbc.Row(
@@ -1281,7 +1460,9 @@ def create_app_stores(dff):
     ]
 
 
-def create_layout(fig, data_json, dff, video_options=None, restricted_time_range=None):
+def create_layout(
+    fig, data_json, dff, video_options=None, restricted_time_range=None, events_df=None
+):
     """Create the complete app layout."""
     return html.Div(
         [
@@ -1297,7 +1478,9 @@ def create_layout(fig, data_json, dff, video_options=None, restricted_time_range
                         video_options=video_options,
                         restricted_time_range=restricted_time_range,
                     ),
-                    create_footer(dff, video_options=video_options),
+                    create_footer(
+                        dff, video_options=video_options, events_df=events_df
+                    ),
                 ],
                 className="grid",
             ),
