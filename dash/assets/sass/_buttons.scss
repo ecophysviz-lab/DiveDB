@@ -255,8 +255,9 @@
         &.btn-pause {
             &:after {
                 content: "";
-                height: 35%;
-                width: 35%;
+                height: 45%;
+                width: 30%;
+								transform: translateX(-2px);
                 border-top: none;
                 border-bottom: none;
                 border-left: solid 6px var(--btn-primary-color);

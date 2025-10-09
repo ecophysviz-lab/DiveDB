@@ -187,6 +187,38 @@ const VideoPreview = ({
     lastPlayingState.current = isPlaying;
   }, [isPlaying, playheadTime, videoMetadata]);
 
+  // Handle offset changes - immediately recalculate video position
+  useEffect(() => {
+    if (!videoRef.current || !playheadTime || !videoMetadata) return;
+
+    const positionData = calculateVideoPosition();
+    if (!positionData) return;
+
+    const { isActive, videoPosition } = positionData;
+    
+    // Update active state immediately
+    setIsVideoActive(isActive);
+
+    if (isActive) {
+      // Immediately seek to new position when offset changes
+      console.log(`⏰ ${videoMetadata.filename}: Offset changed, seeking to ${videoPosition.toFixed(2)}s`);
+      videoRef.current.currentTime = videoPosition;
+      
+      // Maintain current playback state
+      if (isPlaying && videoRef.current.paused) {
+        videoRef.current.play().catch(e => console.warn("Video play failed after offset change:", e));
+      } else if (!isPlaying && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
+    } else {
+      // Video is now outside temporal range due to offset change
+      if (!videoRef.current.paused) {
+        console.log(`❌ ${videoMetadata.filename}: Offset change made video inactive - pausing`);
+        videoRef.current.pause();
+      }
+    }
+  }, [localOffset]); // Only trigger when offset changes (will use current values via closure)
+
   const handleLoadedMetadata = () => {
     const videoDuration = videoRef.current.duration;
     setDuration(videoDuration);

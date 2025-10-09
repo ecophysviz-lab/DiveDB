@@ -1041,6 +1041,7 @@ def create_footer(dff, video_options=None):
                                                                 "Play/Pause",
                                                                 target="play-button",
                                                                 placement="top",
+                                                                id="play-button-tooltip",
                                                             ),
                                                         ],
                                                         className="p-1",

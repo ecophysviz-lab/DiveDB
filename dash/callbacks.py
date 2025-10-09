@@ -203,20 +203,31 @@ def register_callbacks(app, dff, video_options=None):
     @app.callback(
         Output("is-playing", "data"),
         Output("play-button", "children"),
+        Output("play-button", "className"),
         Input("play-button", "n_clicks"),
         State("is-playing", "data"),
     )
     def toggle_play_pause(n_clicks, is_playing):
-        """Toggle play/pause state and update button text."""
+        """Toggle play/pause state and update button text and styling."""
         if n_clicks % 2 == 1:
-            return True, "Pause"  # Switch to playing
+            # Playing state - show pause button
+            return True, "Pause", "btn btn-primary btn-round btn-pause btn-lg"
         else:
-            return False, "Play"  # Switch to paused
+            # Paused state - show play button
+            return False, "Play", "btn btn-primary btn-round btn-play btn-lg"
 
     @app.callback(Output("interval-component", "disabled"), Input("is-playing", "data"))
     def update_interval_component(is_playing):
         """Enable/disable the interval component based on play state."""
         return not is_playing  # Interval is disabled when not playing
+
+    @app.callback(
+        Output("play-button-tooltip", "children"),
+        Input("is-playing", "data"),
+    )
+    def update_play_button_tooltip(is_playing):
+        """Update play button tooltip based on playing state."""
+        return "Pause" if is_playing else "Play"
 
     @app.callback(
         Output("playhead-time", "data"),
@@ -333,9 +344,6 @@ def register_callbacks(app, dff, video_options=None):
                 )
 
                 if best_video:
-                    print(
-                        f"🤖 Auto-selected video (offset: {time_offset}s): {best_video.get('filename', 'Unknown')}"
-                    )
                     return best_video, None  # Clear manual override
                 else:
                     print(
@@ -351,8 +359,6 @@ def register_callbacks(app, dff, video_options=None):
     )
     def update_video_player(selected_video):
         """Update VideoPreview component with selected video and metadata."""
-        print(f"🎥 Video player update triggered with: {selected_video}")
-
         # Always provide dataset start time for temporal alignment
         dataset_start_time = dff["timestamp"].min()
 
