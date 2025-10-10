@@ -395,6 +395,9 @@ class DataUploader:
                     type=self._get_datetime_type(ds.coords["event_data_samples"]),
                 )
 
+                # TODO: Update to diffentiate between point and state events
+                # If point events, end_times = start_times
+                # If state events, end_times = start_times + duration
                 end_times = start_times + np.array(
                     duration_data, dtype="timedelta64[s]"
                 )
