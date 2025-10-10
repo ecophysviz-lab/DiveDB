@@ -443,6 +443,42 @@ class DuckPond:
         """Read data using SQL query (backward compatibility)"""
         return self.conn.execute(query).fetchall()
 
+    def _apply_date_handling(
+        self,
+        df: pd.DataFrame,
+        datetime_col: str,
+        apply_timezone_offset: Optional[int] = None,
+        add_timestamp_column: bool = False,
+        timestamp_col_name: str = "timestamp",
+    ) -> pd.DataFrame:
+        """
+        Apply date handling transformations to a DataFrame.
+
+        Args:
+            df: Input DataFrame
+            datetime_col: Name of the datetime column to process
+            apply_timezone_offset: Optional timezone offset in hours to add to datetime column
+            add_timestamp_column: If True, adds a timestamp column (seconds since epoch)
+            timestamp_col_name: Name for the timestamp column (default: "timestamp")
+
+        Returns:
+            Transformed DataFrame
+        """
+        if datetime_col not in df.columns:
+            return df
+
+        # Ensure datetime column is in datetime format
+        if apply_timezone_offset is not None:
+            df[datetime_col] = pd.to_datetime(
+                df[datetime_col], errors="coerce"
+            ) + pd.Timedelta(hours=apply_timezone_offset)
+
+        # Add timestamp column if requested
+        if add_timestamp_column:
+            df[timestamp_col_name] = df[datetime_col].apply(lambda x: x.timestamp())
+
+        return df
+
     def get_data(
         self,
         dataset: str,  # Dataset ID - required for new structure
@@ -456,6 +492,8 @@ class DuckPond:
         frequency: int | None = None,
         limit: int | None = None,
         pivoted: bool = False,
+        apply_timezone_offset: Optional[int] = None,
+        add_timestamp_column: bool = False,
     ):
         """
         Get data from a specific dataset using direct Parquet access (bypassing Iceberg layer).
@@ -472,6 +510,8 @@ class DuckPond:
             frequency: Resample frequency (if provided, returns DataFrame)
             limit: Row limit
             pivoted: If True, returns data with labels as columns grouped by datetime
+            apply_timezone_offset: Optional timezone offset in hours to add to datetime column
+            add_timestamp_column: If True, adds a 'timestamp' column (seconds since epoch)
 
         Returns:
         - If frequency is not None, returns a pd.DataFrame.
@@ -596,8 +636,17 @@ class DuckPond:
                     aggfunc="first",
                 ).reset_index()
                 pivoted_df.columns.name = None
+
+                # Apply date handling transformations
+                pivoted_df = self._apply_date_handling(
+                    pivoted_df, "datetime", apply_timezone_offset, add_timestamp_column
+                )
                 return pivoted_df
             else:
+                # Apply date handling transformations
+                combined_df = self._apply_date_handling(
+                    combined_df, "datetime", apply_timezone_offset, add_timestamp_column
+                )
                 return combined_df
 
         # Handle pivoted data request without frequency resampling
@@ -644,7 +693,13 @@ class DuckPond:
             """
 
             results = self.conn.sql(pivot_query)
-            return results.df()
+            df = results.df()
+
+            # Apply date handling transformations
+            df = self._apply_date_handling(
+                df, "datetime", apply_timezone_offset, add_timestamp_column
+            )
+            return df
         else:
             # Return long-format data
             results = self.conn.sql(base_query)
@@ -659,6 +714,8 @@ class DuckPond:
         event_keys: str | List[str] | None = None,
         date_range: tuple[str, str] | None = None,
         limit: int | None = None,
+        apply_timezone_offset: Optional[int] = None,
+        add_timestamp_columns: bool = False,
     ):
         """
         Get events from a specific dataset.
@@ -671,6 +728,8 @@ class DuckPond:
             event_keys: Event key filter
             date_range: Date range tuple (start, end)
             limit: Row limit
+            apply_timezone_offset: Optional timezone offset in hours to add to datetime columns
+            add_timestamp_columns: If True, adds 'timestamp_start' and 'timestamp_end' columns (seconds since epoch)
 
         Returns:
             pd.DataFrame with columns: dataset, animal, deployment, recording,
@@ -743,7 +802,26 @@ class DuckPond:
 
         # Execute query and return DataFrame
         results = self.conn.sql(base_query)
-        return results.df()
+        df = results.df()
+
+        # Apply date handling transformations to both datetime columns
+        if apply_timezone_offset is not None or add_timestamp_columns:
+            df = self._apply_date_handling(
+                df,
+                "datetime_start",
+                apply_timezone_offset,
+                add_timestamp_columns,
+                timestamp_col_name="timestamp_start",
+            )
+            df = self._apply_date_handling(
+                df,
+                "datetime_end",
+                apply_timezone_offset,
+                add_timestamp_columns,
+                timestamp_col_name="timestamp_end",
+            )
+
+        return df
 
     def ensure_dataset_initialized(self, dataset: str):
         """Ensure a dataset's tables and views are initialized"""

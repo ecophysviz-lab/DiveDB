@@ -786,9 +786,9 @@ def generate_event_indicators_row(events_df, timestamp_min, timestamp_max):
         # Generate indicators for this event type
         event_indicators = []
         for i, event in type_events.iterrows():
-            # Calculate position using datetime_start and datetime_end
-            start_ts = pd.to_datetime(event["datetime_start"]).timestamp()
-            end_ts = pd.to_datetime(event["datetime_end"]).timestamp()
+            # Calculate position using pre-computed timestamp columns
+            start_ts = event["timestamp_start"]
+            end_ts = event["timestamp_end"]
 
             start_ratio = (start_ts - timestamp_min) / (timestamp_max - timestamp_min)
             end_ratio = (end_ts - timestamp_min) / (timestamp_max - timestamp_min)
@@ -848,7 +848,7 @@ def generate_event_indicators_row(events_df, timestamp_min, timestamp_max):
                                                     "color": color_map.get(
                                                         event_type, "#95a5a6"
                                                     ),
-                                                    "fontSize": "10x",
+                                                    "fontSize": "10px",
                                                     "marginRight": "4px",
                                                 },
                                             ),
@@ -925,7 +925,7 @@ def create_footer(dff, video_options=None, events_df=None):
                 html.Div(truncate_middle(filename), className="video-filename")
             ]
 
-            start_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+            start_dt = datetime.fromisoformat(created)
             start_time = start_dt.strftime("%H:%M:%S")
 
             if duration != "Unknown":
