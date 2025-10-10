@@ -47,9 +47,7 @@ def calculate_video_timeline_position(video, timeline_start_ts, timeline_end_ts)
     """Calculate video start/end ratios for timeline positioning."""
     try:
         # Parse video creation timestamp
-        video_start_dt = datetime.fromisoformat(
-            video["fileCreatedAt"].replace("Z", "+00:00")
-        )
+        video_start_dt = datetime.fromisoformat(video["fileCreatedAt"])
         video_start_ts = video_start_dt.timestamp()
 
         # Parse video duration

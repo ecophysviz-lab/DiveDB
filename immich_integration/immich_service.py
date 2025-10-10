@@ -168,7 +168,8 @@ class ImmichService:
                 "id": asset_data.get("id"),
                 "type": asset_data.get("type"),  # IMAGE or VIDEO
                 "original_filename": asset_data.get("originalFileName"),
-                "file_created_at": asset_data.get("fileCreatedAt"),
+                "file_created_at": asset_data.get("localDateTime"),
+                "file_created_at_iso": asset_data.get("fileCreatedAt"),
                 "file_modified_at": asset_data.get("fileModifiedAt"),
                 "created_at": asset_data.get("createdAt"),
                 "updated_at": asset_data.get("updatedAt"),
@@ -268,6 +269,105 @@ class ImmichService:
         except Exception as e:
             logging.error(f"Error creating share link for asset {asset_id}: {str(e)}")
             return {"success": False, "error": f"Error creating share link: {str(e)}"}
+
+    def prepare_video_options_for_react(
+        self, media_result: Dict[str, Union[List[Dict], str]], expires_hours: int = 4
+    ) -> Dict[str, Union[bool, List[Dict], str]]:
+        """
+        Process media result and prepare video options for React component
+
+        Takes a media result from find_media_by_deployment_id() and creates a list
+        of video options with share links and metadata suitable for React components.
+
+        Args:
+            media_result: Result from find_media_by_deployment_id()
+            expires_hours: Hours until share links expire (default: 4)
+
+        Returns:
+            Dict with 'success' status and 'video_options' list or 'error' message
+        """
+        if not media_result["success"]:
+            logging.error(
+                f"Failed to fetch media: {media_result.get('error', 'Unknown error')}"
+            )
+            return {
+                "success": False,
+                "error": media_result.get("error", "Unknown error"),
+                "video_options": [],
+            }
+
+        video_assets = media_result["data"]
+        album_info = media_result.get("album_info", {})
+        video_options = []
+
+        if not video_assets:
+            logging.warning("No video assets found in deployment album")
+            return {
+                "success": True,
+                "video_options": [],
+                "message": "No video assets found in deployment album",
+            }
+
+        for i, asset in enumerate(video_assets):
+            asset_id = asset.get("id")
+            filename = asset.get("originalFileName", "Unknown")
+            file_created = asset.get("localDateTime", "Unknown")
+
+            # Create individual share link for this asset
+            share_result = self.create_asset_share_link(
+                asset_id, expires_hours=expires_hours
+            )
+            asset_share_key = None
+
+            if share_result["success"]:
+                asset_share_key = share_result["share_data"]["key"]
+            else:
+                logging.warning(
+                    f"Failed to create share key for asset {asset_id}: {share_result.get('error', 'Unknown')}"
+                )
+
+            details_result = self.get_media_details(asset_id)
+            if details_result["success"]:
+                metadata = details_result["data"]["metadata"]
+                urls = details_result["data"]["urls"]
+
+                share_video_url = (
+                    f"{urls.get('video_playback')}?key={asset_share_key}"
+                    if asset_share_key
+                    else None
+                )
+                share_thumbnail_url = (
+                    f"{urls.get('thumbnail')}?key={asset_share_key}"
+                    if asset_share_key
+                    else urls.get("thumbnail")
+                )
+
+                video_option = {
+                    "id": asset_id,
+                    "filename": filename,
+                    "fileCreatedAt": file_created,
+                    "shareUrl": share_video_url,
+                    "originalUrl": urls.get("original"),  # Fallback if share fails
+                    "thumbnailUrl": share_thumbnail_url,
+                    "metadata": {
+                        "duration": metadata.get("duration"),
+                        "originalFilename": metadata.get("original_filename"),
+                        "type": metadata.get("type"),
+                    },
+                }
+
+                video_options.append(video_option)
+            else:
+                logging.error(
+                    f"Failed to load metadata for asset {asset_id}: {details_result.get('error', 'Unknown')}"
+                )
+
+        logging.info(f"Prepared {len(video_options)} video options for React component")
+        return {
+            "success": True,
+            "video_options": video_options,
+            "album_info": album_info,
+        }
 
     def test_connection(self) -> Dict[str, Union[bool, str]]:
         """

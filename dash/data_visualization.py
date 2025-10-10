@@ -1,15 +1,3 @@
-"""
-⚠️⚠️⚠️ TIMEZONE HACK WARNING ⚠️⚠️⚠️
-
-This file contains a temporary hardcoded timezone correction for video timestamps.
-Videos from Immich are incorrectly stored as UTC when they should be +13:00 timezone.
-
-TODO: Fix video timezone metadata at the source (Immich system) and remove the
-correct_video_timezone() function and all related timezone corrections.
-
-⚠️⚠️⚠️ TIMEZONE HACK WARNING ⚠️⚠️⚠️
-"""
-
 import dash
 import os
 import sys
@@ -34,7 +22,11 @@ load_dotenv()
 # Hard-coded dataset and deployment IDs
 DATASET_ID = "apfo-adult-penguin_hr-sr_penguin-ranch_JKB-PP"
 DEPLOYMENT_ID = "DepID_2019-11-08_apfo-001"  # Deployment ID format: date + animal ID
-
+START_DATE = "2019-11-08T09:33:11"
+END_DATE = "2019-11-08T09:39:30"
+TIMEZONE = 13
+START_DATE_TZ = START_DATE + f"+{TIMEZONE}:00"
+END_DATE_TZ = END_DATE + f"+{TIMEZONE}:00"
 
 notion_manager = NotionORMManager(
     token=os.getenv("NOTION_TOKEN"),
@@ -71,73 +63,9 @@ media_result = immich_service.find_media_by_deployment_id(
     DEPLOYMENT_ID, media_type="VIDEO", shared=True
 )
 
-if media_result["success"]:
-    video_assets = media_result["data"]
-    album_info = media_result.get("album_info", {})
-
-    # Prepare video options for React component
-    video_options = []
-    if video_assets:
-        for i, asset in enumerate(video_assets):
-            asset_id = asset.get("id")
-            filename = asset.get("originalFileName", "Unknown")
-            created = asset.get("fileCreatedAt", "Unknown")
-            file_created = asset.get("fileCreatedAt", "Unknown")
-
-            # Create individual share link for this asset
-            share_result = immich_service.create_asset_share_link(asset_id)
-            asset_share_key = None
-
-            if share_result["success"]:
-                asset_share_key = share_result["share_data"]["key"]
-            else:
-                print(
-                    f"      ⚠️ Failed to create share key: {share_result.get('error', 'Unknown')}"
-                )
-
-            # Get detailed metadata for this asset
-            details_result = immich_service.get_media_details(asset_id)
-
-            if details_result["success"]:
-                metadata = details_result["data"]["metadata"]
-                urls = details_result["data"]["urls"]
-
-                # Create share URLs using the individual asset share key
-                share_video_url = (
-                    f"{urls.get('video_playback')}?key={asset_share_key}"
-                    if asset_share_key
-                    else None
-                )
-                share_thumbnail_url = (
-                    f"{urls.get('thumbnail')}?key={asset_share_key}"
-                    if asset_share_key
-                    else urls.get("thumbnail")
-                )
-
-                video_option = {
-                    "id": asset_id,
-                    "filename": filename,
-                    "fileCreatedAt": file_created,
-                    "shareUrl": share_video_url,
-                    "originalUrl": urls.get("original"),  # Fallback if share fails
-                    "thumbnailUrl": share_thumbnail_url,
-                    "metadata": {
-                        "duration": metadata.get("duration"),
-                        "originalFilename": metadata.get("original_filename"),
-                        "type": metadata.get("type"),
-                    },
-                }
-
-                video_options.append(video_option)
-            else:
-                print(
-                    f"      ❌ Failed to load metadata: {details_result.get('error', 'Unknown')}"
-                )
-    else:
-        print("⚠️ No video assets found in deployment album")
-else:
-    print(f"❌ Failed to fetch media: {media_result.get('error', 'Unknown error')}")
-    video_options = []
+# Prepare video options for React component using immich service method
+video_result = immich_service.prepare_video_options_for_react(media_result)
+video_options = video_result.get("video_options", [])
 
 dff = duck_pond.get_data(
     dataset=DATASET_ID,
@@ -152,7 +80,7 @@ dff = duck_pond.get_data(
         "heading",
     ],
     pivoted=True,
-    date_range=("2019-11-08T09:33:11+13:00", "2019-11-08T09:39:30+13:00"),
+    date_range=(START_DATE_TZ, END_DATE_TZ),
 )
 
 # Fetch events for this deployment
@@ -163,11 +91,9 @@ events_df = duck_pond.get_events(
 )
 
 # Ensure datetimes are timezone-aware in UTC first
-dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce")
-if dff["datetime"].dt.tz is None:
-    dff["datetime"] = dff["datetime"].dt.tz_localize("UTC")
-else:
-    dff["datetime"] = dff["datetime"].dt.tz_convert("UTC")
+dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce") + pd.Timedelta(
+    hours=TIMEZONE
+)
 
 # Convert datetime to timestamp (seconds since epoch) for slider control
 dff["timestamp"] = dff["datetime"].apply(lambda x: x.timestamp())
@@ -290,4 +216,4 @@ register_clientside_callbacks(app)
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=8054)
