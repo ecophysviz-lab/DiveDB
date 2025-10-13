@@ -1,11 +1,106 @@
 """
 Layout components for the DiveDB data visualization dashboard.
 """
+
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 import pandas as pd
 import three_js_orientation
 import video_preview
+from datetime import datetime, timedelta
+
+
+def truncate_middle(text, max_length=30):
+    """Truncate text in the middle, keeping start and end visible."""
+    if len(text) <= max_length:
+        return text
+
+    # Keep roughly 1/3 at start, 1/3 at end
+    start_len = max_length // 3
+    end_len = max_length - start_len - 3  # -3 for "..."
+
+    return f"{text[:start_len]}...{text[-end_len:]}"
+
+
+def parse_video_duration(duration_str):
+    """Parse video duration from HH:MM:SS.mmm format to total seconds."""
+    if not duration_str:
+        return 0
+
+    try:
+        # Handle HH:MM:SS.mmm format
+        time_parts = duration_str.split(":")
+        if len(time_parts) == 3:
+            hours = int(time_parts[0])
+            minutes = int(time_parts[1])
+            # Handle seconds and milliseconds
+            seconds_part = float(time_parts[2])
+            total_seconds = hours * 3600 + minutes * 60 + seconds_part
+            return total_seconds
+    except (ValueError, IndexError):
+        pass
+
+    return 0
+
+
+def calculate_video_timeline_position(video, timeline_start_ts, timeline_end_ts):
+    """Calculate video start/end ratios for timeline positioning."""
+    try:
+        # Parse video creation timestamp
+        video_start_dt = datetime.fromisoformat(video["fileCreatedAt"])
+        video_start_ts = video_start_dt.timestamp()
+
+        # Parse video duration
+        duration_seconds = parse_video_duration(
+            video.get("metadata", {}).get("duration", "0")
+        )
+        video_end_ts = video_start_ts + duration_seconds
+
+        # Calculate timeline ratios (0.0 to 1.0)
+        timeline_duration = timeline_end_ts - timeline_start_ts
+
+        if timeline_duration <= 0:
+            return {"start": 0, "end": 0, "status": "error"}
+
+        start_ratio = (video_start_ts - timeline_start_ts) / timeline_duration
+        end_ratio = (video_end_ts - timeline_start_ts) / timeline_duration
+
+        # Handle videos that are completely outside the timeline
+        if start_ratio > 1.0 or end_ratio < 0.0:
+            if start_ratio > 1.0:
+                # Video after timeline - show at far right
+                return {"start": 0.95, "end": 1.0, "status": "after"}
+            else:
+                # Video before timeline - show at far left
+                return {"start": 0.0, "end": 0.05, "status": "before"}
+
+        # Handle videos that extend beyond the timeline bounds
+        # Clamp ratios to 0.0-1.0 range but preserve relative positioning
+        clamped_start = max(0.0, min(1.0, start_ratio))
+        clamped_end = max(0.0, min(1.0, end_ratio))
+
+        # Determine video status based on timeline relationship
+        if start_ratio >= 0 and end_ratio <= 1:
+            # Video is completely within timeline bounds
+            status = "within"
+        else:
+            # Video spans across timeline boundaries
+            status = "overlapping"
+
+        # Ensure we have a valid range with minimum width
+        if clamped_end <= clamped_start:
+            # Video has been clamped to invalid range - ensure minimal visibility
+            if start_ratio < 0:
+                clamped_start = 0.0
+                clamped_end = 0.05
+            else:
+                clamped_start = 0.95
+                clamped_end = 1.0
+
+        return {"start": clamped_start, "end": clamped_end, "status": status}
+    except (ValueError, KeyError, TypeError) as e:
+        print(f"   ❌ Error calculating video position: {e}")
+        return {"start": 0, "end": 0, "status": "error"}
 
 
 def create_header():
@@ -345,7 +440,9 @@ def create_main_content(fig):
     )
 
 
-def create_right_sidebar(data_json, video_min_timestamp):
+def create_right_sidebar(
+    data_json, video_min_timestamp, video_options=None, restricted_time_range=None
+):
     """Create the right sidebar with 3D model and video."""
     return html.Div(
         [
@@ -432,9 +529,12 @@ def create_right_sidebar(data_json, video_min_timestamp):
                                         [
                                             video_preview.VideoPreview(
                                                 id="video-trimmer",
-                                                videoSrc="/assets/fixed_video_output_00001_excerpt.mp4",
+                                                videoSrc="",  # Empty string as placeholder until proper rebuild
+                                                videoMetadata=None,  # Will be populated when video is selected
+                                                datasetStartTime=video_min_timestamp,
                                                 playheadTime=video_min_timestamp,
                                                 isPlaying=False,
+                                                showControls=False,
                                             ),
                                             html.Button(
                                                 [
@@ -507,36 +607,120 @@ def create_saved_indicator(
 
 
 def create_video_indicator(
-    video_id, tooltip_text, start_ratio, end_ratio, timestamp_min, timestamp_max
+    video_id, tooltip_content, position_data, timestamp_min, timestamp_max
 ):
     """Create a video available indicator."""
     timestamp_range = timestamp_max - timestamp_min
+    start_ratio = position_data["start"]
+    end_ratio = position_data["end"]
+    status = position_data["status"]
+
+    # Determine CSS classes based on video status
+    base_class = "video_available_indicator"
+    status_class = f"video_status_{status}"
+    full_class = f"{base_class} {status_class}"
+
+    # Add visual styling hints for out-of-view videos
+    button_style = {
+        "cursor": "pointer",
+        "background": "transparent",
+        "border": "none",
+        "width": "100%",
+        "height": "100%",
+        "position": "absolute",
+        "top": "0",
+        "left": "0",
+    }
+
+    # Add visual indicators for out-of-view videos
+    if status in ["before", "after"]:
+        button_style["opacity"] = "0.5"  # Make out-of-view videos semi-transparent
+        button_style["filter"] = "grayscale(0.5)"  # Add slight desaturation
     return html.Div(
         [
             html.Button(
                 [],
-                className="",
+                className="video-indicator-btn",
                 id=video_id,
+                style=button_style,
             ),
             dbc.Tooltip(
-                tooltip_text,
+                tooltip_content,
                 target=video_id,
                 placement="top",
             ),
         ],
-        className="video_available_indicator",
+        className=full_class,
         style={
             "--start": int(timestamp_range * start_ratio),
             "--end": int(timestamp_range * end_ratio),
             "--length": int(timestamp_range),
+            "position": "relative",  # Ensure button positioning works
         },
     )
 
 
-def create_footer(dff):
+def create_footer(dff, video_options=None):
     """Create the footer with playhead controls and timeline."""
     timestamp_min = dff["timestamp"].min()
     timestamp_max = dff["timestamp"].max()
+
+    # Generate video indicators from real video data
+    video_indicators = []
+    if video_options:
+        for i, video in enumerate(video_options):
+            position_data = calculate_video_timeline_position(
+                video, timestamp_min, timestamp_max
+            )
+
+            # Skip videos with error status
+            if position_data["status"] == "error":
+                continue
+
+            # Create tooltip text with video info
+            filename = video.get("filename", "Unknown Video")
+            duration = video.get("metadata", {}).get("duration", "Unknown")
+            created = video.get("fileCreatedAt", "")
+
+            # Create multi-line tooltip with structured HTML
+            tooltip_content = [
+                html.Div(truncate_middle(filename), className="video-filename")
+            ]
+
+            start_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+            start_time = start_dt.strftime("%H:%M:%S")
+
+            if duration != "Unknown":
+                duration_seconds = parse_video_duration(duration)
+                if duration_seconds > 0:
+                    end_dt = start_dt + timedelta(seconds=duration_seconds)
+                    end_time = end_dt.strftime("%H:%M:%S")
+                    tooltip_content.append(
+                        html.Div(f"Duration: {start_time} - {end_time}")
+                    )
+
+            # Add status indicator to tooltip
+            status_messages = {
+                "within": "📍 Fully within timeline",
+                "overlapping": "📍 Spans timeline boundaries",
+                "before": "⏮️ Before timeline (out of view)",
+                "after": "⏭️ After timeline (out of view)",
+                "error": "❌ Error processing video",
+            }
+            status_msg = status_messages.get(position_data["status"], "")
+            if status_msg:
+                tooltip_content.append(html.Div(status_msg, className="video-status"))
+
+            video_indicators.append(
+                create_video_indicator(
+                    f"video-{video.get('id', i)}",
+                    tooltip_content,
+                    position_data,
+                    timestamp_min,
+                    timestamp_max,
+                )
+            )
+
     return html.Footer(
         [
             html.Div(
@@ -697,58 +881,47 @@ def create_footer(dff):
                             align="center",
                             className="g-4",
                         ),
-                        dbc.Row(
-                            [
-                                dbc.Col(
-                                    [
-                                        html.Div(
-                                            [
-                                                html.Img(
-                                                    src="/assets/images/video.svg",
-                                                    id="video-icon",
-                                                ),
-                                                dbc.Tooltip(
-                                                    "Video Available",
-                                                    target="video-icon",
-                                                    placement="top",
-                                                ),
-                                            ],
-                                            className="icon sm",
-                                        ),
-                                    ],
-                                    width={"size": "auto"},
-                                ),
-                                dbc.Col(
-                                    [
-                                        html.Div(
-                                            [
-                                                create_video_indicator(
-                                                    "video-1",
-                                                    "09:33:52 - 09:36:01",
-                                                    0.1,
-                                                    0.45,
-                                                    timestamp_min,
-                                                    timestamp_max,
-                                                ),
-                                                create_video_indicator(
-                                                    "video-2",
-                                                    "09:35:40 - 09:39:11",
-                                                    0.4,
-                                                    0.95,
-                                                    timestamp_min,
-                                                    timestamp_max,
-                                                ),
-                                            ],
-                                            className="video_available",
-                                        ),
-                                    ],
-                                    className="",
-                                ),
-                            ],
-                            align="center",
-                            className="g-4",
-                        ),
-                    ],
+                    ]
+                    + (
+                        [
+                            dbc.Row(
+                                [
+                                    dbc.Col(
+                                        [
+                                            html.Div(
+                                                [
+                                                    html.Img(
+                                                        src="/assets/images/video.svg",
+                                                        id="video-icon",
+                                                    ),
+                                                    dbc.Tooltip(
+                                                        "Video Available",
+                                                        target="video-icon",
+                                                        placement="top",
+                                                    ),
+                                                ],
+                                                className="icon sm",
+                                            ),
+                                        ],
+                                        width={"size": "auto"},
+                                    ),
+                                    dbc.Col(
+                                        [
+                                            html.Div(
+                                                video_indicators,
+                                                className="video_available",
+                                            ),
+                                        ],
+                                        className="",
+                                    ),
+                                ],
+                                align="center",
+                                className="g-4",
+                            ),
+                        ]
+                        if video_indicators
+                        else []
+                    ),
                     fluid=True,
                 ),
                 className="playhead-slider-container",
@@ -866,6 +1039,7 @@ def create_footer(dff):
                                                                 "Play/Pause",
                                                                 target="play-button",
                                                                 placement="top",
+                                                                id="play-button-tooltip",
                                                             ),
                                                         ],
                                                         className="p-1",
@@ -1095,10 +1269,17 @@ def create_app_stores(dff):
         ),
         dcc.Store(id="playhead-time", data=dff["timestamp"].min()),
         dcc.Store(id="is-playing", data=False),
+        dcc.Store(id="selected-video", data=None),  # Store for selected video data
+        dcc.Store(
+            id="manual-video-override", data=None
+        ),  # Store for sticky manual selection
+        dcc.Store(
+            id="video-time-offset", data=0
+        ),  # Store for video timeline offset in seconds
     ]
 
 
-def create_layout(fig, data_json, dff):
+def create_layout(fig, data_json, dff, video_options=None, restricted_time_range=None):
     """Create the complete app layout."""
     return html.Div(
         [
@@ -1108,8 +1289,13 @@ def create_layout(fig, data_json, dff):
                     create_header(),
                     create_left_sidebar(),
                     create_main_content(fig),
-                    create_right_sidebar(data_json, dff["timestamp"].min()),
-                    create_footer(dff),
+                    create_right_sidebar(
+                        data_json,
+                        dff["timestamp"].min(),
+                        video_options=video_options,
+                        restricted_time_range=restricted_time_range,
+                    ),
+                    create_footer(dff, video_options=video_options),
                 ],
                 className="grid",
             ),

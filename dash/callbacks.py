@@ -4,9 +4,116 @@ Server-side callback functions for the DiveDB data visualization dashboard.
 import dash
 from dash import Output, Input, State, callback_context
 import pandas as pd
+from datetime import datetime
 
 
-def register_callbacks(app, dff):
+def parse_video_duration(duration_str):
+    """Parse video duration from HH:MM:SS.mmm format to total seconds."""
+    if not duration_str:
+        return 0
+    try:
+        time_parts = duration_str.split(":")
+        if len(time_parts) == 3:
+            hours = int(time_parts[0])
+            minutes = int(time_parts[1])
+            seconds = float(time_parts[2])
+            return hours * 3600 + minutes * 60 + seconds
+    except (ValueError, IndexError):
+        pass
+    return 0
+
+
+def parse_video_created_time(created_at_str):
+    """Parse video creation timestamp from ISO format to Unix timestamp."""
+    if not created_at_str:
+        return 0
+    try:
+        # Handle both 'Z' and '+00:00' timezone formats
+        created_dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+        return created_dt.timestamp()
+    except (ValueError, TypeError):
+        return 0
+
+
+def calculate_video_overlap(video, playhead_time, time_offset=0):
+    """Calculate how much a video overlaps with the playhead time.
+
+    Args:
+        video: Video metadata dict
+        playhead_time: Current playhead timestamp
+        time_offset: Time offset in seconds to apply to video timing
+
+    Returns:
+        dict: {
+            'overlaps': bool,
+            'overlap_duration': float (seconds),
+            'video_start': float (timestamp),
+            'video_end': float (timestamp),
+            'adjusted_video_start': float (timestamp),
+            'adjusted_video_end': float (timestamp)
+        }
+    """
+    original_video_start_time = parse_video_created_time(video.get("fileCreatedAt"))
+    duration_seconds = parse_video_duration(
+        video.get("metadata", {}).get("duration", "0")
+    )
+    original_video_end_time = original_video_start_time + duration_seconds
+
+    # Apply time offset (positive offset = video appears later)
+    adjusted_video_start_time = original_video_start_time + time_offset
+    adjusted_video_end_time = adjusted_video_start_time + duration_seconds
+
+    # Check if playhead falls within adjusted video timerange
+    overlaps = adjusted_video_start_time <= playhead_time <= adjusted_video_end_time
+
+    # Calculate overlap duration (for tie-breaking when multiple videos overlap)
+    if overlaps:
+        # For simplicity, we'll use the distance from video start as a proxy for "best match"
+        # Closer to video start = better match
+        overlap_duration = playhead_time - adjusted_video_start_time
+    else:
+        overlap_duration = 0
+
+    return {
+        "overlaps": overlaps,
+        "overlap_duration": overlap_duration,
+        "video_start": original_video_start_time,
+        "video_end": original_video_end_time,
+        "adjusted_video_start": adjusted_video_start_time,
+        "adjusted_video_end": adjusted_video_end_time,
+    }
+
+
+def find_best_overlapping_video(video_options, playhead_time, time_offset=0):
+    """Find the best video that overlaps with the playhead time.
+
+    Args:
+        video_options: List of video metadata dicts
+        playhead_time: Current playhead timestamp
+        time_offset: Time offset in seconds to apply to video timing
+
+    Selection priority:
+    1. Video with greatest overlap (closest to start time)
+    2. If tie, return first video in list
+    """
+    overlapping_videos = []
+
+    for video in video_options:
+        overlap_info = calculate_video_overlap(video, playhead_time, time_offset)
+        if overlap_info["overlaps"]:
+            overlapping_videos.append((video, overlap_info))
+
+    if not overlapping_videos:
+        return None
+
+    # Sort by overlap_duration (ascending - closer to start is better)
+    # Then by list order (stable sort maintains original order for ties)
+    overlapping_videos.sort(key=lambda x: x[1]["overlap_duration"])
+
+    return overlapping_videos[0][0]  # Return the video (not the tuple)
+
+
+def register_callbacks(app, dff, video_options=None):
     """Register all server-side callbacks with the given app instance."""
 
     @app.callback(
@@ -96,20 +203,31 @@ def register_callbacks(app, dff):
     @app.callback(
         Output("is-playing", "data"),
         Output("play-button", "children"),
+        Output("play-button", "className"),
         Input("play-button", "n_clicks"),
         State("is-playing", "data"),
     )
     def toggle_play_pause(n_clicks, is_playing):
-        """Toggle play/pause state and update button text."""
+        """Toggle play/pause state and update button text and styling."""
         if n_clicks % 2 == 1:
-            return True, "Pause"  # Switch to playing
+            # Playing state - show pause button
+            return True, "Pause", "btn btn-primary btn-round btn-pause btn-lg"
         else:
-            return False, "Play"  # Switch to paused
+            # Paused state - show play button
+            return False, "Play", "btn btn-primary btn-round btn-play btn-lg"
 
     @app.callback(Output("interval-component", "disabled"), Input("is-playing", "data"))
     def update_interval_component(is_playing):
         """Enable/disable the interval component based on play state."""
         return not is_playing  # Interval is disabled when not playing
+
+    @app.callback(
+        Output("play-button-tooltip", "children"),
+        Input("is-playing", "data"),
+    )
+    def update_play_button_tooltip(is_playing):
+        """Update play button tooltip based on playing state."""
+        return "Pause" if is_playing else "Play"
 
     @app.callback(
         Output("playhead-time", "data"),
@@ -163,3 +281,108 @@ def register_callbacks(app, dff):
         )
         existing_fig["layout"]["uirevision"] = "constant"
         return existing_fig
+
+    # Add video selection callback if video options are available
+    if video_options:
+        # Create inputs for all video indicators
+        video_ids = [f"video-{video.get('id', 'unknown')}" for video in video_options]
+
+        video_inputs = [Input(vid, "n_clicks") for vid in video_ids]
+
+        @app.callback(
+            Output("selected-video", "data"),
+            Output("manual-video-override", "data"),
+            [Input("playhead-time", "data")] + video_inputs,
+            [
+                State("selected-video", "data"),
+                State("manual-video-override", "data"),
+                State("video-time-offset", "data"),
+            ],
+        )
+        def video_selection_manager(playhead_time, *args):
+            """Manage both auto and manual video selection with proper priority."""
+            # Extract states from args (manual clicks are unused but required for callback signature)
+            manual_override = args[-2]  # Current manual override state
+            time_offset = args[-1] or 0  # Current time offset (default to 0 if None)
+
+            ctx = callback_context
+
+            # Check if this was triggered by a manual click
+            manual_click_triggered = False
+            clicked_video = None
+
+            for trigger in ctx.triggered:
+                if trigger["prop_id"] != "playhead-time.data" and trigger.get("value"):
+                    manual_click_triggered = True
+                    clicked_id = trigger["prop_id"].split(".")[0]
+
+                    # Extract video ID from button ID (format: "video-{video_id}")
+                    video_button_id = clicked_id.replace("video-", "")
+
+                    # Find the corresponding video in video_options
+                    for vid in video_options:
+                        if vid.get("id") == video_button_id:
+                            clicked_video = vid
+                            break
+
+                    if not clicked_video:
+                        print(f"⚠️ No matching video found for ID: {video_button_id}")
+                    break
+
+            if manual_click_triggered and clicked_video:
+                # Manual selection - this becomes the new override
+                return clicked_video, clicked_video
+
+            elif manual_override:
+                # We have a manual override active - maintain it regardless of playhead
+                return manual_override, manual_override
+
+            else:
+                # Auto-selection based on playhead time with offset applied
+                best_video = find_best_overlapping_video(
+                    video_options, playhead_time, time_offset
+                )
+
+                if best_video:
+                    return best_video, None  # Clear manual override
+                else:
+                    print(
+                        f"🤖 No overlapping video found (offset: {time_offset}s) - clearing selection"
+                    )
+                    return None, None  # Clear both selection and manual override
+
+    @app.callback(
+        Output("video-trimmer", "videoSrc"),
+        Output("video-trimmer", "videoMetadata"),
+        Output("video-trimmer", "datasetStartTime"),
+        Input("selected-video", "data"),
+    )
+    def update_video_player(selected_video):
+        """Update VideoPreview component with selected video and metadata."""
+        # Always provide dataset start time for temporal alignment
+        dataset_start_time = dff["timestamp"].min()
+
+        if selected_video:
+            video_url = selected_video.get("shareUrl") or selected_video.get(
+                "originalUrl"
+            )
+
+            # Extract relevant metadata for temporal alignment
+            video_metadata = {
+                "fileCreatedAt": selected_video.get("fileCreatedAt"),
+                "duration": selected_video.get("metadata", {}).get("duration"),
+                "filename": selected_video.get("filename"),
+            }
+
+            return video_url, video_metadata, dataset_start_time
+
+        return "", None, dataset_start_time
+
+    @app.callback(
+        Output("video-time-offset", "data"),
+        Input("video-trimmer", "timeOffset"),
+        prevent_initial_call=True,
+    )
+    def update_video_offset_store(time_offset):
+        """Update the video time offset store when component changes."""
+        return time_offset or 0

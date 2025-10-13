@@ -1,6 +1,21 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
+import typing  # noqa: F401
+from typing_extensions import TypedDict, NotRequired, Literal  # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+
+ComponentType = typing.Union[
+    str,
+    int,
+    float,
+    Component,
+    None,
+    typing.Sequence[typing.Union[str, int, float, Component, None]],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class VideoPreview(Component):
@@ -11,57 +26,59 @@ class VideoPreview(Component):
 
     - id (string; optional)
 
-    - currentTime (number; default 0)
-
-    - endTime (number; optional)
+    - datasetStartTime (number; optional)
 
     - isPlaying (boolean; default False)
 
     - playheadTime (number; optional)
 
-    - startTime (number; optional)
+    - showControls (boolean; default True)
 
-    - style (dict; optional)
+    - timeOffset (number; default 0)
 
-    - videoSrc (string; required)"""
+    - videoMetadata (dict; optional)
+
+    - videoSrc (string; optional)"""
 
     _children_props = []
     _base_nodes = ["children"]
     _namespace = "video_preview"
     _type = "VideoPreview"
 
-    @_explicitize_args
     def __init__(
         self,
-        id=Component.UNDEFINED,
-        videoSrc=Component.REQUIRED,
-        startTime=Component.UNDEFINED,
-        endTime=Component.UNDEFINED,
-        style=Component.UNDEFINED,
-        playheadTime=Component.UNDEFINED,
-        isPlaying=Component.UNDEFINED,
-        currentTime=Component.UNDEFINED,
+        id: typing.Optional[typing.Union[str, dict]] = None,
+        videoSrc: typing.Optional[str] = None,
+        videoMetadata: typing.Optional[dict] = None,
+        datasetStartTime: typing.Optional[NumberType] = None,
+        style: typing.Optional[typing.Any] = None,
+        playheadTime: typing.Optional[NumberType] = None,
+        isPlaying: typing.Optional[bool] = None,
+        showControls: typing.Optional[bool] = None,
+        timeOffset: typing.Optional[NumberType] = None,
         **kwargs,
     ):
         self._prop_names = [
             "id",
-            "currentTime",
-            "endTime",
+            "datasetStartTime",
             "isPlaying",
             "playheadTime",
-            "startTime",
+            "showControls",
             "style",
+            "timeOffset",
+            "videoMetadata",
             "videoSrc",
         ]
         self._valid_wildcard_attributes = []
         self.available_properties = [
             "id",
-            "currentTime",
-            "endTime",
+            "datasetStartTime",
             "isPlaying",
             "playheadTime",
-            "startTime",
+            "showControls",
             "style",
+            "timeOffset",
+            "videoMetadata",
             "videoSrc",
         ]
         self.available_wildcard_properties = []
@@ -70,8 +87,7 @@ class VideoPreview(Component):
         _locals.update(kwargs)  # For wildcard attrs and excess named props
         args = {k: _locals[k] for k in _explicit_args}
 
-        for k in ["videoSrc"]:
-            if k not in args:
-                raise TypeError("Required argument `" + k + "` was not specified.")
-
         super(VideoPreview, self).__init__(**args)
+
+
+setattr(VideoPreview, "__init__", _explicitize_args(VideoPreview.__init__))

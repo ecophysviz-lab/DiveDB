@@ -1,8 +1,10 @@
 import dash
+import os
+import sys
 import pandas as pd
 from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
-import os
+from pathlib import Path
 
 from DiveDB.services.duck_pond import DuckPond
 from DiveDB.services.notion_orm import NotionORMManager
@@ -11,7 +13,20 @@ from layout import create_layout
 from callbacks import register_callbacks
 from clientside_callbacks import register_clientside_callbacks
 
+# Add DiveDB root to path for Immich integration
+sys.path.append(str(Path(__file__).parent.parent))
+
+from immich_integration import ImmichService  # noqa: E402
+
 load_dotenv()
+# Hard-coded dataset and deployment IDs
+DATASET_ID = "apfo-adult-penguin_hr-sr_penguin-ranch_JKB-PP"
+DEPLOYMENT_ID = "DepID_2019-11-08_apfo-001"  # Deployment ID format: date + animal ID
+START_DATE = "2019-11-08T09:33:11"
+END_DATE = "2019-11-08T09:39:30"
+TIMEZONE = 13
+START_DATE_TZ = START_DATE + f"+{TIMEZONE}:00"
+END_DATE_TZ = END_DATE + f"+{TIMEZONE}:00"
 
 notion_manager = NotionORMManager(
     token=os.getenv("NOTION_TOKEN"),
@@ -25,7 +40,6 @@ notion_manager = NotionORMManager(
         "Standardized Channel DB": os.getenv("NOTION_STANDARDIZEDCHANNEL_DB"),
     },
 )
-duck_pond = DuckPond.from_environment(notion_manager=notion_manager)
 
 app = dash.Dash(
     __name__,
@@ -35,14 +49,26 @@ app = dash.Dash(
     ],
 )
 
-channel_dff = duck_pond.get_available_channels(
-    dataset="apfo-adult-penguin_hr-sr_penguin-ranch_JKB-PP",
+duck_pond = DuckPond.from_environment(notion_manager=notion_manager)
+
+channel_options = duck_pond.get_available_channels(
+    dataset=DATASET_ID,
     include_metadata=True,
     pack_groups=True,
 )
 
+# Fetch available video assets from Immich for this deployment
+immich_service = ImmichService()
+media_result = immich_service.find_media_by_deployment_id(
+    DEPLOYMENT_ID, media_type="VIDEO", shared=True
+)
+
+# Prepare video options for React component using immich service method
+video_result = immich_service.prepare_video_options_for_react(media_result)
+video_options = video_result.get("video_options", [])
+
 dff = duck_pond.get_data(
-    dataset="apfo-adult-penguin_hr-sr_penguin-ranch_JKB-PP",
+    dataset=DATASET_ID,
     animal_ids="apfo-001",
     frequency=1,
     labels=[
@@ -54,19 +80,27 @@ dff = duck_pond.get_data(
         "heading",
     ],
     pivoted=True,
-    date_range=("2019-11-08T09:33:11+13:00", "2019-11-08T09:39:30+13:00"),
+    date_range=(START_DATE_TZ, END_DATE_TZ),
 )
 
 # Ensure datetimes are timezone-aware in UTC first
-dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce")
-if dff["datetime"].dt.tz is None:
-    dff["datetime"] = dff["datetime"].dt.tz_localize("UTC")
-else:
-    dff["datetime"] = dff["datetime"].dt.tz_convert("UTC")
+dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce") + pd.Timedelta(
+    hours=TIMEZONE
+)
 
 # Convert datetime to timestamp (seconds since epoch) for slider control
 dff["timestamp"] = dff["datetime"].apply(lambda x: x.timestamp())
 dff["depth"] = dff["depth"].apply(lambda x: x * -1)
+
+# Define the restricted time range (biologging data bounds) for video synchronization
+data_start_time = dff["datetime"].min()
+data_end_time = dff["datetime"].max()
+restricted_time_range = {
+    "start": data_start_time.isoformat(),
+    "end": data_end_time.isoformat(),
+    "startTimestamp": dff["timestamp"].min(),
+    "endTimestamp": dff["timestamp"].max(),
+}
 
 # Replace the existing figure creation with a call to the new function
 fig = plot_tag_data_interactive5(
@@ -160,12 +194,18 @@ fig.update_layout(
 data_json = dff[["datetime", "pitch", "roll", "heading"]].to_json(orient="split")
 
 # Create the app layout using the modular layout system
-app.layout = create_layout(fig, data_json, dff)
+app.layout = create_layout(
+    fig,
+    data_json,
+    dff,
+    video_options=video_options,
+    restricted_time_range=restricted_time_range,
+)
 
 # Register callbacks
-register_callbacks(app, dff)
+register_callbacks(app, dff, video_options)
 register_clientside_callbacks(app)
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=8054)
