@@ -417,6 +417,249 @@ def create_main_content(fig):
             html.Div(
                 [
                     html.Div(
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        html.P(
+                                            [
+                                                html.Strong(
+                                                    [
+                                                        "Data Channels",
+                                                    ],
+                                                ),
+                                            ],
+                                            className="m-0",
+                                        ),
+                                    ],
+                                    className="sidebar_title",
+                                ),
+                                dbc.Col(
+                                    [
+                                        dbc.DropdownMenu(
+                                            [
+                                                html.Div(
+                                                    [
+                                                        dbc.ListGroup(
+                                                            [
+                                                                dbc.ListGroupItem(
+                                                                    dbc.Row(
+                                                                        [
+                                                                            dbc.Col(
+                                                                                html.Button(
+                                                                                    html.Img(
+                                                                                        src="/assets/images/drag.svg",
+                                                                                        className="drag-icon",
+                                                                                    ),
+                                                                                    className="btn btn-icon-only btn-sm",
+                                                                                    id="channel-1-drag",
+                                                                                ),
+                                                                                width="auto",
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                dbc.Select(
+                                                                                    [
+                                                                                        {"label": "Depth", "value": "depth"},
+                                                                                        {"label": "Pitch, roll, heading", "value": "prh"},
+                                                                                        {"label": "Temperature", "value": "temperature"},
+                                                                                        {"label": "Light", "value": "light"},
+                                                                                    ],
+                                                                                    value="depth",
+                                                                                    id="channel-1-select",
+                                                                                ),
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                html.Button(
+                                                                                    html.Img(
+                                                                                        src="/assets/images/remove.svg",
+                                                                                        className="remove-icon",
+                                                                                    ),
+                                                                                    className="btn btn-icon-only btn-sm",
+                                                                                    id="channel-1-remove",
+                                                                                ),
+                                                                                width="auto",
+                                                                            ),
+                                                                        ],
+                                                                        align="center",
+                                                                        className="g-2",
+                                                                    ),
+                                                                ),
+                                                                dbc.ListGroupItem(
+                                                                    dbc.Row(
+                                                                        [
+                                                                            dbc.Col(
+                                                                                html.Button(
+                                                                                    html.Img(
+                                                                                        src="/assets/images/drag.svg",
+                                                                                        className="drag-icon",
+                                                                                    ),
+                                                                                    className="btn btn-icon-only btn-sm",
+                                                                                    id="channel-2-drag",
+                                                                                ),
+                                                                                width="auto",
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                dbc.Select(
+                                                                                    [
+                                                                                        {"label": "Depth", "value": "depth"},
+                                                                                        {"label": "Pitch, roll, heading", "value": "prh"},
+                                                                                        {"label": "Temperature", "value": "temperature"},
+                                                                                        {"label": "Light", "value": "light"},
+                                                                                    ],
+                                                                                    value="prh",
+                                                                                    id="channel-2-select",
+                                                                                ),
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                html.Button(
+                                                                                    html.Img(
+                                                                                        src="/assets/images/remove.svg",
+                                                                                        className="remove-icon",
+                                                                                    ),
+                                                                                    className="btn btn-icon-only btn-sm",
+                                                                                    id="channel-2-remove",
+                                                                                ),
+                                                                                width="auto",
+                                                                            ),
+                                                                        ],
+                                                                        align="center",
+                                                                        className="g-2",
+                                                                    ),
+                                                                ),
+                                                                dbc.ListGroupItem(
+                                                                    dbc.Row(
+                                                                        [
+                                                                            dbc.Col(
+                                                                                html.Button(
+                                                                                    html.Img(
+                                                                                        src="/assets/images/drag.svg",
+                                                                                        className="drag-icon",
+                                                                                    ),
+                                                                                    className="btn btn-icon-only btn-sm",
+                                                                                    id="channel-3-drag",
+                                                                                ),
+                                                                                width="auto",
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                dbc.Select(
+                                                                                    [
+                                                                                        {"label": "Depth", "value": "depth"},
+                                                                                        {"label": "Pitch, roll, heading", "value": "prh"},
+                                                                                        {"label": "Temperature", "value": "temperature"},
+                                                                                        {"label": "Light", "value": "light"},
+                                                                                    ],
+                                                                                    value="temperature",
+                                                                                    id="channel-3-select",
+                                                                                ),
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                html.Button(
+                                                                                    html.Img(
+                                                                                        src="/assets/images/remove.svg",
+                                                                                        className="remove-icon",
+                                                                                    ),
+                                                                                    className="btn btn-icon-only btn-sm",
+                                                                                    id="channel-3-remove",
+                                                                                ),
+                                                                                width="auto",
+                                                                            ),
+                                                                        ],
+                                                                        align="center",
+                                                                        className="g-2",
+                                                                    ),
+                                                                ),
+                                                                dbc.ListGroupItem(
+                                                                    dbc.Row(
+                                                                        [
+                                                                            dbc.Col(
+                                                                                html.Button(
+                                                                                    html.Img(
+                                                                                        src="/assets/images/drag.svg",
+                                                                                        className="drag-icon",
+                                                                                    ),
+                                                                                    className="btn btn-icon-only btn-sm",
+                                                                                    id="channel-4-drag",
+                                                                                ),
+                                                                                width="auto",
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                dbc.Select(
+                                                                                    [
+                                                                                        {"label": "Depth", "value": "depth"},
+                                                                                        {"label": "Pitch, roll, heading", "value": "prh"},
+                                                                                        {"label": "Temperature", "value": "temperature"},
+                                                                                        {"label": "Light", "value": "light"},
+                                                                                    ],
+                                                                                    value="light",
+                                                                                    id="channel-4-select",
+                                                                                ),
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                html.Button(
+                                                                                    html.Img(
+                                                                                        src="/assets/images/remove.svg",
+                                                                                        className="remove-icon",
+                                                                                    ),
+                                                                                    className="btn btn-icon-only btn-sm",
+                                                                                    id="channel-4-remove",
+                                                                                ),
+                                                                                width="auto",
+                                                                            ),
+                                                                        ],
+                                                                        align="center",
+                                                                        className="g-2",
+                                                                    ),
+                                                                ),
+                                                                dbc.ListGroupItem(
+                                                                    dbc.Row(
+                                                                        [
+                                                                            dbc.Col(
+                                                                                dbc.Button(
+                                                                                    "Add Graph",
+                                                                                    color="primary",
+                                                                                    className="btn-xs btn-stroke my-1",
+                                                                                    id="add-graph-btn2",
+                                                                                ),
+                                                                            ),
+                                                                        ],
+                                                                        align="center",
+                                                                        className="g-2",
+                                                                    ),
+                                                                ),
+                                                            ],
+                                                        ),
+                                                        
+                                                    ],
+                                                    className="",
+                                                )
+                                            ],
+                                            toggle_class_name="btn btn-sm btn-icon-only m-0",
+                                            id="graph-channels",
+                                            direction="down",
+                                            align_end=False,
+                                            label=[
+                                                html.Img(
+                                                    src="/assets/images/filter.svg",
+                                                    className="",
+                                                ),
+                                                "Manage Channels"
+                                            ]
+                                        ),
+                                        dbc.Tooltip(
+                                            "Manage Channels",
+                                            target="graph-channels",
+                                            placement="right",
+                                        ),
+                                    ],
+                                    width={"size": "auto"},
+                                ),
+                            ],
+                            align="center",
+                            className="gx-2",
+                        ),
+                        className="sidebar_header",
+                    ),
+                    html.Div(
                         [
                             html.Div(
                                 [
@@ -429,10 +672,10 @@ def create_main_content(fig):
                                 className="graph-content-container",
                             ),
                         ],
-                        className="main_content_scroll",
+                        className="sidebar_content",
                     )
                 ],
-                className="content",
+                className="sidebar",
             ),
             html.Div([], className="resize-bar", id="resizeHandle"),
         ],

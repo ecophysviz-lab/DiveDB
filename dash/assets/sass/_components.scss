@@ -18,6 +18,15 @@
         --bs-accordion-active-color: var(--white);
         --bs-accordion-active-bg: var(--blue);
         --bs-accordion-btn-focus-box-shadow: 0 0 0 0.2rem rgba(var(--blue-rgb), 0.5);
+
+        .list-group-item {
+            margin-left: -10px;
+            margin-right: -10px;
+            width: auto;
+            border-left: none;
+            border-right: none;
+            border-radius: 0;
+        }
     }
 }
 
@@ -76,12 +85,6 @@
 
 .list-group-item {
     --bs-list-group-border-color: var(--blueExtraDark) !important;
-    border-left: none;
-    border-right: none;
-    border-radius: 0;
-    margin-left: -10px;
-    margin-right: -10px;
-    width: auto;
 }
 
 .icon {
