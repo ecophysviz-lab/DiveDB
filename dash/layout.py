@@ -797,9 +797,15 @@ def generate_event_indicators_row(events_df, timestamp_min, timestamp_max):
             start_ratio = max(0.0, min(1.0, start_ratio))
             end_ratio = max(0.0, min(1.0, end_ratio))
 
-            # Format times for tooltip
-            start_time = pd.to_datetime(event["datetime_start"]).strftime("%H:%M:%S")
-            end_time = pd.to_datetime(event["datetime_end"]).strftime("%H:%M:%S")
+            # Format times for tooltip with milliseconds
+            start_dt = pd.to_datetime(event["datetime_start"])
+            end_dt = pd.to_datetime(event["datetime_end"])
+
+            # Format with milliseconds (strftime %f gives microseconds, so divide by 1000)
+            start_time = start_dt.strftime("%H:%M:%S.%f")[
+                :-3
+            ]  # Remove last 3 digits to get milliseconds
+            end_time = end_dt.strftime("%H:%M:%S.%f")[:-3]
 
             # Get color for this event type
             event_color = color_map.get(event["event_key"], "#95a5a6")  # Default gray
@@ -813,9 +819,18 @@ def generate_event_indicators_row(events_df, timestamp_min, timestamp_max):
                 )
             ]
 
-            tooltip_content.append(
-                html.Div(f"{start_time} - {end_time}", className="event-time")
-            )
+            # Show single time if start and end are the same, otherwise show range
+            if start_dt == end_dt:
+                start_time = start_dt.strftime("%H:%M:%S.%f")[
+                    :-3
+                ]  # Remove last 3 digits to get milliseconds
+                tooltip_content.append(html.Div(start_time, className="event-time"))
+            else:
+                start_time = start_dt.strftime("%H:%M:%S")
+                end_time = end_dt.strftime("%H:%M:%S")
+                tooltip_content.append(
+                    html.Div(f"{start_time} - {end_time}", className="event-time")
+                )
 
             if pd.notna(event.get("short_description")):
                 tooltip_content.append(html.Div(event["short_description"]))
@@ -1478,7 +1493,8 @@ def create_layout(
                     ),
                     create_footer(
                         dff, video_options=video_options, events_df=events_df
-                    ),                ],
+                    ),
+                ],
                 className="grid",
             ),
             create_bookmark_modal(),

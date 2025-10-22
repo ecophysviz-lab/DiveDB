@@ -178,7 +178,8 @@ class DatasetManager:
                                 CAST(NULL AS DOUBLE) as float_value,
                                 CAST(NULL AS BIGINT) as int_value,
                                 CAST(NULL AS BOOLEAN) as boolean_value,
-                                CAST(NULL AS VARCHAR) as string_value
+                                CAST(NULL AS VARCHAR) as string_value,
+                                CAST(NULL AS VARCHAR) as data_type
                             WHERE FALSE;
                         """
                         )

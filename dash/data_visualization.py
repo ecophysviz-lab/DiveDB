@@ -96,9 +96,7 @@ events_df = duck_pond.get_events(
 )
 
 # Ensure datetimes are timezone-aware in UTC first
-dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce") + pd.Timedelta(
-    hours=TIMEZONE
-)
+dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce")
 
 # Convert datetime to timestamp (seconds since epoch) for slider control
 dff["timestamp"] = dff["datetime"].apply(lambda x: x.timestamp())
