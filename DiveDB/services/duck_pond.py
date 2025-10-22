@@ -120,16 +120,16 @@ class DuckPond:
         view_name = self.get_view_name(dataset, "data")
 
         query_vars = f"""
-            SELECT "group", class, label
+            SELECT "class", class, label
             FROM {view_name}
             WHERE label IS NOT NULL
             GROUP BY 1,2,3
             ORDER BY 1,2,3
         """
         query_groups = f"""
-            SELECT "group"
+            SELECT "class"
             FROM {view_name}
-            WHERE "group" IS NOT NULL
+            WHERE "class" IS NOT NULL
             GROUP BY 1
             ORDER BY 1
         """
