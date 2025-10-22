@@ -387,19 +387,31 @@ class DataUploader:
                 (var for var in event_data_vars if "duration" in var.lower()), None
             )
             if duration_var:
+                # Get event type information from the netCDF coordinate
+                event_types = ds["event_data_type"].values
                 duration_data = ds[duration_var].values
-                start_times = ds["event_data_value"].values
-                # Convert start_times to datetime64 if it's not already
-                start_times = pa.array(
-                    ds.coords["event_data_samples"].values,
-                    type=self._get_datetime_type(ds.coords["event_data_samples"]),
+                duration_array = np.array(duration_data, dtype="timedelta64[s]")
+
+                # Get start times as numpy array (timezone-naive, represents UTC)
+                start_times_np = ds.coords["event_data_samples"].values
+                end_times_np = start_times_np.copy()
+
+                # Differentiate between point and state events using explicit event_data_type
+                # Point events: end_times = start_times
+                # State events: end_times = start_times + duration
+                is_state_event = event_types == "state"
+                end_times_np[is_state_event] = (
+                    start_times_np[is_state_event] + duration_array[is_state_event]
                 )
 
-                # TODO: Update to diffentiate between point and state events
-                # If point events, end_times = start_times
-                # If state events, end_times = start_times + duration
-                end_times = start_times + np.array(
-                    duration_data, dtype="timedelta64[s]"
+                # Convert to PyArrow arrays with explicit UTC timezone
+                start_times = pa.array(
+                    start_times_np,
+                    type=self._get_datetime_type(ds.coords["event_data_samples"]),
+                )
+                end_times = pa.array(
+                    end_times_np,
+                    type=self._get_datetime_type(ds.coords["event_data_samples"]),
                 )
 
                 event_keys = ds["event_data_key"].values

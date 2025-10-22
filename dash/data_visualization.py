@@ -1,6 +1,7 @@
 import dash
 import os
 import sys
+
 import pandas as pd
 from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
@@ -81,12 +82,21 @@ dff = duck_pond.get_data(
     ],
     pivoted=True,
     date_range=(START_DATE_TZ, END_DATE_TZ),
+    apply_timezone_offset=TIMEZONE,
+    add_timestamp_column=True,
+)
+
+# Fetch events for this deployment
+events_df = duck_pond.get_events(
+    dataset=DATASET_ID,
+    animal_ids="apfo-001",
+    date_range=(START_DATE_TZ, END_DATE_TZ),
+    apply_timezone_offset=TIMEZONE,
+    add_timestamp_columns=True,
 )
 
 # Ensure datetimes are timezone-aware in UTC first
-dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce") + pd.Timedelta(
-    hours=TIMEZONE
-)
+dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce")
 
 # Convert datetime to timestamp (seconds since epoch) for slider control
 dff["timestamp"] = dff["datetime"].apply(lambda x: x.timestamp())
@@ -200,6 +210,7 @@ app.layout = create_layout(
     dff,
     video_options=video_options,
     restricted_time_range=restricted_time_range,
+    events_df=events_df,
 )
 
 # Register callbacks
