@@ -1,6 +1,8 @@
 import dash
 import os
 import sys
+
+import pandas as pd
 from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
 from pathlib import Path
@@ -92,6 +94,14 @@ events_df = duck_pond.get_events(
     apply_timezone_offset=TIMEZONE,
     add_timestamp_columns=True,
 )
+
+# Ensure datetimes are timezone-aware in UTC first
+dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce") + pd.Timedelta(
+    hours=TIMEZONE
+)
+
+# Convert datetime to timestamp (seconds since epoch) for slider control
+dff["timestamp"] = dff["datetime"].apply(lambda x: x.timestamp())
 dff["depth"] = dff["depth"].apply(lambda x: x * -1)
 
 # Define the restricted time range (biologging data bounds) for video synchronization

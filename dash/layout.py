@@ -925,7 +925,7 @@ def create_footer(dff, video_options=None, events_df=None):
                 html.Div(truncate_middle(filename), className="video-filename")
             ]
 
-            start_dt = datetime.fromisoformat(created)
+            start_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
             start_time = start_dt.strftime("%H:%M:%S")
 
             if duration != "Unknown":
@@ -1478,8 +1478,7 @@ def create_layout(
                     ),
                     create_footer(
                         dff, video_options=video_options, events_df=events_df
-                    ),
-                ],
+                    ),                ],
                 className="grid",
             ),
             create_bookmark_modal(),
