@@ -258,29 +258,31 @@ def register_callbacks(app, dff, video_options=None):
         else:
             raise dash.exceptions.PreventUpdate
 
-    @app.callback(
-        Output("graph-content", "figure"),
-        Input("playhead-time", "data"),
-        State("graph-content", "figure"),
-    )
-    def update_graph_playhead(playhead_timestamp, existing_fig):
-        """Update the graph with a vertical line showing current playhead position."""
-        playhead_time = pd.to_datetime(playhead_timestamp, unit="s")
-        existing_fig["layout"]["shapes"] = []
-        existing_fig["layout"]["shapes"].append(
-            dict(
-                type="line",
-                x0=playhead_time,
-                x1=playhead_time,
-                y0=0,
-                y1=1,
-                xref="x",
-                yref="paper",
-                line=dict(color="#73a9c4", width=2, dash="solid"),
-            )
-        )
-        existing_fig["layout"]["uirevision"] = "constant"
-        return existing_fig
+    # TODO: Re-enable this callback after refactoring to avoid duplicate outputs
+    # This conflicts with the load_visualization callback in selection_callbacks.py
+    # @app.callback(
+    #     Output("graph-content", "figure"),
+    #     Input("playhead-time", "data"),
+    #     State("graph-content", "figure"),
+    # )
+    # def update_graph_playhead(playhead_timestamp, existing_fig):
+    #     """Update the graph with a vertical line showing current playhead position."""
+    #     playhead_time = pd.to_datetime(playhead_timestamp, unit="s")
+    #     existing_fig["layout"]["shapes"] = []
+    #     existing_fig["layout"]["shapes"].append(
+    #         dict(
+    #             type="line",
+    #             x0=playhead_time,
+    #             x1=playhead_time,
+    #             y0=0,
+    #             y1=1,
+    #             xref="x",
+    #             yref="paper",
+    #             line=dict(color="#73a9c4", width=2, dash="solid"),
+    #         )
+    #     )
+    #     existing_fig["layout"]["uirevision"] = "constant"
+    #     return existing_fig
 
     # Add video selection callback if video options are available
     if video_options:
