@@ -6,13 +6,14 @@ import pandas as pd
 from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
 from pathlib import Path
+import plotly.graph_objects as go
 
 from DiveDB.services.duck_pond import DuckPond
 from DiveDB.services.notion_orm import NotionORMManager
-from graph_utils import plot_tag_data_interactive5
 from layout import create_layout
 from callbacks import register_callbacks
 from clientside_callbacks import register_clientside_callbacks
+from selection_callbacks import register_selection_callbacks
 
 # Add DiveDB root to path for Immich integration
 sys.path.append(str(Path(__file__).parent.parent))
@@ -20,15 +21,8 @@ sys.path.append(str(Path(__file__).parent.parent))
 from immich_integration import ImmichService  # noqa: E402
 
 load_dotenv()
-# Hard-coded dataset and deployment IDs
-DATASET_ID = "apfo-adult-penguin_hr-sr_penguin-ranch_JKB-PP"
-DEPLOYMENT_ID = "DepID_2019-11-08_apfo-001"  # Deployment ID format: date + animal ID
-START_DATE = "2019-11-08T09:33:11"
-END_DATE = "2019-11-08T09:39:30"
-TIMEZONE = 13
-START_DATE_TZ = START_DATE + f"+{TIMEZONE}:00"
-END_DATE_TZ = END_DATE + f"+{TIMEZONE}:00"
 
+# Initialize Notion manager
 notion_manager = NotionORMManager(
     token=os.getenv("NOTION_TOKEN"),
     db_map={
@@ -50,172 +44,107 @@ app = dash.Dash(
     ],
 )
 
+# Initialize services (will be passed to callbacks)
 duck_pond = DuckPond.from_environment(notion_manager=notion_manager)
-
-channel_options = duck_pond.get_available_channels(
-    dataset=DATASET_ID,
-    include_metadata=True,
-    pack_groups=True,
-)
-
-# Fetch available video assets from Immich for this deployment
 immich_service = ImmichService()
-media_result = immich_service.find_media_by_deployment_id(
-    DEPLOYMENT_ID, media_type="VIDEO", shared=True
-)
 
-# Prepare video options for React component using immich service method
-video_result = immich_service.prepare_video_options_for_react(media_result)
-video_options = video_result.get("video_options", [])
+# Load datasets on startup
+print("🔍 Loading datasets from data lake...")
+available_datasets = duck_pond.get_all_datasets()
+print(f"📊 Found {len(available_datasets)} datasets: {available_datasets}")
 
-dff = duck_pond.get_data(
-    dataset=DATASET_ID,
-    animal_ids="apfo-001",
-    frequency=1,
-    labels=[
-        "depth",
-        "temp_ext",
-        "light",
-        "pitch",
-        "roll",
-        "heading",
-    ],
-    pivoted=True,
-    date_range=(START_DATE_TZ, END_DATE_TZ),
-    apply_timezone_offset=TIMEZONE,
-    add_timestamp_column=True,
-)
+# Load deployments for the first dataset if available
+initial_deployments = []
+if available_datasets:
+    default_dataset = available_datasets[0]
+    print(f"🔍 Loading deployments for default dataset: {default_dataset}")
+    try:
+        view_name = duck_pond.get_view_name(default_dataset, "data")
+        query = f"""
+            SELECT DISTINCT 
+                deployment,
+                animal,
+                MIN(datetime) as min_date,
+                MAX(datetime) as max_date,
+                COUNT(*) as sample_count
+            FROM {view_name}
+            WHERE deployment IS NOT NULL AND animal IS NOT NULL
+            GROUP BY deployment, animal
+            ORDER BY min_date DESC
+        """
+        deployments_df = duck_pond.conn.sql(query).df()
+        initial_deployments = deployments_df.to_dict("records")
+        print(f"📊 Found {len(initial_deployments)} deployments")
+    except Exception as e:
+        print(f"❌ Error loading initial deployments: {e}")
 
-# Fetch events for this deployment
-events_df = duck_pond.get_events(
-    dataset=DATASET_ID,
-    animal_ids="apfo-001",
-    date_range=(START_DATE_TZ, END_DATE_TZ),
-    apply_timezone_offset=TIMEZONE,
-    add_timestamp_columns=True,
-)
 
-# Ensure datetimes are timezone-aware in UTC first
-dff["datetime"] = pd.to_datetime(dff["datetime"], errors="coerce")
+def create_empty_figure():
+    """Create an empty placeholder figure for initial load."""
+    fig = go.Figure()
+    fig.update_layout(
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        annotations=[
+            dict(
+                text="Select a dataset and deployment to begin",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                xanchor="center",
+                yanchor="middle",
+                showarrow=False,
+                font=dict(size=20, color="gray"),
+            )
+        ],
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(245,245,245,1)",
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=600,
+    )
+    return fig
 
-# Convert datetime to timestamp (seconds since epoch) for slider control
-dff["timestamp"] = dff["datetime"].apply(lambda x: x.timestamp())
-dff["depth"] = dff["depth"].apply(lambda x: x * -1)
 
-# Define the restricted time range (biologging data bounds) for video synchronization
-data_start_time = dff["datetime"].min()
-data_end_time = dff["datetime"].max()
-restricted_time_range = {
-    "start": data_start_time.isoformat(),
-    "end": data_end_time.isoformat(),
-    "startTimestamp": dff["timestamp"].min(),
-    "endTimestamp": dff["timestamp"].max(),
-}
+def create_empty_dataframe():
+    """Create a minimal empty dataframe for initial stores."""
+    now = pd.Timestamp.now()
+    return pd.DataFrame(
+        {
+            "datetime": [now, now + pd.Timedelta(seconds=1)],
+            "timestamp": [now.timestamp(), (now + pd.Timedelta(seconds=1)).timestamp()],
+        }
+    )
 
-# Replace the existing figure creation with a call to the new function
-fig = plot_tag_data_interactive5(
-    data_pkl={
-        "sensor_data": {
-            "light": dff[["datetime", "light"]],
-            "temperature": dff[["datetime", "temp_ext"]],
-        },
-        "derived_data": {
-            "prh": dff[["datetime", "pitch", "roll", "heading"]],
-            "depth": dff[["datetime", "depth"]],
-        },
-        "sensor_info": {
-            "light": {
-                "channels": ["light"],
-                "metadata": {
-                    "light": {
-                        "original_name": "Light",
-                        "unit": "lux",
-                    }
-                },
-            },
-            "temperature": {
-                "channels": ["temp_ext"],
-                "metadata": {
-                    "temperature": {
-                        "original_name": "Temperature (imu)",
-                        "unit": "°C",
-                    }
-                },
-            },
-        },
-        "derived_info": {
-            "depth": {
-                "channels": ["depth"],
-                "metadata": {
-                    "depth": {
-                        "original_name": "Corrected Depth",
-                        "unit": "m",
-                    }
-                },
-            },
-            "prh": {
-                "channels": ["pitch", "roll", "heading"],
-                "metadata": {
-                    "pitch": {
-                        "original_name": "Pitch",
-                        "unit": "°",
-                    },
-                    "roll": {
-                        "original_name": "Roll",
-                        "unit": "°",
-                    },
-                    "heading": {
-                        "original_name": "Heading",
-                        "unit": "°",
-                    },
-                },
-            },
-        },
-    },
-    sensors=["light", "temperature"],
-)
 
-# Set x-axis range to data range and set uirevision
-fig.update_layout(
-    xaxis=dict(
-        range=[dff["datetime"].min(), dff["datetime"].max()],
-    ),
-    uirevision="constant",  # Maintain UI state across updates
-    legend=dict(
-        orientation="h",
-        yanchor="bottom",
-        y=-0.15,
-        xanchor="right",
-        x=1,
-    ),
-    font_family="Figtree",
-    title_font_family="Figtree",
-    font=dict(
-        family="Figtree",
-        size=14,
-        weight="bold",
-    ),
-    paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
-    plot_bgcolor="rgba(245,245,245,1)",  # Transparent plot
-    margin=dict(l=0, r=0, t=0, b=0),
-)
+# Create initial empty layout
+initial_dff = create_empty_dataframe()
+initial_fig = create_empty_figure()
+initial_data_json = initial_dff[["datetime"]].to_json(orient="split")  # Minimal data
 
-# Convert DataFrame to JSON
-data_json = dff[["datetime", "pitch", "roll", "heading"]].to_json(orient="split")
-
-# Create the app layout using the modular layout system
+# Create the app layout with empty initial state
 app.layout = create_layout(
-    fig,
-    data_json,
-    dff,
-    video_options=video_options,
-    restricted_time_range=restricted_time_range,
-    events_df=events_df,
+    fig=initial_fig,
+    data_json=initial_data_json,
+    dff=initial_dff,
+    video_options=[],
+    restricted_time_range=None,
+    events_df=None,
+    available_datasets=available_datasets,
+    initial_deployments=initial_deployments,
 )
 
-# Register callbacks
-register_callbacks(app, dff, video_options)
+# Register all callbacks
+print("🚀 Starting callback registration...")
+register_callbacks(app, initial_dff, video_options=[])
+print("✓ Standard callbacks registered")
+# Register selection callbacks BEFORE clientside to establish primary outputs
+register_selection_callbacks(app, duck_pond, immich_service)
+print("✓ Selection callbacks registered")
+# Register clientside callbacks last (these use allow_duplicate=True)
 register_clientside_callbacks(app)
+print("✓ Clientside callbacks registered")
+print("🎉 All callbacks registered! App ready.")
 
 
 if __name__ == "__main__":
