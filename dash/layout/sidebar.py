@@ -170,15 +170,17 @@ def create_left_sidebar(available_datasets=None, initial_deployments=None):
                                         disabled=True,
                                         className="w-100",
                                     ),
+                                    # Loading indicator for data fetch (inline, not fullscreen)
+                                    dcc.Loading(
+                                        id="visualization-loading",
+                                        type="circle",
+                                        children=html.Div(
+                                            id="visualization-loading-output",
+                                            className="mt-2 text-center",
+                                        ),
+                                    ),
                                 ],
                                 className="px-3 py-3",
-                            ),
-                            # Loading overlay for data fetch
-                            dcc.Loading(
-                                id="visualization-loading",
-                                type="default",
-                                fullscreen=True,
-                                children=html.Div(id="visualization-loading-output"),
                             ),
                         ],
                         className="sidebar_content",

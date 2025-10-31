@@ -2,15 +2,23 @@ import dash
 import os
 import sys
 
-import pandas as pd
 from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
 from pathlib import Path
-import plotly.graph_objects as go
+from dash import dcc, html
 
 from DiveDB.services.duck_pond import DuckPond
 from DiveDB.services.notion_orm import NotionORMManager
-from layout import create_layout
+from layout import (
+    create_header,
+    create_main_content,
+    create_left_sidebar,
+    create_right_sidebar,
+    create_footer,
+    create_bookmark_modal,
+    create_empty_figure,
+    create_empty_dataframe,
+)
 from callbacks import register_callbacks
 from clientside_callbacks import register_clientside_callbacks
 from selection_callbacks import register_selection_callbacks
@@ -61,7 +69,7 @@ if available_datasets:
     try:
         view_name = duck_pond.get_view_name(default_dataset, "data")
         query = f"""
-            SELECT DISTINCT 
+            SELECT DISTINCT
                 deployment,
                 animal,
                 MIN(datetime) as min_date,
@@ -79,41 +87,81 @@ if available_datasets:
         print(f"❌ Error loading initial deployments: {e}")
 
 
-def create_empty_figure():
-    """Create an empty placeholder figure for initial load."""
-    fig = go.Figure()
-    fig.update_layout(
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
-        annotations=[
-            dict(
-                text="Select a dataset and deployment to begin",
-                xref="paper",
-                yref="paper",
-                x=0.5,
-                y=0.5,
-                xanchor="center",
-                yanchor="middle",
-                showarrow=False,
-                font=dict(size=20, color="gray"),
-            )
+def create_app_stores(dff, initial_deployments=None):
+    """Create the dcc.Store and dcc.Interval components."""
+    return [
+        # Location for triggering callbacks on page load
+        dcc.Location(id="url", refresh=False),
+        # Existing stores for playback
+        dcc.Interval(
+            id="interval-component",
+            interval=1 * 1000,  # Base interval of 1 second
+            n_intervals=0,
+            disabled=True,  # Start with the interval disabled
+        ),
+        dcc.Store(id="playhead-time", data=dff["timestamp"].min()),
+        dcc.Store(id="is-playing", data=False),
+        # Store for selected video data
+        dcc.Store(id="selected-video", data=None),
+        # Store for sticky manual selection
+        dcc.Store(id="manual-video-override", data=None),
+        # Store for video timeline offset in seconds
+        dcc.Store(id="video-time-offset", data=0),
+        # New stores for dataset/deployment selection
+        dcc.Store(id="selected-dataset", data=None),
+        dcc.Store(id="selected-deployment", data=None),
+        # Trigger callbacks on page load
+        dcc.Store(id="trigger-initial-load", data=True),
+        dcc.Store(id="selected-date-range", data=None),
+        dcc.Store(id="selected-timezone", data=0),
+        dcc.Store(id="available-deployments", data=initial_deployments or []),
+        dcc.Store(id="deployment-date-ranges", data={}),
+        dcc.Store(id="visualization-loaded", data=False),
+        dcc.Store(id="loading-state", data={"stage": "idle", "message": ""}),
+        # Store for passing duck_pond reference (will be populated by app)
+        dcc.Store(id="duck-pond-config", data=None),
+    ]
+
+
+def create_layout(
+    fig,
+    data_json,
+    dff,
+    video_options=None,
+    restricted_time_range=None,
+    events_df=None,
+    available_datasets=None,
+    initial_deployments=None,
+):
+    """Create the complete app layout."""
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Div([], className="announcement_bar"),
+                    create_header(),
+                    create_left_sidebar(
+                        available_datasets=available_datasets,
+                        initial_deployments=initial_deployments,
+                    ),
+                    create_main_content(fig),
+                    create_right_sidebar(
+                        data_json,
+                        dff["timestamp"].min(),
+                        video_options=video_options,
+                        restricted_time_range=restricted_time_range,
+                    ),
+                    create_footer(
+                        dff, video_options=video_options, events_df=events_df
+                    ),
+                ],
+                className="grid",
+            ),
+            create_bookmark_modal(),
+            *create_app_stores(dff, initial_deployments=initial_deployments),
         ],
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(245,245,245,1)",
-        margin=dict(l=0, r=0, t=0, b=0),
-        height=600,
-    )
-    return fig
-
-
-def create_empty_dataframe():
-    """Create a minimal empty dataframe for initial stores."""
-    now = pd.Timestamp.now()
-    return pd.DataFrame(
-        {
-            "datetime": [now, now + pd.Timedelta(seconds=1)],
-            "timestamp": [now.timestamp(), (now + pd.Timedelta(seconds=1)).timestamp()],
-        }
+        id="main-layout",
+        className="default-layout",
     )
 
 

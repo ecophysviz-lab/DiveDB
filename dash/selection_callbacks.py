@@ -241,15 +241,25 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         Output("graph-content", "figure"),
         Output("visualization-loading-output", "children"),
         Input("load-visualization-button", "n_clicks"),
-        State("dataset-dropdown", "value"),
+        State("selected-dataset", "data"),
         State("selected-deployment", "data"),
         State("selected-date-range", "data"),
         prevent_initial_call=True,
     )
     def load_visualization(n_clicks, dataset, deployment_data, date_range):
         """Load and display visualization for selected deployment."""
+        print(f"🔍 Callback fired - n_clicks: {n_clicks}")
+        print(f"🔍 Dataset: {dataset}")
+        print(f"🔍 Deployment: {deployment_data}")
+        print(f"🔍 Date range: {date_range}")
+
         if not n_clicks or not dataset or not deployment_data or not date_range:
-            return no_update, no_update
+            print("❌ Missing required data - returning no_update")
+            error_msg = html.Div(
+                "Missing required data. Please select a dataset and deployment.",
+                className="alert alert-danger small mt-2",
+            )
+            return no_update, error_msg
 
         print(
             f"🚀 Loading visualization for deployment: {deployment_data['deployment']}"
@@ -277,9 +287,44 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             labels_df = duck_pond.conn.sql(labels_query).df()
             available_labels = labels_df["label"].tolist()
 
-            print(f"📊 Found {len(available_labels)} labels: {available_labels[:10]}...")
+            print(f"📊 Found {len(available_labels)} total labels")
 
-            if not available_labels:
+            # Define priority signal patterns (ordered by importance)
+            priority_patterns = [
+                "depth",
+                "pressure",
+                "ecg",
+                "odba",
+                "hr",
+                "pitch",
+                "roll",
+                "heading",
+                "accelerometer",
+                "gyroscope",
+                "magnetometer",
+                "temperature",
+                "light",
+            ]
+
+            # Filter and prioritize labels based on patterns
+            prioritized_labels = []
+            for pattern in priority_patterns:
+                matching = [
+                    label
+                    for label in available_labels
+                    if pattern.lower() in label.lower()
+                    and label not in prioritized_labels
+                ]
+                prioritized_labels.extend(matching)
+
+            # Use prioritized labels, fallback to first 10 if no matches
+            labels_to_load = (
+                prioritized_labels[:15] if prioritized_labels else available_labels[:10]
+            )
+
+            print(f"📊 Selected {len(labels_to_load)} priority labels: {labels_to_load}")
+
+            if not labels_to_load:
                 # No data found - return empty figure with message
                 fig = go.Figure()
                 fig.update_layout(
@@ -296,19 +341,30 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     ],
                     height=600,
                 )
-                return fig, None
+                error_msg = html.Div(
+                    f"No labels/signals found for deployment {deployment_id}",
+                    className="alert alert-warning small mt-2",
+                )
+                return fig, error_msg
 
             # Load data at a reasonable frequency (e.g., 1 Hz)
             print("📥 Loading data...")
+            print(f"   Dataset: {dataset}")
+            print(f"   Deployment ID: {deployment_id}")
+            print(f"   Animal ID: {animal_id}")
+
             dff = duck_pond.get_data(
                 dataset=dataset,
                 deployment_ids=deployment_id,
                 animal_ids=animal_id,
                 date_range=(date_range["start"], date_range["end"]),
                 frequency=1,  # 1 Hz sampling
-                labels=available_labels[:20],  # Limit to first 20 labels for now
+                labels=labels_to_load,
                 add_timestamp_column=True,
             )
+
+            print(f"📦 Data loaded - Shape: {dff.shape if not dff.empty else 'EMPTY'}")
+            print(f"📦 Columns: {dff.columns.tolist() if not dff.empty else 'N/A'}")
 
             if dff.empty:
                 fig = go.Figure()
@@ -326,7 +382,11 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     ],
                     height=600,
                 )
-                return fig, None
+                error_msg = html.Div(
+                    "No data returned for the selected date range",
+                    className="alert alert-warning small mt-2",
+                )
+                return fig, error_msg
 
             print(f"✓ Loaded {len(dff)} rows with {len(dff.columns)} columns")
 
@@ -352,7 +412,11 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     ],
                     height=600,
                 )
-                return fig, None
+                error_msg = html.Div(
+                    "Data loaded but no signal columns found (only datetime/timestamp)",
+                    className="alert alert-warning small mt-2",
+                )
+                return fig, error_msg
 
             # Create subplots for first 10 signals
             num_plots = min(10, len(data_columns))
@@ -392,15 +456,25 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             fig.update_xaxes(type="date")
 
             print(f"✓ Created figure with {num_plots} subplots")
-            return fig, None
+
+            success_msg = html.Div(
+                [
+                    html.I(className="fas fa-check-circle me-2"),
+                    f"Loaded {len(dff):,} samples with {len(data_columns)} signals",
+                ],
+                className="alert alert-success small mt-2",
+            )
+            return fig, success_msg
 
         except Exception as e:
             logging.error(f"Error loading visualization: {e}", exc_info=True)
             import traceback
 
-            traceback.print_exc()
+            error_traceback = traceback.format_exc()
+            print("❌ EXCEPTION OCCURRED:")
+            print(error_traceback)
 
-            # Return error figure
+            # Return error figure AND error message in loading output
             fig = go.Figure()
             fig.update_layout(
                 annotations=[
@@ -416,7 +490,17 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 ],
                 height=600,
             )
-            return fig, None
+
+            error_msg = html.Div(
+                [
+                    html.Strong("Error: "),
+                    str(e),
+                    html.Br(),
+                    html.Small("Check console for details", className="text-muted"),
+                ],
+                className="alert alert-danger small mt-2",
+            )
+            return fig, error_msg
 
     # SIMPLE TEST CALLBACK - Proves deployment selection works
     @app.callback(
