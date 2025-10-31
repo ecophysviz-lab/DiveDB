@@ -410,8 +410,29 @@ def create_left_sidebar():
     )
 
 
-def create_main_content(fig):
+def create_main_content(fig, channel_options=None):
     """Create the main content area with the graph."""
+    # Convert channel_options to dropdown format
+    dropdown_options = []
+    if channel_options:
+        for option in channel_options:
+            if isinstance(option, dict):
+                # Handle dictionary format
+                label = option.get('label', option.get('name', 'Unknown'))
+                value = option.get('value', option.get('id', label.lower()))
+                dropdown_options.append({"label": label, "value": value})
+            else:
+                # Handle string format
+                dropdown_options.append({"label": str(option), "value": str(option).lower()})
+    else:
+        # Fallback options if channel_options is None
+        dropdown_options = [
+            {"label": "Depth", "value": "depth"},
+            {"label": "Pitch, roll, heading", "value": "prh"},
+            {"label": "Temperature", "value": "temperature"},
+            {"label": "Light", "value": "light"},
+        ]
+
     return html.Div(
         [
             html.Div(
@@ -452,20 +473,16 @@ def create_main_content(fig):
                                                                                         className="drag-icon",
                                                                                     ),
                                                                                     className="btn btn-icon-only btn-sm",
-                                                                                    id="channel-1-drag",
+                                                                                    id={"type": "channel-drag", "index": 1},
                                                                                 ),
                                                                                 width="auto",
+                                                                                className="drag-handle",
                                                                             ),
                                                                             dbc.Col(
                                                                                 dbc.Select(
-                                                                                    [
-                                                                                        {"label": "Depth", "value": "depth"},
-                                                                                        {"label": "Pitch, roll, heading", "value": "prh"},
-                                                                                        {"label": "Temperature", "value": "temperature"},
-                                                                                        {"label": "Light", "value": "light"},
-                                                                                    ],
-                                                                                    value="depth",
-                                                                                    id="channel-1-select",
+                                                                                    options=dropdown_options,
+                                                                                    value=dropdown_options[0]["value"] if dropdown_options else "depth",
+                                                                                    id={"type": "channel-select", "index": 1},
                                                                                 ),
                                                                             ),
                                                                             dbc.Col(
@@ -475,133 +492,7 @@ def create_main_content(fig):
                                                                                         className="remove-icon",
                                                                                     ),
                                                                                     className="btn btn-icon-only btn-sm",
-                                                                                    id="channel-1-remove",
-                                                                                ),
-                                                                                width="auto",
-                                                                            ),
-                                                                        ],
-                                                                        align="center",
-                                                                        className="g-2",
-                                                                    ),
-                                                                ),
-                                                                dbc.ListGroupItem(
-                                                                    dbc.Row(
-                                                                        [
-                                                                            dbc.Col(
-                                                                                html.Button(
-                                                                                    html.Img(
-                                                                                        src="/assets/images/drag.svg",
-                                                                                        className="drag-icon",
-                                                                                    ),
-                                                                                    className="btn btn-icon-only btn-sm",
-                                                                                    id="channel-2-drag",
-                                                                                ),
-                                                                                width="auto",
-                                                                            ),
-                                                                            dbc.Col(
-                                                                                dbc.Select(
-                                                                                    [
-                                                                                        {"label": "Depth", "value": "depth"},
-                                                                                        {"label": "Pitch, roll, heading", "value": "prh"},
-                                                                                        {"label": "Temperature", "value": "temperature"},
-                                                                                        {"label": "Light", "value": "light"},
-                                                                                    ],
-                                                                                    value="prh",
-                                                                                    id="channel-2-select",
-                                                                                ),
-                                                                            ),
-                                                                            dbc.Col(
-                                                                                html.Button(
-                                                                                    html.Img(
-                                                                                        src="/assets/images/remove.svg",
-                                                                                        className="remove-icon",
-                                                                                    ),
-                                                                                    className="btn btn-icon-only btn-sm",
-                                                                                    id="channel-2-remove",
-                                                                                ),
-                                                                                width="auto",
-                                                                            ),
-                                                                        ],
-                                                                        align="center",
-                                                                        className="g-2",
-                                                                    ),
-                                                                ),
-                                                                dbc.ListGroupItem(
-                                                                    dbc.Row(
-                                                                        [
-                                                                            dbc.Col(
-                                                                                html.Button(
-                                                                                    html.Img(
-                                                                                        src="/assets/images/drag.svg",
-                                                                                        className="drag-icon",
-                                                                                    ),
-                                                                                    className="btn btn-icon-only btn-sm",
-                                                                                    id="channel-3-drag",
-                                                                                ),
-                                                                                width="auto",
-                                                                            ),
-                                                                            dbc.Col(
-                                                                                dbc.Select(
-                                                                                    [
-                                                                                        {"label": "Depth", "value": "depth"},
-                                                                                        {"label": "Pitch, roll, heading", "value": "prh"},
-                                                                                        {"label": "Temperature", "value": "temperature"},
-                                                                                        {"label": "Light", "value": "light"},
-                                                                                    ],
-                                                                                    value="temperature",
-                                                                                    id="channel-3-select",
-                                                                                ),
-                                                                            ),
-                                                                            dbc.Col(
-                                                                                html.Button(
-                                                                                    html.Img(
-                                                                                        src="/assets/images/remove.svg",
-                                                                                        className="remove-icon",
-                                                                                    ),
-                                                                                    className="btn btn-icon-only btn-sm",
-                                                                                    id="channel-3-remove",
-                                                                                ),
-                                                                                width="auto",
-                                                                            ),
-                                                                        ],
-                                                                        align="center",
-                                                                        className="g-2",
-                                                                    ),
-                                                                ),
-                                                                dbc.ListGroupItem(
-                                                                    dbc.Row(
-                                                                        [
-                                                                            dbc.Col(
-                                                                                html.Button(
-                                                                                    html.Img(
-                                                                                        src="/assets/images/drag.svg",
-                                                                                        className="drag-icon",
-                                                                                    ),
-                                                                                    className="btn btn-icon-only btn-sm",
-                                                                                    id="channel-4-drag",
-                                                                                ),
-                                                                                width="auto",
-                                                                            ),
-                                                                            dbc.Col(
-                                                                                dbc.Select(
-                                                                                    [
-                                                                                        {"label": "Depth", "value": "depth"},
-                                                                                        {"label": "Pitch, roll, heading", "value": "prh"},
-                                                                                        {"label": "Temperature", "value": "temperature"},
-                                                                                        {"label": "Light", "value": "light"},
-                                                                                    ],
-                                                                                    value="light",
-                                                                                    id="channel-4-select",
-                                                                                ),
-                                                                            ),
-                                                                            dbc.Col(
-                                                                                html.Button(
-                                                                                    html.Img(
-                                                                                        src="/assets/images/remove.svg",
-                                                                                        className="remove-icon",
-                                                                                    ),
-                                                                                    className="btn btn-icon-only btn-sm",
-                                                                                    id="channel-4-remove",
+                                                                                    id={"type": "channel-remove", "index": 1},
                                                                                 ),
                                                                                 width="auto",
                                                                             ),
@@ -618,7 +509,7 @@ def create_main_content(fig):
                                                                                     "Add Graph",
                                                                                     color="primary",
                                                                                     className="btn-xs btn-stroke my-1",
-                                                                                    id="add-graph-btn2",
+                                                                                    id="add-graph-btn",
                                                                                 ),
                                                                             ),
                                                                         ],
@@ -627,6 +518,7 @@ def create_main_content(fig):
                                                                     ),
                                                                 ),
                                                             ],
+                                                            id="graph-channel-list",
                                                         ),
                                                         
                                                     ],
@@ -1519,10 +1411,13 @@ def create_app_stores(dff):
         dcc.Store(
             id="video-time-offset", data=0
         ),  # Store for video timeline offset in seconds
+        dcc.Store(
+            id="channel-order", data=[]
+        ),  # Store for channel order after drag and drop
     ]
 
 
-def create_layout(fig, data_json, dff, video_options=None, restricted_time_range=None):
+def create_layout(fig, data_json, dff, video_options=None, restricted_time_range=None, channel_options=None):
     """Create the complete app layout."""
     return html.Div(
         [
@@ -1531,7 +1426,10 @@ def create_layout(fig, data_json, dff, video_options=None, restricted_time_range
                     html.Div([], className="announcement_bar"),
                     create_header(),
                     create_left_sidebar(),
-                    create_main_content(fig),
+                    create_main_content(
+                        fig,
+                        channel_options=channel_options,
+                    ),
                     create_right_sidebar(
                         data_json,
                         dff["timestamp"].min(),
