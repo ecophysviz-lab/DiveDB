@@ -13,7 +13,6 @@ from pyiceberg.transforms import IdentityTransform
 
 from DiveDB.services.notion_orm import NotionORMManager
 from DiveDB.services.dive_data import DiveData
-from DiveDB.services.utils.sampling import resample
 from DiveDB.services.connection.warehouse_config import WarehouseConfig
 from DiveDB.services.connection.catalog_manager import CatalogManager
 from DiveDB.services.connection.duckdb_connection import DuckDBConnection
@@ -120,16 +119,16 @@ class DuckPond:
         view_name = self.get_view_name(dataset, "data")
 
         query_vars = f"""
-            SELECT "group", class, label
+            SELECT "class", class, label
             FROM {view_name}
             WHERE label IS NOT NULL
             GROUP BY 1,2,3
             ORDER BY 1,2,3
         """
         query_groups = f"""
-            SELECT "group"
+            SELECT "class"
             FROM {view_name}
-            WHERE "group" IS NOT NULL
+            WHERE "class" IS NOT NULL
             GROUP BY 1
             ORDER BY 1
         """
@@ -443,44 +442,58 @@ class DuckPond:
         """Read data using SQL query (backward compatibility)"""
         return self.conn.execute(query).fetchall()
 
-    def get_data(
+    def _apply_date_handling(
         self,
-        dataset: str,  # Dataset ID - required for new structure
-        labels: str | List[str] | None = None,
-        animal_ids: str | List[str] | None = None,
-        deployment_ids: str | List[str] | None = None,
-        recording_ids: str | List[str] | None = None,
-        groups: str | List[str] | None = None,
-        classes: str | List[str] | None = None,
-        date_range: tuple[str, str] | None = None,
-        frequency: int | None = None,
-        limit: int | None = None,
-        pivoted: bool = False,
-    ):
+        df: pd.DataFrame,
+        datetime_col: str,
+        apply_timezone_offset: Optional[int] = None,
+        add_timestamp_column: bool = False,
+        timestamp_col_name: str = "timestamp",
+    ) -> pd.DataFrame:
         """
-        Get data from a specific dataset using direct Parquet access (bypassing Iceberg layer).
+        Apply date handling transformations to a DataFrame.
 
         Args:
-            dataset: Dataset identifier (required)
-            labels: Specific labels to include (if None, gets all distinct labels)
-            animal_ids: Animal ID filter
-            deployment_ids: Deployment ID filter
-            recording_ids: Recording ID filter
-            groups: Group filter
-            classes: Class filter
-            date_range: Date range tuple (start, end)
-            frequency: Resample frequency (if provided, returns DataFrame)
-            limit: Row limit
-            pivoted: If True, returns data with labels as columns grouped by datetime
+            df: Input DataFrame
+            datetime_col: Name of the datetime column to process
+            apply_timezone_offset: Optional timezone offset in hours to add to datetime column
+            add_timestamp_column: If True, adds a timestamp column (seconds since epoch)
+            timestamp_col_name: Name for the timestamp column (default: "timestamp")
 
         Returns:
-        - If frequency is not None, returns a pd.DataFrame.
-        - If pivoted is True, returns DuckDB relation with labels as columns.
-        - Otherwise, returns a DiveData object with long-format data.
+            Transformed DataFrame
         """
+        if datetime_col not in df.columns:
+            return df
 
-        # Ensure dataset is initialized
-        self.dataset_manager.ensure_dataset_initialized(dataset)
+        # Ensure datetime column is in datetime format
+        if apply_timezone_offset is not None:
+            df[datetime_col] = pd.to_datetime(
+                df[datetime_col], errors="coerce"
+            ) + pd.Timedelta(hours=apply_timezone_offset)
+
+        # Add timestamp column if requested
+        if add_timestamp_column:
+            df[timestamp_col_name] = df[datetime_col].apply(lambda x: x.timestamp())
+
+        return df
+
+    def _build_base_query(
+        self,
+        view_name: str,
+        labels: List[str] | None,
+        animal_ids: List[str] | None,
+        deployment_ids: List[str] | None,
+        recording_ids: List[str] | None,
+        groups: List[str] | None,
+        classes: List[str] | None,
+        date_range: tuple[str, str] | None,
+        limit: int | None,
+    ) -> str:
+        """
+        Build the base SQL query with all filters.
+        Extracted for clarity and reusability.
+        """
 
         def get_predicate_string(predicate: str, values: List[str]):
             if not values:
@@ -490,24 +503,7 @@ class DuckPond:
             quoted_values = ", ".join(f"'{value}'" for value in values)
             return f"{predicate} IN ({quoted_values})"
 
-        # Convert single strings to lists
-        if isinstance(labels, str):
-            labels = [labels]
-        if isinstance(animal_ids, str):
-            animal_ids = [animal_ids]
-        if isinstance(deployment_ids, str):
-            deployment_ids = [deployment_ids]
-        if isinstance(recording_ids, str):
-            recording_ids = [recording_ids]
-        if isinstance(groups, str):
-            groups = [groups]
-        if isinstance(classes, str):
-            classes = [classes]
-
-        # Build basic query using the dataset-specific Data view
-        view_name = f'"{dataset}_Data"'
-
-        base_query = f"""
+        query = f"""
             SELECT
                 dataset,
                 animal,
@@ -546,78 +542,311 @@ class DuckPond:
             )
 
         if predicates:
-            base_query += " WHERE " + " AND ".join(predicates)
+            query += " WHERE " + " AND ".join(predicates)
 
         if limit:
-            base_query += f" LIMIT {limit}"
+            query += f" LIMIT {limit}"
 
-        # Handle frequency resampling FIRST (before pivoting)
-        if frequency:
-            # Get data in long format for resampling
-            results = self.conn.sql(base_query)
-            df = results.df()
+        return query
 
-            # Create numeric value column based on data_type
-            df["numeric_value"] = df.apply(
-                lambda row: (
-                    row["float_value"]
-                    if row["data_type"] == "double" and pd.notna(row["float_value"])
-                    else row["int_value"]
-                    if row["data_type"] == "int" and pd.notna(row["int_value"])
-                    else row["boolean_value"]
-                    if row["data_type"] == "bool" and pd.notna(row["boolean_value"])
-                    else pd.to_numeric(row["string_value"], errors="coerce")
-                    if pd.notna(row["string_value"])
-                    else np.nan
-                ),
-                axis=1,
-            )
+    def _get_distinct_labels(self, base_query: str) -> List[str]:
+        """Get distinct labels from a query."""
+        query = f"SELECT DISTINCT label FROM ({base_query}) ORDER BY label"
+        return [row[0] for row in self.conn.sql(query).fetchall()]
 
-            # Resample each label separately
-            resampled_dfs = []
-            for label_name in df["label"].unique():
-                label_df = df[df["label"] == label_name][
-                    ["datetime", "label", "numeric_value"]
-                ].copy()
-                label_df = label_df.dropna(subset=["numeric_value"])
-                if len(label_df) > 0:
-                    label_resampled = resample(label_df, frequency)
-                    resampled_dfs.append(label_resampled)
+    def _estimate_label_frequency(self, base_query: str, label: str) -> float | None:
+        """
+        Estimate the native sampling frequency of a label using SQL.
+        Fast and memory-efficient - only samples the data.
+        """
+        query = f"""
+        WITH time_intervals AS (
+            SELECT
+                EXTRACT(EPOCH FROM (datetime - LAG(datetime) OVER (ORDER BY datetime))) AS interval_sec
+            FROM ({base_query})
+            WHERE label = '{label}'
+            LIMIT 1000
+        )
+        SELECT 1.0 / MEDIAN(interval_sec) as freq_hz
+        FROM time_intervals
+        WHERE interval_sec > 0
+        """
 
-            # Combine resampled data
-            combined_df = pd.concat(resampled_dfs, ignore_index=True)
+        try:
+            result = self.conn.sql(query).fetchone()
+            return result[0] if result and result[0] else None
+        except Exception as e:
+            logging.warning(f"Could not estimate frequency for label '{label}': {e}")
+            return None
 
-            # Pivot if requested
-            if pivoted:
-                pivoted_df = combined_df.pivot_table(
-                    index="datetime",
-                    columns="label",
-                    values="numeric_value",
-                    aggfunc="first",
-                ).reset_index()
-                pivoted_df.columns.name = None
-                return pivoted_df
+    def _build_downsample_query(
+        self, base_query: str, label: str, native_fs: float, target_fs: float
+    ) -> str:
+        """
+        Build SQL query that downsamples a single label.
+        Only selects every Nth row - never loads unnecessary data!
+        """
+        downsample_factor = int(native_fs / target_fs)
+
+        return f"""
+        WITH labeled_data AS (
+            SELECT
+                datetime,
+                '{label}' as label,
+                CASE data_type
+                    WHEN 'double' THEN float_value
+                    WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                    WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                    ELSE TRY_CAST(string_value AS DOUBLE)
+                END AS numeric_value,
+                ROW_NUMBER() OVER (ORDER BY datetime) as rn
+            FROM ({base_query})
+            WHERE label = '{label}'
+        )
+        SELECT datetime, label, numeric_value
+        FROM labeled_data
+        WHERE (rn - 1) % {downsample_factor} = 0
+        """
+
+    def _build_upsample_query(
+        self, base_query: str, label: str, target_fs: float
+    ) -> str:
+        """
+        Build SQL query that upsamples a single label using time grid.
+        Uses ASOF join for forward-fill interpolation.
+        """
+        # Get time range for this label
+        range_query = f"""
+        SELECT MIN(datetime) as start_time, MAX(datetime) as end_time
+        FROM ({base_query})
+        WHERE label = '{label}'
+        """
+        result = self.conn.sql(range_query).fetchone()
+        if not result or not result[0]:
+            return self._build_passthrough_label_query(base_query, label)
+
+        start_time, end_time = result
+        interval_ms = int(1000 / target_fs)
+
+        return f"""
+        WITH time_grid AS (
+            SELECT datetime AS grid_time
+            FROM generate_series(
+                TIMESTAMP '{start_time}',
+                TIMESTAMP '{end_time}',
+                INTERVAL '{interval_ms} milliseconds'
+            ) AS t(datetime)
+        ),
+        label_data AS (
+            SELECT
+                datetime,
+                CASE data_type
+                    WHEN 'double' THEN float_value
+                    WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                    WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                    ELSE TRY_CAST(string_value AS DOUBLE)
+                END AS numeric_value
+            FROM ({base_query})
+            WHERE label = '{label}'
+        )
+        SELECT
+            time_grid.grid_time AS datetime,
+            '{label}' as label,
+            LAST_VALUE(label_data.numeric_value IGNORE NULLS) OVER (
+                ORDER BY time_grid.grid_time
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            ) as numeric_value
+        FROM time_grid
+        ASOF LEFT JOIN label_data
+        ON time_grid.grid_time >= label_data.datetime
+        """
+
+    def _build_passthrough_label_query(self, base_query: str, label: str) -> str:
+        """Build query that passes through label data without resampling."""
+        return f"""
+        SELECT
+            datetime,
+            '{label}' as label,
+            CASE data_type
+                WHEN 'double' THEN float_value
+                WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                ELSE TRY_CAST(string_value AS DOUBLE)
+            END AS numeric_value
+        FROM ({base_query})
+        WHERE label = '{label}'
+        """
+
+    def _wrap_query_with_resampling(
+        self,
+        base_query: str,
+        target_fs: float,
+        labels: List[str] | None,
+    ) -> str:
+        """
+        Transform a base query to include resampling logic.
+
+        This method:
+        1. Creates a common time grid for ALL labels
+        2. Estimates native frequency for each label
+        3. Downsamples high-frequency data and joins to common grid
+        4. Upsamples low-frequency data and joins to common grid
+
+        All done at the SQL level for maximum performance.
+        """
+        # Discover labels if not provided
+        if not labels:
+            labels = self._get_distinct_labels(base_query)
+
+        # Get global time range across all labels
+        time_range_query = f"""
+        SELECT MIN(datetime) as start_time, MAX(datetime) as end_time
+        FROM ({base_query})
+        """
+        result = self.conn.sql(time_range_query).fetchone()
+        if not result or not result[0]:
+            # No data, return empty query
+            return """
+            SELECT
+                CAST(NULL AS TIMESTAMP) as datetime,
+                CAST(NULL AS VARCHAR) as label,
+                CAST(NULL AS DOUBLE) as numeric_value
+            WHERE 1=0
+            """
+
+        start_time, end_time = result
+        interval_ms = int(1000 / target_fs)
+
+        # Create common time grid CTE
+        common_time_grid = f"""
+        common_time_grid AS (
+            SELECT datetime AS grid_time
+            FROM generate_series(
+                TIMESTAMP '{start_time}',
+                TIMESTAMP '{end_time}',
+                INTERVAL '{interval_ms} milliseconds'
+            ) AS t(datetime)
+        )
+        """
+
+        # Estimate frequency for each label
+        label_frequencies = {
+            label: self._estimate_label_frequency(base_query, label) for label in labels
+        }
+
+        # Build resampling query for each label, joining to common grid
+        label_queries = []
+        for label in labels:
+            native_fs = label_frequencies.get(label)
+
+            if native_fs is None or abs(native_fs - target_fs) <= target_fs * 0.01:
+                # Pass through or already at target frequency
+                label_data_query = f"""
+                SELECT
+                    datetime,
+                    CASE data_type
+                        WHEN 'double' THEN float_value
+                        WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                        WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                        ELSE TRY_CAST(string_value AS DOUBLE)
+                    END AS numeric_value
+                FROM ({base_query})
+                WHERE label = '{label}'
+                """
+            elif native_fs > target_fs * 1.01:
+                # Downsample: select every Nth row
+                downsample_factor = int(native_fs / target_fs)
+                label_data_query = f"""
+                SELECT
+                    datetime,
+                    numeric_value
+                FROM (
+                    SELECT
+                        datetime,
+                        CASE data_type
+                            WHEN 'double' THEN float_value
+                            WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                            WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                            ELSE TRY_CAST(string_value AS DOUBLE)
+                        END AS numeric_value,
+                        ROW_NUMBER() OVER (ORDER BY datetime) as rn
+                    FROM ({base_query})
+                    WHERE label = '{label}'
+                ) sub
+                WHERE (rn - 1) % {downsample_factor} = 0
+                """
             else:
-                return combined_df
+                # Upsample: use original data, will forward-fill when joined to grid
+                label_data_query = f"""
+                SELECT
+                    datetime,
+                    CASE data_type
+                        WHEN 'double' THEN float_value
+                        WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                        WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                        ELSE TRY_CAST(string_value AS DOUBLE)
+                    END AS numeric_value
+                FROM ({base_query})
+                WHERE label = '{label}'
+                """
 
-        # Handle pivoted data request without frequency resampling
-        elif pivoted:
-            # Get distinct labels if not provided
-            if not labels:
-                labels_query = (
-                    f"SELECT DISTINCT label FROM ({base_query}) AS sub_labels"
-                )
-                labels = [row[0] for row in self.conn.sql(labels_query).fetchall()]
+            # Join label data to common time grid with forward fill
+            label_query = f"""
+            label_{label.replace('-', '_').replace(' ', '_')} AS (
+                SELECT
+                    grid_time AS datetime,
+                    '{label}' as label,
+                    LAST_VALUE(ld.numeric_value IGNORE NULLS) OVER (
+                        ORDER BY grid_time
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) as numeric_value
+                FROM common_time_grid
+                ASOF LEFT JOIN ({label_data_query}) AS ld
+                ON grid_time >= ld.datetime
+            )
+            """
+            label_queries.append(label_query)
 
-            # Add labels filter to base query
-            if labels:
-                label_filter = get_predicate_string("label", labels)
-                if predicates:
-                    base_query += f" AND {label_filter}"
-                else:
-                    base_query += f" WHERE {label_filter}"
+        # Build final query with common time grid and all label CTEs
+        all_ctes = [common_time_grid] + label_queries
+        select_unions = [
+            f"SELECT datetime, label, numeric_value FROM label_{label.replace('-', '_').replace(' ', '_')}"
+            for label in labels
+        ]
 
-            # Create pivot expressions
+        final_query = f"""
+        WITH {', '.join(all_ctes)}
+        {' UNION ALL '.join(select_unions)}
+        ORDER BY label, datetime
+        """
+
+        return final_query
+
+    def _execute_pivoted_query(
+        self, query: str, labels: List[str] | None, is_resampled: bool = False
+    ) -> pd.DataFrame:
+        """
+        Execute a query and pivot the results.
+        Works with both resampled and non-resampled data.
+        """
+        # Get labels if not provided
+        if not labels:
+            labels = self._get_distinct_labels(query)
+
+        # Execute query
+        df = self.conn.sql(query).df()
+
+        if is_resampled or "numeric_value" in df.columns:
+            # Data from resampling (already has numeric_value)
+            pivoted_df = df.pivot_table(
+                index="datetime",
+                columns="label",
+                values="numeric_value",
+                aggfunc="first",
+            ).reset_index()
+        else:
+            # Original data format - need to build pivot expressions in SQL
+            # Build pivot query with SQL
             pivot_expressions = []
             for label in labels:
                 pivot_expressions.append(
@@ -633,22 +862,242 @@ class DuckPond:
                 """
                 )
 
-            # Pivot query
             pivot_query = f"""
             SELECT
                 datetime,
                 {', '.join(pivot_expressions)}
-            FROM ({base_query}) AS sub
+            FROM ({query}) AS sub
             GROUP BY datetime
             ORDER BY datetime
             """
+            pivoted_df = self.conn.sql(pivot_query).df()
 
-            results = self.conn.sql(pivot_query)
-            return results.df()
+        pivoted_df.columns.name = None
+        return pivoted_df
+
+    def get_data(
+        self,
+        dataset: str,  # Dataset ID - required for new structure
+        labels: str | List[str] | None = None,
+        animal_ids: str | List[str] | None = None,
+        deployment_ids: str | List[str] | None = None,
+        recording_ids: str | List[str] | None = None,
+        groups: str | List[str] | None = None,
+        classes: str | List[str] | None = None,
+        date_range: tuple[str, str] | None = None,
+        frequency: int | None = None,
+        limit: int | None = None,
+        pivoted: bool = False,
+        apply_timezone_offset: Optional[int] = None,
+        add_timestamp_column: bool = False,
+    ):
+        """
+        Get data from a specific dataset using direct Parquet access (bypassing Iceberg layer).
+
+        Args:
+            dataset: Dataset identifier (required)
+            labels: Specific labels to include (if None, gets all distinct labels)
+            animal_ids: Animal ID filter
+            deployment_ids: Deployment ID filter
+            recording_ids: Recording ID filter
+            groups: Group filter
+            classes: Class filter
+            date_range: Date range tuple (start, end)
+            frequency: Resample frequency in Hz (if provided, applies SQL-based resampling)
+            limit: Row limit
+            pivoted: If True, returns data with labels as columns grouped by datetime
+            apply_timezone_offset: Optional timezone offset in hours to add to datetime column
+            add_timestamp_column: If True, adds a 'timestamp' column (seconds since epoch)
+
+        Returns:
+        - If frequency is not None, returns a pd.DataFrame (resampled to target frequency).
+        - If pivoted is True, returns DataFrame with labels as columns.
+        - Otherwise, returns a DiveData object with long-format data.
+        """
+
+        # Ensure dataset is initialized
+        self.dataset_manager.ensure_dataset_initialized(dataset)
+
+        # Convert single strings to lists
+        if isinstance(labels, str):
+            labels = [labels]
+        if isinstance(animal_ids, str):
+            animal_ids = [animal_ids]
+        if isinstance(deployment_ids, str):
+            deployment_ids = [deployment_ids]
+        if isinstance(recording_ids, str):
+            recording_ids = [recording_ids]
+        if isinstance(groups, str):
+            groups = [groups]
+        if isinstance(classes, str):
+            classes = [classes]
+
+        # Build base query using the dataset-specific Data view
+        view_name = f'"{dataset}_Data"'
+        base_query = self._build_base_query(
+            view_name=view_name,
+            labels=labels,
+            animal_ids=animal_ids,
+            deployment_ids=deployment_ids,
+            recording_ids=recording_ids,
+            groups=groups,
+            classes=classes,
+            date_range=date_range,
+            limit=limit if not frequency else None,  # Don't limit before resampling
+        )
+
+        # Apply resampling transformation if frequency is provided
+        if frequency:
+            query = self._wrap_query_with_resampling(
+                base_query=base_query,
+                target_fs=frequency,
+                labels=labels,
+            )
+            is_resampled = True
         else:
-            # Return long-format data
-            results = self.conn.sql(base_query)
+            query = base_query
+            is_resampled = False
+
+        # Apply limit after resampling
+        if frequency and limit:
+            query = f"SELECT * FROM ({query}) LIMIT {limit}"
+
+        # Handle pivoting (works on resampled or non-resampled data)
+        if pivoted:
+            df = self._execute_pivoted_query(query, labels, is_resampled=is_resampled)
+            df = self._apply_date_handling(
+                df, "datetime", apply_timezone_offset, add_timestamp_column
+            )
+            return df
+        elif frequency:
+            # For resampled data, return DataFrame directly
+            df = self.conn.sql(query).df()
+            df = self._apply_date_handling(
+                df, "datetime", apply_timezone_offset, add_timestamp_column
+            )
+            return df
+        else:
+            # For non-resampled data without pivoting, return DiveData object
+            results = self.conn.sql(query)
             return DiveData(results, self.conn, notion_manager=self.notion_manager)
+
+    def get_events(
+        self,
+        dataset: str,
+        animal_ids: str | List[str] | None = None,
+        deployment_ids: str | List[str] | None = None,
+        recording_ids: str | List[str] | None = None,
+        event_keys: str | List[str] | None = None,
+        date_range: tuple[str, str] | None = None,
+        limit: int | None = None,
+        apply_timezone_offset: Optional[int] = None,
+        add_timestamp_columns: bool = False,
+    ):
+        """
+        Get events from a specific dataset.
+
+        Args:
+            dataset: Dataset identifier (required)
+            animal_ids: Animal ID filter
+            deployment_ids: Deployment ID filter
+            recording_ids: Recording ID filter
+            event_keys: Event key filter
+            date_range: Date range tuple (start, end)
+            limit: Row limit
+            apply_timezone_offset: Optional timezone offset in hours to add to datetime columns
+            add_timestamp_columns: If True, adds 'timestamp_start' and 'timestamp_end' columns (seconds since epoch)
+
+        Returns:
+            pd.DataFrame with columns: dataset, animal, deployment, recording,
+            group, event_key, datetime_start, datetime_end, short_description,
+            long_description, event_data
+        """
+        # Ensure dataset is initialized
+        self.dataset_manager.ensure_dataset_initialized(dataset)
+
+        def get_predicate_string(predicate: str, values: List[str]):
+            if not values:
+                return ""
+            if len(values) == 1:
+                return f"{predicate} = '{values[0]}'"
+            quoted_values = ", ".join(f"'{value}'" for value in values)
+            return f"{predicate} IN ({quoted_values})"
+
+        # Convert single strings to lists
+        if isinstance(animal_ids, str):
+            animal_ids = [animal_ids]
+        if isinstance(deployment_ids, str):
+            deployment_ids = [deployment_ids]
+        if isinstance(recording_ids, str):
+            recording_ids = [recording_ids]
+        if isinstance(event_keys, str):
+            event_keys = [event_keys]
+
+        # Build query using the dataset-specific Events view
+        view_name = self.get_view_name(dataset, "events")
+
+        base_query = f"""
+            SELECT
+                dataset,
+                animal,
+                deployment,
+                recording,
+                "group",
+                event_key,
+                datetime_start,
+                datetime_end,
+                short_description,
+                long_description,
+                event_data
+            FROM {view_name}
+        """
+
+        # Build WHERE clause
+        predicates = []
+        if animal_ids:
+            predicates.append(get_predicate_string("animal", animal_ids))
+        if deployment_ids:
+            predicates.append(get_predicate_string("deployment", deployment_ids))
+        if recording_ids:
+            predicates.append(get_predicate_string("recording", recording_ids))
+        if event_keys:
+            predicates.append(get_predicate_string("event_key", event_keys))
+        if date_range:
+            # Events that overlap with the date range
+            predicates.append(
+                f"datetime_start <= '{date_range[1]}' AND datetime_end >= '{date_range[0]}'"
+            )
+
+        if predicates:
+            base_query += " WHERE " + " AND ".join(predicates)
+
+        base_query += " ORDER BY datetime_start"
+
+        if limit:
+            base_query += f" LIMIT {limit}"
+
+        # Execute query and return DataFrame
+        results = self.conn.sql(base_query)
+        df = results.df()
+
+        # Apply date handling transformations to both datetime columns
+        if apply_timezone_offset is not None or add_timestamp_columns:
+            df = self._apply_date_handling(
+                df,
+                "datetime_start",
+                apply_timezone_offset,
+                add_timestamp_columns,
+                timestamp_col_name="timestamp_start",
+            )
+            df = self._apply_date_handling(
+                df,
+                "datetime_end",
+                apply_timezone_offset,
+                add_timestamp_columns,
+                timestamp_col_name="timestamp_end",
+            )
+
+        return df
 
     def ensure_dataset_initialized(self, dataset: str):
         """Ensure a dataset's tables and views are initialized"""
@@ -749,8 +1198,6 @@ class DuckPond:
         Returns:
             tuple: (val_dbl_array, val_int_array, val_bool_array, val_str_array, data_type_array)
         """
-        import numpy as np
-
         # Initialize arrays for each type
         val_dbl = np.full(len(values), None, dtype=object)
         val_int = np.full(len(values), None, dtype=object)
