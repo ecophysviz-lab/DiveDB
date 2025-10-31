@@ -67,6 +67,13 @@ media_result = immich_service.find_media_by_deployment_id(
 video_result = immich_service.prepare_video_options_for_react(media_result)
 video_options = video_result.get("video_options", [])
 
+import json
+
+print("Channel options:")
+print(json.dumps(channel_options))
+print(f"Number of channels: {len(channel_options)}")
+print("Channel types:", [opt.get('label', 'No label') for opt in channel_options] if isinstance(channel_options, list) else type(channel_options))
+
 dff = duck_pond.get_data(
     dataset=DATASET_ID,
     animal_ids="apfo-001",
@@ -200,10 +207,11 @@ app.layout = create_layout(
     dff,
     video_options=video_options,
     restricted_time_range=restricted_time_range,
+    channel_options=channel_options,
 )
 
 # Register callbacks
-register_callbacks(app, dff, video_options)
+register_callbacks(app, dff, video_options, channel_options)
 register_clientside_callbacks(app)
 
 
