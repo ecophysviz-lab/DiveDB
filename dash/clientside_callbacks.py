@@ -93,3 +93,6 @@ def register_clientside_callbacks(app):
         [Input("fullscreen-button", "n_clicks")],
         prevent_initial_call=False,
     )
+
+    # TODO: Re-enable playhead visualization once duplicate callback issue is resolved
+    # For now, playhead updates are disabled to avoid conflicts with load_visualization callback
