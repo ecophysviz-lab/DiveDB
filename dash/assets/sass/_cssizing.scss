@@ -106,6 +106,22 @@ $rootRemsUnit: getUnits($rootRems);
 	--cs-property-screen-sizes: var(--cs-screen-sizes);
 	--cs-root-rems: #{stripUnits($rootRems)};
 
+	// Initialize exponential variables and current size first
+	--cs-current-size: 1;
+	--cs-exponential: var(--cs-1-exponential);
+
+	// Calculate all exponential variables
+	$index: 1;
+	@each $screenSize in $screenSizes {
+		@if ($index == 1) {
+			--cs-#{$index}-exponential: 0;
+		} @else {
+			--cs-#{$index}-exponential: (var(--cs-#{$index - 1}-exponential) + (var(--cs-property-screen-sizes) / 2) - (#{$index - 1} - var(--cs-screen-size-offset)));
+		}
+		$index: $index + 1;
+	}
+
+	// Then handle nested rules
 	$index: 1;
 	@each $screenSize in $screenSizes {
 		@if ($demo == true) {
@@ -115,15 +131,8 @@ $rootRemsUnit: getUnits($rootRems);
 			}
 		}
 
-		@if ($index == 1) {
-			--cs-#{$index}-exponential: 0;
-		} @else {
-			--cs-#{$index}-exponential: (var(--cs-#{$index - 1}-exponential) + (var(--cs-property-screen-sizes) / 2) - (#{$index - 1} - var(--cs-screen-size-offset)));
-		}
-
 		@if ($screenSize == 0) {
-			--cs-current-size: #{$index};
-			--cs-exponential: var(--cs-#{$index}-exponential);
+			// Already set above
 		} @else {
 			@media(min-width: $screenSize) {
 				--cs-current-size: #{$index};
@@ -224,6 +233,7 @@ $rootRemsUnit: getUnits($rootRems);
 				$important: "!important";
 			}
 		} @else if ($name == "min") {
+			--cs-#{$id}-screen-size-min: 0; // Initialize before logic
 
 			$min-unit: getUnits($value);
 
@@ -262,6 +272,7 @@ $rootRemsUnit: getUnits($rootRems);
 			$customMinMax: true;
 
 		} @else if ($name == "max") {
+			--cs-#{$id}-screen-size-max: 0; // Initialize before logic
 
 			$max-unit: getUnits($value);
 
@@ -369,6 +380,7 @@ $rootRemsUnit: getUnits($rootRems);
 
 	// Create custom exponential vars. Assign current exponential based on current screen size.
 	@if ($customExponential) {
+		// Initialize all exponential variables first
 		$index: 1;
 		@each $screenSize in $screenSizes {
 			@if ($index == 1) {
@@ -376,7 +388,15 @@ $rootRemsUnit: getUnits($rootRems);
 			} @else {
 				--cs-#{$id}-#{$index}-exponential: (var(--cs-#{$id}-#{$index - 1}-exponential) + (var(--cs-#{$id}-screen-sizes) / 2) - (#{$index - 1} - var(--cs-#{$id}-screen-size-offset)));
 			}
+			$index: $index + 1;
+		}
 
+		// Set the main exponential variable
+		--cs-#{$id}-exponential: var(--cs-#{$id}-1-exponential);
+
+		// Then handle nested rules for demo classes and media queries
+		$index: 1;
+		@each $screenSize in $screenSizes {
 			@if ($demo == true) {
 				&.sizing_#{$index} {
 					--cs-#{$id}-exponential: var(--cs-#{$id}-#{$index}-exponential);
@@ -401,6 +421,7 @@ $rootRemsUnit: getUnits($rootRems);
 		@if ($name == "ratio" or $name == "min" or $name == "max" or $name == "unique" or $name == "contain" or $name == "important") {
 			// Do nothing
 		} @else if ($name == "margin-fl-tb") {
+			// Handle first/last child margin reset
 			@if ($value == false) {
 				&:first-child {
 					margin-top: 0;
@@ -411,6 +432,7 @@ $rootRemsUnit: getUnits($rootRems);
 				}
 			}
 		} @else if ($name == "margin-fl-lr") {
+			// Handle first/last child margin reset  
 			@if ($value == false) {
 				&:first-child {
 					margin-left: 0;
@@ -492,6 +514,19 @@ $rootRemsUnit: getUnits($rootRems);
 			// The standard increment var. Used for both linear and ratio based sizing.
 			// If this property uses ratio then assign the increment step and offset vars.
 			@if ($contain == true and $customMinMax == true) {
+				// No immediate CSS properties here, handled in media query below
+			} @else {
+				--cs-#{shorten($name)}-increment: (var(--cs-#{shorten($name)}-end) - var(--cs-#{shorten($name)}-start)) / (#{$screenSizesVar} - 1);
+
+				@if ($ratio != null) {
+					--cs-#{shorten($name)}-ratio: #{ $ratio };
+					--cs-#{shorten($name)}-increment-step: (2 * var(--cs-#{shorten($name)}-ratio)) / #{$screenSizesVar};
+					--cs-#{shorten($name)}-offset: (#{$exponentialVar} * var(--cs-#{shorten($name)}-increment) * var(--cs-#{shorten($name)}-increment-step));
+				}
+			}
+
+			// Handle media query containment
+			@if ($contain == true and $customMinMax == true) {
 				@media #{$mediaQuery} {
 					--cs-#{shorten($name)}-increment: (var(--cs-#{shorten($name)}-end) - var(--cs-#{shorten($name)}-start)) / (#{$screenSizesVar} - 1);
 
@@ -521,16 +556,44 @@ $rootRemsUnit: getUnits($rootRems);
 						$index: $index + 1;
 					}
 				}
-			} @else {
-				--cs-#{shorten($name)}-increment: (var(--cs-#{shorten($name)}-end) - var(--cs-#{shorten($name)}-start)) / (#{$screenSizesVar} - 1);
+			}
 
+			// Set up main sizing calculations first (before nested rules)
+			@if ($customMinMax != true) {
 				@if ($ratio != null) {
-					--cs-#{shorten($name)}-ratio: #{ $ratio };
-					--cs-#{shorten($name)}-increment-step: (2 * var(--cs-#{shorten($name)}-ratio)) / #{$screenSizesVar};
-					--cs-#{shorten($name)}-offset: (#{$exponentialVar} * var(--cs-#{shorten($name)}-increment) * var(--cs-#{shorten($name)}-increment-step));
+					--cs-#{shorten($name)}-linear: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
+					--cs-#{shorten($name)}: (var(--cs-#{shorten($name)}-linear) + var(--cs-#{shorten($name)}-offset));
+				} @else {
+					--cs-#{shorten($name)}: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
 				}
 			}
 
+			// Handle min screen size constraints
+			@if ($minScreenSize != null) {
+				@if ($contain == false) {
+					--cs-#{shorten($name)}: var(--cs-#{shorten($name)}-start);
+				}
+
+				@if ($customExponential) {
+					--cs-#{$id}-#{$minScreenSizeIndex}-exponential: 0;
+				} @else if ($ratiosInUse == true) {
+					--cs-#{$minScreenSizeIndex}-exponential: 0;
+				}
+			}
+
+			// Handle max screen size constraints
+			@if ($maxScreenSize != null) {
+				@if ($minScreenSize == null) {
+					@if ($ratio != null) {
+						--cs-#{shorten($name)}-linear: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
+						--cs-#{shorten($name)}: (var(--cs-#{shorten($name)}-linear) + var(--cs-#{shorten($name)}-offset));
+					} @else {
+						--cs-#{shorten($name)}: (((#{$currentSizeVar}) * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
+					}
+				}
+			}
+
+			// Now handle all the nested rules (media queries, demo classes, etc.)
 			@if ($customMinMax == true) {
 				$index: 1;
 				$screenSizeIndex: 1;
@@ -606,26 +669,10 @@ $rootRemsUnit: getUnits($rootRems);
 
 					$index: $index + 1;
 				}
-			} @else {
-				@if ($ratio != null) {
-					--cs-#{shorten($name)}-linear: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
-					--cs-#{shorten($name)}: (var(--cs-#{shorten($name)}-linear) + var(--cs-#{shorten($name)}-offset));
-				} @else {
-					--cs-#{shorten($name)}: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
-				}
 			}
 
+			// Handle media queries for min screen size
 			@if ($minScreenSize != null) {
-				@if ($contain == false) {
-					--cs-#{shorten($name)}: var(--cs-#{shorten($name)}-start);
-				}
-
-				@if ($customExponential) {
-					--cs-#{$id}-#{$minScreenSizeIndex}-exponential: 0;
-				} @else if ($ratiosInUse == true) {
-					--cs-#{$minScreenSizeIndex}-exponential: 0;
-				}
-
 				@media #{$mediaQuery} {
 					@if ($ratio != null) {
 						--cs-#{shorten($name)}-linear: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
@@ -636,16 +683,8 @@ $rootRemsUnit: getUnits($rootRems);
 				}
 			}
 
+			// Handle media queries for max screen size
 			@if ($maxScreenSize != null) {
-				@if ($minScreenSize == null) {
-					@if ($ratio != null) {
-						--cs-#{shorten($name)}-linear: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
-						--cs-#{shorten($name)}: (var(--cs-#{shorten($name)}-linear) + var(--cs-#{shorten($name)}-offset));
-					} @else {
-						--cs-#{shorten($name)}: (((#{$currentSizeVar}) * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
-					}
-				}
-
 				@if ($contain == false) {
 					@media(min-width: $maxScreenSize) {
 						--cs-#{shorten($name)}: var(--cs-#{shorten($name)}-end);
