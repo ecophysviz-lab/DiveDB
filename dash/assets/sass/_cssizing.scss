@@ -156,35 +156,52 @@ $rootRemsUnit: getUnits($rootRems);
 //
 
 @mixin outputSizing($name, $unit, $important, $pxToRem) {
+	// Initialize variables first
+	$calc-value: null;
+	$property-name: $name;
+	
+	// Determine the calc value based on name type
 	@if ($name == "margin-tb" or $name == "margin-y") {
-		--cs-#{$name}-calc: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
+		$calc-value: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
+	} @else if ($name == "margin-lr" or $name == "margin-x") {
+		$calc-value: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
+	} @else if ($name == "padding-tb" or $name == "padding-y") {
+		$calc-value: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
+	} @else if ($name == "padding-lr" or $name == "padding-x") {
+		$calc-value: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
+	} @else if ($name == "border-tb-width" or $name == "border-y-width") {
+		$calc-value: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
+	} @else if ($name == "border-lr-width" or $name == "border-x-width") {
+		$calc-value: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
+	} @else if (($name == "font-size" or $name == "letter-spacing") and $unit == "px" and $pxToRem) {
+		$calc-value: calc(var(--cs-#{shorten($name)}) * (1 / var(--cs-root-rems)) * var(--cs-scale) * var(--cs-scale-typography) * 1rem)#{$important};
+	} @else {
+		$calc-value: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
+	}
+	
+	// Set the calc custom property first (before any conditional properties)
+	--cs-#{$name}-calc: #{$calc-value};
+	
+	// Then set the specific properties based on name type
+	@if ($name == "margin-tb" or $name == "margin-y") {
 		margin-top: var(--cs-#{$name}-calc);
 		margin-bottom: var(--cs-#{$name}-calc);
 	} @else if ($name == "margin-lr" or $name == "margin-x") {
-		--cs-#{$name}-calc: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
 		margin-left: var(--cs-#{$name}-calc);
 		margin-right: var(--cs-#{$name}-calc);
 	} @else if ($name == "padding-tb" or $name == "padding-y") {
-		--cs-#{$name}-calc: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
 		padding-top: var(--cs-#{$name}-calc);
 		padding-bottom: var(--cs-#{$name}-calc);
 	} @else if ($name == "padding-lr" or $name == "padding-x") {
-		--cs-#{$name}-calc: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
 		padding-left: var(--cs-#{$name}-calc);
 		padding-right: var(--cs-#{$name}-calc);
 	} @else if ($name == "border-tb-width" or $name == "border-y-width") {
-		--cs-#{$name}-calc: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
 		border-top-width: var(--cs-#{$name}-calc);
 		border-bottom-width: var(--cs-#{$name}-calc);
 	} @else if ($name == "border-lr-width" or $name == "border-x-width") {
-		--cs-#{$name}-calc: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
 		border-left-width: var(--cs-#{$name}-calc);
 		border-right-width: var(--cs-#{$name}-calc);
-	} @else if (($name == "font-size" or $name == "letter-spacing") and $unit == "px" and $pxToRem) {
-		--cs-#{$name}-calc: calc(var(--cs-#{shorten($name)}) * (1 / var(--cs-root-rems)) * var(--cs-scale) * var(--cs-scale-typography) * 1rem)#{$important};
-		#{$name}: var(--cs-#{$name}-calc);
 	} @else {
-		--cs-#{$name}-calc: calc(var(--cs-#{shorten($name)}) * var(--cs-scale) * var(--cs-#{shorten($name)}-unit))#{$important};
 		#{$name}: var(--cs-#{$name}-calc);
 	}
 }
@@ -513,9 +530,9 @@ $rootRemsUnit: getUnits($rootRems);
 
 			// The standard increment var. Used for both linear and ratio based sizing.
 			// If this property uses ratio then assign the increment step and offset vars.
-			@if ($contain == true and $customMinMax == true) {
-				// No immediate CSS properties here, handled in media query below
-			} @else {
+			
+			// First, set up basic increment properties (before any nested rules)
+			@if ($contain != true or $customMinMax != true) {
 				--cs-#{shorten($name)}-increment: (var(--cs-#{shorten($name)}-end) - var(--cs-#{shorten($name)}-start)) / (#{$screenSizesVar} - 1);
 
 				@if ($ratio != null) {
@@ -525,7 +542,42 @@ $rootRemsUnit: getUnits($rootRems);
 				}
 			}
 
-			// Handle media query containment
+			// Set up main sizing calculations (before nested rules)
+			@if ($customMinMax != true) {
+				@if ($ratio != null) {
+					--cs-#{shorten($name)}-linear: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
+					--cs-#{shorten($name)}: (var(--cs-#{shorten($name)}-linear) + var(--cs-#{shorten($name)}-offset));
+				} @else {
+					--cs-#{shorten($name)}: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
+				}
+			}
+
+			// Handle min screen size constraints (before nested rules)
+			@if ($minScreenSize != null) {
+				@if ($contain == false) {
+					--cs-#{shorten($name)}: var(--cs-#{shorten($name)}-start);
+				}
+
+				@if ($customExponential) {
+					--cs-#{$id}-#{$minScreenSizeIndex}-exponential: 0;
+				} @else if ($ratiosInUse == true) {
+					--cs-#{$minScreenSizeIndex}-exponential: 0;
+				}
+			}
+
+			// Handle max screen size constraints (before nested rules)
+			@if ($maxScreenSize != null) {
+				@if ($minScreenSize == null) {
+					@if ($ratio != null) {
+						--cs-#{shorten($name)}-linear: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
+						--cs-#{shorten($name)}: (var(--cs-#{shorten($name)}-linear) + var(--cs-#{shorten($name)}-offset));
+					} @else {
+						--cs-#{shorten($name)}: (((#{$currentSizeVar}) * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
+					}
+				}
+			}
+
+			// Now handle all nested rules (media queries, demo classes, etc.)
 			@if ($contain == true and $customMinMax == true) {
 				@media #{$mediaQuery} {
 					--cs-#{shorten($name)}-increment: (var(--cs-#{shorten($name)}-end) - var(--cs-#{shorten($name)}-start)) / (#{$screenSizesVar} - 1);
@@ -554,41 +606,6 @@ $rootRemsUnit: getUnits($rootRems);
 						}
 
 						$index: $index + 1;
-					}
-				}
-			}
-
-			// Set up main sizing calculations first (before nested rules)
-			@if ($customMinMax != true) {
-				@if ($ratio != null) {
-					--cs-#{shorten($name)}-linear: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
-					--cs-#{shorten($name)}: (var(--cs-#{shorten($name)}-linear) + var(--cs-#{shorten($name)}-offset));
-				} @else {
-					--cs-#{shorten($name)}: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
-				}
-			}
-
-			// Handle min screen size constraints
-			@if ($minScreenSize != null) {
-				@if ($contain == false) {
-					--cs-#{shorten($name)}: var(--cs-#{shorten($name)}-start);
-				}
-
-				@if ($customExponential) {
-					--cs-#{$id}-#{$minScreenSizeIndex}-exponential: 0;
-				} @else if ($ratiosInUse == true) {
-					--cs-#{$minScreenSizeIndex}-exponential: 0;
-				}
-			}
-
-			// Handle max screen size constraints
-			@if ($maxScreenSize != null) {
-				@if ($minScreenSize == null) {
-					@if ($ratio != null) {
-						--cs-#{shorten($name)}-linear: ((#{$currentSizeVar} * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
-						--cs-#{shorten($name)}: (var(--cs-#{shorten($name)}-linear) + var(--cs-#{shorten($name)}-offset));
-					} @else {
-						--cs-#{shorten($name)}: (((#{$currentSizeVar}) * var(--cs-#{shorten($name)}-increment)) + var(--cs-#{shorten($name)}-start));
 					}
 				}
 			}
