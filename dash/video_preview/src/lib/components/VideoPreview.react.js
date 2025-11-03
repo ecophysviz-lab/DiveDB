@@ -233,141 +233,106 @@ const VideoPreview = ({
     setControlsVisible(!controlsVisible);
   };
 
+  const handleVideoMouseEnter = () => {
+    setControlsVisible(true);
+  };
+
+  const handleVideoMouseLeave = () => {
+    setControlsVisible(false);
+  };
+
   return (
     <div id={id} style={{ ...style }}>
       {videoSrc && videoSrc.trim() ? (
-        <div>
-          {/* Video container */}
-          <div style={{ position: 'relative', marginBottom: "8px" }}>
-            <video
-              ref={videoRef}
-              src={videoSrc}
-              onLoadedMetadata={handleLoadedMetadata}
-              onError={handleVideoError}
-              width="100%"
-              controls={controlsVisible}
-              style={{
-                borderRadius: "8px",
-                backgroundColor: "#000000",
-                opacity: isVideoActive ? 1 : 0.5, // Dim video when not temporally active
-              }}
-            />
-            {/* Controls toggle button in top right */}
-            <button
-              onClick={toggleControls}
+        <div className="h-100">
+          <video
+            ref={videoRef}
+            src={videoSrc}
+            onLoadedMetadata={handleLoadedMetadata}
+            onError={handleVideoError}
+            onMouseEnter={handleVideoMouseEnter}
+            onMouseLeave={handleVideoMouseLeave}
+            width="100%"
+            controls={controlsVisible}
+            style={{
+              opacity: isVideoActive ? 1 : 0.5, // Dim video when not temporally active
+            }}
+          />
+          {/* Controls toggle button in top right */}
+          <button
+            onClick={toggleControls}
+            className="d-none btn btn-xs btn-hidecontrols"
+          >
+            {controlsVisible ? "Hide Controls" : "Show Controls"}
+          </button>
+          {!isVideoActive && videoMetadata && (
+            <div
               style={{
                 position: "absolute",
-                top: "8px",
-                right: "8px",
-                backgroundColor: "rgba(0, 0, 0, 0.7)",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                backgroundColor: "rgba(0, 0, 0, 0.8)",
                 color: "white",
-                border: "none",
-                borderRadius: "4px",
-                padding: "4px 8px",
-                fontSize: "12px",
-                cursor: "pointer",
-                zIndex: 10,
-                transition: "background-color 0.2s",
+                padding: "12px 20px",
+                borderRadius: "8px",
+                textAlign: "center",
+                fontSize: "14px",
+                boxSizing: "border-box",
               }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = "rgba(0, 0, 0, 0.9)"}
-              onMouseLeave={(e) => e.target.style.backgroundColor = "rgba(0, 0, 0, 0.7)"}
             >
-              {controlsVisible ? "Hide Controls" : "Show Controls"}
-            </button>
-            {!isVideoActive && videoMetadata && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  backgroundColor: "rgba(0, 0, 0, 0.8)",
-                  color: "white",
-                  padding: "12px 20px",
-                  borderRadius: "8px",
-                  textAlign: "center",
-                  fontSize: "14px",
-                  maxWidth: "90%",
-                  boxSizing: "border-box",
-                }}
-              >
-                <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
-                  Video not active
-                </div>
-                <div style={{ fontSize: "12px", opacity: 0.9 }}>
-                  Timeline is outside video time range
-                </div>
+              <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+                Video not active
               </div>
-            )}
-          </div>
+              <div style={{ fontSize: "12px", opacity: 0.9 }}>
+                Timeline is outside video time range
+              </div>
+            </div>
+          )}
 
           {/* Timeline offset controls - positioned below video */}
           {videoMetadata && (
-            <div style={{ marginTop: "8px" }}>
+            <div className="offset_panel">
               {/* Toggle button for offset panel */}
               <button
+                className="btn btn-xs"
                 onClick={() => setOffsetPanelOpen(!offsetPanelOpen)}
                 style={{
-                  backgroundColor: "rgba(0, 0, 0, 0.7)",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  padding: "6px 12px",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                  marginBottom: offsetPanelOpen ? "8px" : "0px",
-                  transition: "all 0.2s",
                   display: "flex",
                   alignItems: "center",
                   gap: "6px"
                 }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = "rgba(0, 0, 0, 0.9)"}
-                onMouseLeave={(e) => e.target.style.backgroundColor = "rgba(0, 0, 0, 0.7)"}
               >
                 🕒 {formatOffset(localOffset)} {offsetPanelOpen ? "▲" : "▼"}
               </button>
               
               {/* Collapsible offset controls panel */}
               {offsetPanelOpen && (
-                <div style={{
-                  backgroundColor: "rgba(0, 0, 0, 0.9)",
-                  color: "white",
-                  padding: "16px",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  border: "1px solid rgba(255, 255, 255, 0.1)"
-                }}>
-                  <div style={{ marginBottom: "12px", fontWeight: "bold", fontSize: "14px" }}>
-                    Timeline Offset Adjustment
-                  </div>
+                <div className="dropdown-menu show">
+                  <p><strong>Timeline Offset Adjustment</strong></p>
                   
                   {/* Slider control */}
-                  <div style={{ marginBottom: "16px" }}>
-                    <label style={{ display: "block", marginBottom: "6px", fontWeight: "500" }}>
+                  <div>
+                    <p className="p sm">
                       Coarse: {formatOffset(localOffset)}
-                    </label>
+                    </p>
                     <input
+                      class="form-range"
                       type="range"
                       min="-3600"
                       max="3600"
                       step="60"
                       value={localOffset}
                       onChange={(e) => updateOffset(parseFloat(e.target.value))}
-                      style={{
-                        width: "100%",
-                        height: "6px",
-                        background: "rgba(255, 255, 255, 0.2)",
-                        borderRadius: "3px",
-                        outline: "none"
-                      }}
+                      // style={{
+                      //   width: "100%",
+                      //   height: "6px",
+                      //   background: "var(--blueMedium))",
+                      //   borderRadius: "3px",
+                      //   outline: "none"
+                      // }}
                     />
-                    <div style={{ 
-                      display: "flex", 
-                      justifyContent: "space-between", 
-                      fontSize: "10px",
-                      marginTop: "4px",
-                      opacity: 0.7
-                    }}>
+                    <div className="range-labels">
                       <span>-1hr</span>
                       <span>0</span>
                       <span>+1hr</span>
@@ -379,26 +344,8 @@ const VideoPreview = ({
                     {!fineControlsOpen ? (
                       // Show toggle button when fine controls are closed
                       <button
+                        className="btn btn-xs btn-stroke"
                         onClick={() => setFineControlsOpen(true)}
-                        style={{
-                          backgroundColor: "transparent",
-                          color: "rgba(255, 255, 255, 0.8)",
-                          border: "1px solid rgba(255, 255, 255, 0.3)",
-                          borderRadius: "4px",
-                          padding: "6px 12px",
-                          fontSize: "11px",
-                          cursor: "pointer",
-                          fontWeight: "500",
-                          transition: "all 0.2s"
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
-                          e.target.style.color = "white";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.backgroundColor = "transparent";
-                          e.target.style.color = "rgba(255, 255, 255, 0.8)";
-                        }}
                       >
                         + Fine adjustment (seconds)
                       </button>
@@ -406,21 +353,10 @@ const VideoPreview = ({
                       // Show fine controls when open
                       <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                          <label style={{ fontWeight: "500" }}>
-                            Fine (seconds):
-                          </label>
+                          <p className="sm">Fine (seconds):</p>
                           <button
                             onClick={() => setFineControlsOpen(false)}
-                            style={{
-                              backgroundColor: "transparent",
-                              color: "rgba(255, 255, 255, 0.6)",
-                              border: "none",
-                              fontSize: "10px",
-                              cursor: "pointer",
-                              padding: "2px 4px"
-                            }}
-                            onMouseEnter={(e) => e.target.style.color = "white"}
-                            onMouseLeave={(e) => e.target.style.color = "rgba(255, 255, 255, 0.6)"}
+                            className="btn btn-xs"
                           >
                             ✕ close
                           </button>
@@ -462,19 +398,13 @@ const VideoPreview = ({
                   </div>
                   
                   {/* Visual feedback */}
-                  <div style={{ 
-                    fontSize: "11px", 
-                    opacity: 0.8,
-                    borderTop: "1px solid rgba(255, 255, 255, 0.2)",
-                    paddingTop: "12px"
-                  }}>
-                    <div style={{ marginBottom: "2px" }}>
-                      <strong>Original:</strong> {formatUTCTime(videoMetadata.fileCreatedAt)} UTC
-                    </div>
-                    <div>
-                      <strong>Adjusted:</strong> {formatUTCTime(new Date(new Date(videoMetadata.fileCreatedAt).getTime() + localOffset * 1000).toISOString())} UTC
-                    </div>
-                  </div>
+                  <hr />
+                  <p className="sm mb-1">
+                    <strong>Original:</strong> {formatUTCTime(videoMetadata.fileCreatedAt)} UTC
+                  </p>
+                  <p className="sm mb-0">
+                    <strong>Adjusted:</strong> {formatUTCTime(new Date(new Date(videoMetadata.fileCreatedAt).getTime() + localOffset * 1000).toISOString())} UTC
+                  </p>
                 </div>
               )}
             </div>

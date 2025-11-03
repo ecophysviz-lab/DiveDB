@@ -386,14 +386,7 @@ const ThreeJsOrientation = ({
       {/* Button to reset camera */}
       <button
         onClick={resetCamera}
-        style={{
-          position: "absolute",
-          top: "10px",
-          right: "10px",
-          padding: "10px",
-          fontSize: "14px",
-          cursor: "pointer",
-        }}
+        className="btn btn-sm btn-resetview"
       >
         Reset View
       </button>

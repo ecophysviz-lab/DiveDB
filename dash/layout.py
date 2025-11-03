@@ -669,14 +669,14 @@ def create_right_sidebar(
                                                 datasetStartTime=video_min_timestamp,
                                                 playheadTime=video_min_timestamp,
                                                 isPlaying=False,
-                                                showControls=False,
+                                                showControls=True,
                                             ),
                                             html.Button(
                                                 [
                                                     "Expand",
                                                 ],
                                                 id="right-bottom-toggle",
-                                                className="btn btn-icon toggle_right_bottom",
+                                                className="btn btn-icon toggle_right_top",
                                                 n_clicks=0,
                                             ),
                                             dbc.Tooltip(
