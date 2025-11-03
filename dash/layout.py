@@ -417,9 +417,9 @@ def create_main_content(fig, channel_options=None):
     if channel_options:
         for option in channel_options:
             if isinstance(option, dict):
-                # Handle dictionary format
-                label = option.get('label', option.get('name', 'Unknown'))
-                value = option.get('value', option.get('id', label))
+                # Handle dictionary format - check for non-None values
+                label = option.get('label') or option.get('group')
+                value = option.get('group')
                 dropdown_options.append({"label": label, "value": value})
             else:
                 # Handle string format

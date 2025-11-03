@@ -2,7 +2,7 @@
 Server-side callback functions for the DiveDB data visualization dashboard.
 """
 import dash
-from dash import Output, Input, State, callback_context
+from dash import Output, Input, State, callback_context, ALL
 import pandas as pd
 from datetime import datetime
 
@@ -113,7 +113,7 @@ def find_best_overlapping_video(video_options, playhead_time, time_offset=0):
     return overlapping_videos[0][0]  # Return the video (not the tuple)
 
 
-def register_callbacks(app, dff, video_options=None):
+def register_callbacks(app, dff, video_options=None, channel_options=None):
     """Register all server-side callbacks with the given app instance."""
 
     @app.callback(
@@ -386,3 +386,213 @@ def register_callbacks(app, dff, video_options=None):
     def update_video_offset_store(time_offset):
         """Update the video time offset store when component changes."""
         return time_offset or 0
+
+    @app.callback(
+        Output("graph-channel-list", "children"),
+        Input("add-graph-btn", "n_clicks"),
+        State("graph-channel-list", "children"),
+        prevent_initial_call=True,
+    )
+    def add_new_channel(n_clicks, current_children):
+        """Add a new channel selection row when Add Graph button is clicked."""
+        if not n_clicks:
+            raise dash.exceptions.PreventUpdate
+        
+        # Get current number of channels to create unique IDs
+        channel_count = len([child for child in current_children if hasattr(child, 'props') and 
+                           child.props.get('children') and 
+                           child.props['children'].props.get('children') and
+                           any('channel-' in str(col.props.get('children', {}).get('props', {}).get('id', '')) 
+                               for col in child.props['children'].props['children'] 
+                               if hasattr(col, 'props'))])
+        
+        new_channel_id = channel_count + 1
+        
+        # Import necessary components (needed for dynamic creation)
+        import dash_bootstrap_components as dbc
+        from dash import html
+        
+        # Convert channel_options to dropdown format
+        dropdown_options = []
+        if channel_options:
+            for option in channel_options:
+                if isinstance(option, dict):
+                    # Handle dictionary format - check for non-None values
+                    label = option.get('label') or option.get('group')
+                    value = option.get('group')
+                    dropdown_options.append({"label": label, "value": value})
+                else:
+                    # Handle string format
+                    dropdown_options.append({"label": str(option), "value": str(option).lower()})
+        else:
+            # Fallback options if channel_options is None
+            dropdown_options = [
+                {"label": "Depth", "value": "depth"},
+                {"label": "Pitch, roll, heading", "value": "prh"},
+                {"label": "Temperature", "value": "temperature"},
+                {"label": "Light", "value": "light"},
+            ]
+        
+        new_channel_row = dbc.ListGroupItem(
+            dbc.Row(
+                [
+                    dbc.Col(
+                        html.Button(
+                                html.Img(
+                                    src="/assets/images/drag.svg",
+                                    className="drag-icon",
+                                ),
+                                className="btn btn-icon-only btn-sm",
+                                id={"type": "channel-drag", "index": new_channel_id},
+                            ),
+                        width="auto",
+                        className="drag-handle",
+                    ),
+                    dbc.Col(
+                        dbc.Select(
+                            options=dropdown_options,
+                            value=dropdown_options[0]["value"],
+                            id={"type": "channel-select", "index": new_channel_id},
+                        ),
+                    ),
+                    dbc.Col(
+                        html.Button(
+                            html.Img(
+                                src="/assets/images/remove.svg",
+                                className="remove-icon",
+                            ),
+                            className="btn btn-icon-only btn-sm",
+                            id={"type": "channel-remove", "index": new_channel_id},
+                        ),
+                        width="auto",
+                    ),
+                ],
+                align="center",
+                className="g-2",
+            ),
+        )
+        
+        # Insert the new row before the "Add Graph" button (which should be the last item)
+        new_children = current_children[:-1] + [new_channel_row] + [current_children[-1]]
+        
+        return new_children
+
+    @app.callback(
+        Output("graph-channel-list", "children", allow_duplicate=True),
+        [Input({"type": "channel-remove", "index": ALL}, "n_clicks")],
+        State("graph-channel-list", "children"),
+        prevent_initial_call=True,
+    )
+    def remove_channel(remove_clicks, current_children):
+        """Remove a channel selection row when remove button is clicked."""
+        if not any(remove_clicks):
+            raise dash.exceptions.PreventUpdate
+        
+        ctx = callback_context
+        if not ctx.triggered:
+            raise dash.exceptions.PreventUpdate
+        
+        # Find which remove button was clicked
+        clicked_button = ctx.triggered[0]["prop_id"]
+        
+        # Extract the channel ID from the button ID
+        import json
+        button_info = json.loads(clicked_button.split('.')[0])
+        channel_to_remove = button_info["index"]
+        
+        # Count current channel rows (excluding the "Add Graph" button)
+        channel_count = 0
+        for child in current_children:
+            if hasattr(child, 'props') and child.props.get('children'):
+                row = child.props['children']
+                if hasattr(row, 'props') and row.props.get('children'):
+                    for col in row.props['children']:
+                        if hasattr(col, 'props') and col.props.get('children'):
+                            button = col.props['children']
+                            if hasattr(button, 'props') and button.props.get('id'):
+                                button_id = button.props['id']
+                                if isinstance(button_id, dict) and button_id.get('type') == 'channel-remove':
+                                    channel_count += 1
+                                    break
+        
+        # Don't allow removal if only one channel remains
+        if channel_count <= 1:
+            raise dash.exceptions.PreventUpdate
+        
+        # Filter out the channel to remove by checking IDs
+        new_children = []
+        for child in current_children:
+            should_keep = True
+            if hasattr(child, 'props') and child.props.get('children'):
+                row = child.props['children']
+                if hasattr(row, 'props') and row.props.get('children'):
+                    for col in row.props['children']:
+                        if hasattr(col, 'props') and col.props.get('children'):
+                            button = col.props['children']
+                            if hasattr(button, 'props') and button.props.get('id'):
+                                button_id = button.props['id']
+                                if isinstance(button_id, dict) and button_id.get('type') == 'channel-remove' and button_id.get('index') == channel_to_remove:
+                                    should_keep = False
+                                    break
+            
+            if should_keep:
+                new_children.append(child)
+        
+        return new_children
+
+    # Client-side callback to handle drag and drop reordering
+    app.clientside_callback(
+        """
+        function(children) {
+            // Initialize drag and drop whenever the channel list changes
+            setTimeout(function() {
+                if (typeof initializeDragDrop === 'function') {
+                    initializeDragDrop();
+                } else {
+                    // If function not loaded yet, try again
+                    setTimeout(function() {
+                        if (typeof initializeDragDrop === 'function') {
+                            initializeDragDrop();
+                        }
+                    }, 500);
+                }
+            }, 100);
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("graph-channel-list", "id"),  # Dummy output to trigger callback
+        Input("graph-channel-list", "children"),
+        prevent_initial_call=False
+    )
+
+    @app.callback(
+        Output("channel-order", "data"),
+        Input("graph-channel-list", "children"),
+        prevent_initial_call=True,
+    )
+    def update_channel_order(children):
+        """Update the channel order store when the channel list changes."""
+        if not children:
+            return []
+        
+        order = []
+        for i, child in enumerate(children):
+            if hasattr(child, 'props') and child.props.get('children'):
+                row = child.props['children']
+                if hasattr(row, 'props') and row.props.get('children'):
+                    for col in row.props['children']:
+                        if hasattr(col, 'props') and col.props.get('children'):
+                            element = col.props['children']
+                            if hasattr(element, 'props') and element.props.get('id'):
+                                element_id = element.props['id']
+                                # Look for channel select elements
+                                if isinstance(element_id, str) and '-select' in element_id:
+                                    channel_id = element_id.replace('-select', '')
+                                    order.append({
+                                        'id': channel_id,
+                                        'index': i,
+                                        'value': element.props.get('value', '')
+                                    })
+                                    break
+        
+        return order
