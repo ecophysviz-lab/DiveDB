@@ -7,7 +7,11 @@ from dash import Output, Input, State, html, callback_context, no_update
 import pandas as pd
 import time
 from logging_config import get_logger
-from layout import create_dataset_accordion_item
+from layout import (
+    create_dataset_accordion_item,
+    create_timeline_section,
+    create_deployment_info_display,
+)
 
 logger = get_logger(__name__)
 
@@ -81,6 +85,19 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         Output("selected-dataset", "data"),
         Output("graph-content", "figure"),
         Output("is-loading-data", "data"),
+        Output("timeline-container", "children"),
+        Output("deployment-info-display", "children"),
+        Output("playback-timestamps", "data"),
+        Output("current-video-options", "data"),
+        # Playback control buttons
+        Output("previous-button", "disabled"),
+        Output("rewind-button", "disabled"),
+        Output("play-button", "disabled"),
+        Output("forward-button", "disabled"),
+        Output("next-button", "disabled"),
+        Output("save-button", "disabled"),
+        Output("playback-rate", "disabled"),
+        Output("fullscreen-button", "disabled"),
         Input(
             {
                 "type": "deployment-button",
@@ -97,16 +114,67 @@ def register_selection_callbacks(app, duck_pond, immich_service):
     ):
         """Handle deployment selection and automatically load visualization."""
         if not callback_context.triggered or not datasets_with_deployments:
-            return no_update, no_update, no_update, no_update
+            return (
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                [],
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+            )
 
         if not n_clicks_list or not any(n_clicks_list):
-            return no_update, no_update, no_update, no_update
+            return (
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                [],
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+            )
 
         # Find which button was clicked
         triggered_id = callback_context.triggered[0]["prop_id"]
 
         if "deployment-button" not in triggered_id:
-            return no_update, no_update, no_update, no_update
+            return (
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                [],
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+            )
 
         # Extract dataset and index from triggered_id
         import json
@@ -120,7 +188,24 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             deployments_data = datasets_with_deployments.get(dataset, [])
             if not deployments_data or idx >= len(deployments_data):
                 logger.error(f"Invalid deployment index {idx} for dataset {dataset}")
-                return no_update, no_update, no_update, no_update
+                return (
+                    no_update,
+                    no_update,
+                    no_update,
+                    no_update,
+                    no_update,
+                    no_update,
+                    no_update,
+                    [],
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                )
 
             selected_deployment = deployments_data[idx]
             logger.info(
@@ -133,6 +218,10 @@ def register_selection_callbacks(app, duck_pond, immich_service):
 
             deployment_id = selected_deployment["deployment"]
             animal_id = selected_deployment["animal"]
+
+            # Get timezone offset from Notion via DuckDB
+            timezone_offset = duck_pond.get_deployment_timezone_offset(deployment_id)
+            logger.info(f"Deployment timezone offset: UTC{timezone_offset:+.1f}")
 
             # Use deployment's min and max dates directly
             min_dt = pd.to_datetime(selected_deployment["min_date"])
@@ -283,7 +372,29 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     ],
                     height=600,
                 )
-                return selected_deployment, dataset, fig, False
+                empty_timeline = html.P(
+                    "No data available for timeline",
+                    className="text-muted text-center py-4",
+                )
+                empty_info = html.P("No deployment info", className="text-muted")
+                return (
+                    selected_deployment,
+                    dataset,
+                    fig,
+                    False,
+                    empty_timeline,
+                    empty_info,
+                    [],
+                    [],
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                )
 
             # Load data at adjusted frequency
             logger.debug("Loading data...")
@@ -296,6 +407,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 frequency=adjusted_frequency,
                 labels=labels_to_load,
                 add_timestamp_column=True,
+                apply_timezone_offset=timezone_offset,
             )
             t1 = time.time()
             logger.debug(f"Time taken: {t1 - t0:.2f} seconds")
@@ -319,7 +431,29 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     ],
                     height=600,
                 )
-                return selected_deployment, dataset, fig, False
+                empty_timeline = html.P(
+                    "No data available for timeline",
+                    className="text-muted text-center py-4",
+                )
+                empty_info = html.P("No deployment info", className="text-muted")
+                return (
+                    selected_deployment,
+                    dataset,
+                    fig,
+                    False,
+                    empty_timeline,
+                    empty_info,
+                    [],
+                    [],
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                )
 
             logger.info(f"Loaded {len(dff)} rows with {len(dff.columns)} columns")
 
@@ -345,7 +479,29 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     ],
                     height=600,
                 )
-                return selected_deployment, dataset, fig, False
+                empty_timeline = html.P(
+                    "No data available for timeline",
+                    className="text-muted text-center py-4",
+                )
+                empty_info = html.P("No deployment info", className="text-muted")
+                return (
+                    selected_deployment,
+                    dataset,
+                    fig,
+                    False,
+                    empty_timeline,
+                    empty_info,
+                    [],
+                    [],
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                    True,
+                )
 
             # Create subplots for first 10 signals
             num_plots = min(10, len(data_columns))
@@ -386,7 +542,74 @@ def register_selection_callbacks(app, duck_pond, immich_service):
 
             logger.info(f"Created figure with {num_plots} subplots")
 
-            return selected_deployment, dataset, fig, False
+            # Fetch events for this deployment
+            logger.debug("Fetching events...")
+            try:
+                events_df = duck_pond.get_events(
+                    dataset=dataset,
+                    animal_ids=animal_id,
+                    date_range=(date_range["start"], date_range["end"]),
+                    apply_timezone_offset=timezone_offset,
+                    add_timestamp_columns=True,
+                )
+                logger.debug(
+                    f"Loaded {len(events_df) if not events_df.empty else 0} events"
+                )
+            except Exception as e:
+                logger.error(f"Error fetching events: {e}")
+                events_df = None
+
+            # Fetch videos from Immich
+            logger.debug("Fetching videos from Immich...")
+            video_options = []
+            try:
+                deployment_id_for_immich = "DepID_" + selected_deployment["deployment"]
+                logger.debug(
+                    f"Fetching videos from Immich for deployment: {deployment_id_for_immich}"
+                )
+                media_result = immich_service.find_media_by_deployment_id(
+                    deployment_id_for_immich, media_type="VIDEO", shared=True
+                )
+                video_result = immich_service.prepare_video_options_for_react(
+                    media_result
+                )
+                video_options = video_result.get("video_options", [])
+                logger.debug(f"Loaded {len(video_options)} videos")
+            except Exception as e:
+                logger.error(f"Error fetching videos: {e}")
+                video_options = []
+
+            # Generate timeline HTML
+            timeline_html = create_timeline_section(
+                dff=dff,
+                video_options=video_options,
+                events_df=events_df,
+            )
+
+            # Generate deployment info display
+            deployment_info_html = create_deployment_info_display(
+                animal_id=animal_id,
+                deployment_date=selected_deployment["deployment_date"],
+            )
+
+            return (
+                selected_deployment,
+                dataset,
+                fig,
+                False,
+                timeline_html,
+                deployment_info_html,
+                dff["timestamp"].tolist(),  # playback timestamps
+                video_options,  # current video options
+                False,  # previous-button enabled
+                False,  # rewind-button enabled
+                False,  # play-button enabled
+                False,  # forward-button enabled
+                False,  # next-button enabled
+                False,  # save-button enabled
+                False,  # playback-rate enabled
+                False,  # fullscreen-button enabled
+            )
 
         except Exception as e:
             logger.error(f"Error loading visualization: {e}", exc_info=True)
@@ -407,7 +630,28 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 ],
                 height=600,
             )
-            return no_update, no_update, fig, False
+            error_timeline = html.P(
+                f"Error: {str(e)}", className="text-danger text-center py-4"
+            )
+            error_info = html.P("Error loading deployment", className="text-danger")
+            return (
+                no_update,
+                no_update,
+                fig,
+                False,
+                error_timeline,
+                error_info,
+                [],
+                [],
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+            )
 
     @app.callback(
         Output("loading-overlay", "style"),

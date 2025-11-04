@@ -21,7 +21,12 @@ from .sidebar import (
     create_right_sidebar,
     create_dataset_accordion_item,
 )
-from .timeline import create_footer
+from .timeline import (
+    create_footer,
+    create_footer_empty,
+    create_timeline_section,
+    create_deployment_info_display,
+)
 from .indicators import (
     create_event_indicator,
     create_video_indicator,
@@ -39,6 +44,9 @@ __all__ = [
     "create_right_sidebar",
     "create_dataset_accordion_item",
     "create_footer",
+    "create_footer_empty",
+    "create_timeline_section",
+    "create_deployment_info_display",
     "create_bookmark_modal",
     "create_loading_overlay",
     # Empty state helpers

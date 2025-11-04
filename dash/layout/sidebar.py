@@ -3,7 +3,6 @@ Sidebar components for dataset selection and visualization controls.
 """
 from dash import html
 import dash_bootstrap_components as dbc
-import pandas as pd
 import three_js_orientation
 import video_preview
 from logging_config import get_logger
@@ -16,19 +15,17 @@ def create_dataset_accordion_item(dataset_name, deployments, item_id):
     # Create deployment buttons for this dataset
     deployment_buttons = []
     for idx, dep in enumerate(deployments):
-        animal_id = dep["animal"]
-        min_date = pd.to_datetime(dep["min_date"]).strftime("%Y-%m-%d")
-        sample_count = dep["sample_count"]
-
         button = html.Button(
             [
                 html.Div(
                     [
-                        html.Strong(f"{animal_id}"),
+                        html.Strong(f"{dep['animal']}"),
                         html.Br(),
-                        html.Small(f"{min_date}", className="text-muted"),
+                        html.Small(f"{dep['deployment_date']}", className="text-muted"),
                         html.Br(),
-                        html.Small(f"{sample_count:,} samples", className="text-muted"),
+                        html.Small(
+                            f"{dep['sample_count']:,} samples", className="text-muted"
+                        ),
                     ]
                 )
             ],

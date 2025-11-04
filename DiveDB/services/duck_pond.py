@@ -1225,6 +1225,9 @@ class DuckPond:
 
         # Execute single query for all datasets
         all_deployments_df = self.conn.sql(combined_query).df()
+        all_deployments_df["deployment_date"] = all_deployments_df["deployment"].apply(
+            lambda x: x.split("_")[0]
+        )
 
         # Group results by dataset
         if len(all_deployments_df) > 0:
@@ -1259,6 +1262,48 @@ class DuckPond:
     def remove_dataset(self, dataset: str):
         """Remove a dataset and all its tables (use with caution!)"""
         return self.dataset_manager.remove_dataset(dataset)
+
+    def get_deployment_timezone_offset(self, deployment_id: str) -> float:
+        """
+        Get timezone offset for a deployment from Notion Deployments table.
+        Args: deployment_id: Deployment identifier (e.g., "2019-11-08_apfo-001")
+        Returns: Timezone offset in hours (e.g., 13.0 for Antarctica/McMurdo)
+        """
+        from zoneinfo import ZoneInfo
+        from datetime import datetime, timezone
+
+        try:
+            # Query the Deployments table (loaded from Notion into DuckDB)
+            result = self.conn.sql(
+                f"""
+                SELECT time_zone
+                FROM Deployments
+                WHERE deployment_id = '{deployment_id}'
+            """
+            ).fetchone()
+
+            if result and result[0]:
+                tz_name = result[0]
+                # Convert timezone name to UTC offset in hours
+                tz = ZoneInfo(tz_name)
+                offset_seconds = (
+                    datetime.now(timezone.utc)
+                    .astimezone(tz)
+                    .utcoffset()
+                    .total_seconds()
+                )
+                return offset_seconds / 3600
+            else:
+                logging.warning(
+                    f"No timezone found for deployment {deployment_id}, using UTC"
+                )
+
+        except Exception as e:
+            logging.warning(
+                f"Could not get timezone for deployment {deployment_id}: {e}"
+            )
+
+        return 0.0  # Default to UTC if not found
 
     def get_view_name(self, dataset: str, table_type: str) -> str:
         """

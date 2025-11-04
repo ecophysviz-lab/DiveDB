@@ -15,6 +15,7 @@ from layout import (
     create_left_sidebar,
     create_right_sidebar,
     create_footer,
+    create_footer_empty,
     create_bookmark_modal,
     create_empty_figure,
     create_empty_dataframe,
@@ -75,12 +76,16 @@ def create_app_stores(dff):
         ),
         dcc.Store(id="playhead-time", data=dff["timestamp"].min()),
         dcc.Store(id="is-playing", data=False),
+        # Store the actual timestamp data for playback
+        dcc.Store(id="playback-timestamps", data=dff["timestamp"].tolist()),
         # Store for selected video data
         dcc.Store(id="selected-video", data=None),
         # Store for sticky manual selection
         dcc.Store(id="manual-video-override", data=None),
         # Store for video timeline offset in seconds
         dcc.Store(id="video-time-offset", data=0),
+        # Store for current video options (loaded dynamically with deployments)
+        dcc.Store(id="current-video-options", data=[]),
         # Stores for dataset/deployment selection
         dcc.Store(id="selected-dataset", data=None),
         dcc.Store(id="selected-deployment", data=None),
@@ -99,8 +104,17 @@ def create_layout(
     video_options=None,
     restricted_time_range=None,
     events_df=None,
+    use_empty_footer=False,
 ):
     """Create the complete app layout."""
+    # Choose footer based on whether we have data
+    if use_empty_footer:
+        footer_component = create_footer_empty()
+    else:
+        footer_component = create_footer(
+            dff, video_options=video_options, events_df=events_df
+        )
+
     return html.Div(
         [
             html.Div(
@@ -115,9 +129,7 @@ def create_layout(
                         video_options=video_options,
                         restricted_time_range=restricted_time_range,
                     ),
-                    create_footer(
-                        dff, video_options=video_options, events_df=events_df
-                    ),
+                    footer_component,
                 ],
                 className="grid",
             ),
@@ -143,6 +155,7 @@ app.layout = create_layout(
     video_options=[],
     restricted_time_range=None,
     events_df=None,
+    use_empty_footer=True,  # Start with empty footer
 )
 
 # Register all callbacks

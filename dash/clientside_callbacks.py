@@ -1,7 +1,7 @@
 """
 Client-side callback functions for the DiveDB data visualization dashboard.
 """
-from dash import Output, Input
+from dash import Output, Input, State
 
 
 def register_clientside_callbacks(app):
@@ -92,6 +92,43 @@ def register_clientside_callbacks(app):
         Output("fullscreen-tooltip", "children"),
         [Input("fullscreen-button", "n_clicks")],
         prevent_initial_call=False,
+    )
+
+    # Bidirectional sync between playhead-time store and playhead-slider
+    # Sync playhead-time → slider (programmatic updates from interval)
+    app.clientside_callback(
+        """
+        function(playhead_time, slider_value) {
+            // Only update if playhead-time changed significantly
+            // This prevents updating when slider is being manually dragged
+            if (Math.abs(playhead_time - slider_value) > 0.01) {
+                return playhead_time;
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("playhead-slider", "value"),
+        [Input("playhead-time", "data")],
+        [State("playhead-slider", "value")],
+        prevent_initial_call=True,
+    )
+
+    # Sync slider → playhead-time (manual drags)
+    app.clientside_callback(
+        """
+        function(slider_value, playhead_time) {
+            // Only update if user manually changed slider
+            // Check if slider value differs from current playhead-time
+            if (Math.abs(slider_value - playhead_time) > 0.01) {
+                return slider_value;
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("playhead-time", "data", allow_duplicate=True),
+        [Input("playhead-slider", "value")],
+        [State("playhead-time", "data")],
+        prevent_initial_call=True,
     )
 
     # TODO: Re-enable playhead visualization once duplicate callback issue is resolved
