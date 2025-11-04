@@ -133,3 +133,44 @@ def create_empty_dataframe():
             "timestamp": [now.timestamp(), (now + pd.Timedelta(seconds=1)).timestamp()],
         }
     )
+
+
+def create_loading_overlay():
+    """Create a full-page loading overlay with spinner."""
+    return html.Div(
+        [
+            html.Div(
+                [
+                    dbc.Spinner(
+                        color="primary",
+                        type="border",
+                        spinner_style={"width": "4rem", "height": "4rem"},
+                    ),
+                    html.P(
+                        "Loading deployment data...",
+                        className="mt-3 text-white",
+                        style={"fontSize": "1.2rem"},
+                    ),
+                ],
+                style={
+                    "position": "absolute",
+                    "top": "50%",
+                    "left": "50%",
+                    "transform": "translate(-50%, -50%)",
+                    "textAlign": "center",
+                    "zIndex": "10001",
+                },
+            ),
+        ],
+        id="loading-overlay",
+        style={
+            "position": "fixed",
+            "top": "0",
+            "left": "0",
+            "width": "100%",
+            "height": "100%",
+            "backgroundColor": "rgba(0, 0, 0, 0.7)",
+            "zIndex": "10000",
+            "display": "none",  # Hidden by default
+        },
+    )

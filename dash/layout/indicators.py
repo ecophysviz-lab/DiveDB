@@ -5,6 +5,9 @@ from dash import html
 import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import datetime
+from logging_config import get_logger
+
+logger = get_logger("layout")
 
 
 def truncate_middle(text, max_length=30):
@@ -96,7 +99,7 @@ def calculate_video_timeline_position(video, timeline_start_ts, timeline_end_ts)
 
         return {"start": clamped_start, "end": clamped_end, "status": status}
     except (ValueError, KeyError, TypeError) as e:
-        print(f"   ❌ Error calculating video position: {e}")
+        logger.error(f"Error calculating video position: {e}")
         return {"start": 0, "end": 0, "status": "error"}
 
 

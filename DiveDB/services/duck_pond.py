@@ -462,8 +462,7 @@ class DuckPond:
             add_timestamp_column: If True, adds a timestamp column (seconds since epoch)
             timestamp_col_name: Name for the timestamp column (default: "timestamp")
 
-        Returns:
-            Transformed DataFrame
+        Returns: Transformed DataFrame
         """
         if datetime_col not in df.columns:
             return df
@@ -479,6 +478,24 @@ class DuckPond:
             df[timestamp_col_name] = df[datetime_col].apply(lambda x: x.timestamp())
 
         return df
+
+    def _normalize_to_list(self, value: str | List[str] | None) -> List[str] | None:
+        """
+        Convert a single string to a list, or return as-is if already a list or None.
+        Args: value: String, list of strings, or None
+        Returns: List of strings, or None
+        """
+        if isinstance(value, str):
+            return [value]
+        return value
+
+    def _normalize_list_to_list(self, *params):
+        """
+        Normalize each parameter to a list using _normalize_to_list, and return the tuple of normalized values.
+        Args: *params: Any number of parameters (str, list, or None)
+        Returns: Tuple of lists or None, in the same order as params.
+        """
+        return tuple(self._normalize_to_list(param) for param in params)
 
     def _build_base_query(
         self,
@@ -921,18 +938,16 @@ class DuckPond:
         self.dataset_manager.ensure_dataset_initialized(dataset)
 
         # Convert single strings to lists
-        if isinstance(labels, str):
-            labels = [labels]
-        if isinstance(animal_ids, str):
-            animal_ids = [animal_ids]
-        if isinstance(deployment_ids, str):
-            deployment_ids = [deployment_ids]
-        if isinstance(recording_ids, str):
-            recording_ids = [recording_ids]
-        if isinstance(groups, str):
-            groups = [groups]
-        if isinstance(classes, str):
-            classes = [classes]
+        (
+            labels,
+            animal_ids,
+            deployment_ids,
+            recording_ids,
+            groups,
+            classes,
+        ) = self._normalize_list_to_list(
+            labels, animal_ids, deployment_ids, recording_ids, groups, classes
+        )
 
         # Build base query using the dataset-specific Data view
         view_name = f'"{dataset}_Data"'
@@ -983,6 +998,61 @@ class DuckPond:
             results = self.conn.sql(query)
             return DiveData(results, self.conn, notion_manager=self.notion_manager)
 
+    def estimate_data_size(
+        self,
+        dataset: str,
+        labels: str | List[str] | None = None,
+        animal_ids: str | List[str] | None = None,
+        deployment_ids: str | List[str] | None = None,
+        recording_ids: str | List[str] | None = None,
+        groups: str | List[str] | None = None,
+        classes: str | List[str] | None = None,
+        date_range: tuple[str, str] | None = None,
+    ) -> int:
+        """
+        Quickly estimate the number of rows that would be returned by get_data.
+        Uses COUNT(*) which is much faster than loading actual data.
+
+        Args:
+            Same as get_data() (excluding frequency, limit, pivoted, etc.)
+
+        Returns:
+            Estimated row count
+        """
+        # Ensure dataset is initialized
+        self.dataset_manager.ensure_dataset_initialized(dataset)
+
+        # Convert single strings to lists
+        (
+            labels,
+            animal_ids,
+            deployment_ids,
+            recording_ids,
+            groups,
+            classes,
+        ) = self._normalize_list_to_list(
+            labels, animal_ids, deployment_ids, recording_ids, groups, classes
+        )
+
+        # Build base query using existing method
+        view_name = f'"{dataset}_Data"'
+        base_query = self._build_base_query(
+            view_name=view_name,
+            labels=labels,
+            animal_ids=animal_ids,
+            deployment_ids=deployment_ids,
+            recording_ids=recording_ids,
+            groups=groups,
+            classes=classes,
+            date_range=date_range,
+            limit=None,
+        )
+
+        # Wrap in COUNT query
+        count_query = f"SELECT COUNT(*) as row_count FROM ({base_query})"
+        result = self.conn.sql(count_query).fetchone()
+        return result[0] if result else 0
+
     def get_events(
         self,
         dataset: str,
@@ -1026,14 +1096,14 @@ class DuckPond:
             return f"{predicate} IN ({quoted_values})"
 
         # Convert single strings to lists
-        if isinstance(animal_ids, str):
-            animal_ids = [animal_ids]
-        if isinstance(deployment_ids, str):
-            deployment_ids = [deployment_ids]
-        if isinstance(recording_ids, str):
-            recording_ids = [recording_ids]
-        if isinstance(event_keys, str):
-            event_keys = [event_keys]
+        (
+            animal_ids,
+            deployment_ids,
+            recording_ids,
+            event_keys,
+        ) = self._normalize_list_to_list(
+            animal_ids, deployment_ids, recording_ids, event_keys
+        )
 
         # Build query using the dataset-specific Events view
         view_name = self.get_view_name(dataset, "events")

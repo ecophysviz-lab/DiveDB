@@ -1,64 +1,88 @@
 """
 Sidebar components for dataset selection and visualization controls.
 """
-from dash import dcc, html
+from dash import html
 import dash_bootstrap_components as dbc
 import pandas as pd
 import three_js_orientation
 import video_preview
+from logging_config import get_logger
+
+logger = get_logger("layout")
+
+
+def create_dataset_accordion_item(dataset_name, deployments, item_id):
+    """Create accordion item for a dataset with deployment buttons inside."""
+    # Create deployment buttons for this dataset
+    deployment_buttons = []
+    for idx, dep in enumerate(deployments):
+        animal_id = dep["animal"]
+        min_date = pd.to_datetime(dep["min_date"]).strftime("%Y-%m-%d")
+        sample_count = dep["sample_count"]
+
+        button = html.Button(
+            [
+                html.Div(
+                    [
+                        html.Strong(f"{animal_id}"),
+                        html.Br(),
+                        html.Small(f"{min_date}", className="text-muted"),
+                        html.Br(),
+                        html.Small(f"{sample_count:,} samples", className="text-muted"),
+                    ]
+                )
+            ],
+            id={"type": "deployment-button", "dataset": dataset_name, "index": idx},
+            className="list-group-item list-group-item-action",
+            n_clicks=0,
+        )
+        deployment_buttons.append(button)
+
+    return dbc.AccordionItem(
+        [html.Div(deployment_buttons, className="list-group")],
+        title=[
+            html.Div(
+                [
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                html.Div(
+                                    [
+                                        html.Div(
+                                            [
+                                                html.Img(src="/assets/images/seal.svg"),
+                                            ],
+                                            className="animal_border ratio ratio-1x1",
+                                        ),
+                                    ],
+                                    className="animal_art sm",
+                                    style={"--bs-border-color": "var(--turquoise)"},
+                                ),
+                                width={"size": "auto"},
+                            ),
+                            dbc.Col(
+                                [
+                                    html.P(
+                                        [html.Strong([dataset_name])],
+                                        className="strong m-0",
+                                    ),
+                                ]
+                            ),
+                        ],
+                        align="center",
+                        className="gx-3",
+                    ),
+                ],
+                className="w-100",
+            )
+        ],
+        item_id=item_id,
+    )
 
 
 def create_left_sidebar(available_datasets=None, initial_deployments=None):
-    """Create the left sidebar with dynamic dataset/deployment selection."""
-    # Prepare dataset options
-    dataset_options = []
-    default_dataset = None
-    if available_datasets:
-        dataset_options = [{"label": ds, "value": ds} for ds in available_datasets]
-        default_dataset = available_datasets[0] if available_datasets else None
-
-    # Prepare initial deployment list
-    initial_deployment_ui = html.P(
-        "Select a dataset first", className="text-muted small"
-    )
-    if initial_deployments:
-        deployment_buttons = []
-        for idx, dep in enumerate(initial_deployments):
-            animal_id = dep["animal"]
-            min_date = pd.to_datetime(dep["min_date"]).strftime("%Y-%m-%d")
-            sample_count = dep["sample_count"]
-
-            button_id = {"type": "deployment-button", "index": idx}
-            print(f"🔘 Creating deployment button {idx}: {button_id}")
-
-            button = html.Button(
-                [
-                    html.Div(
-                        [
-                            html.Strong(f"{animal_id}"),
-                            html.Br(),
-                            html.Small(f"{min_date}", className="text-muted"),
-                            html.Br(),
-                            html.Small(
-                                f"{sample_count:,} samples", className="text-muted"
-                            ),
-                        ]
-                    ),
-                ],
-                id=button_id,
-                className="list-group-item list-group-item-action",
-                n_clicks=0,
-            )
-            deployment_buttons.append(button)
-
-        initial_deployment_ui = html.Div(
-            deployment_buttons,
-            className="list-group",
-        )
-
-    print(
-        f"🏗️ Creating sidebar with {len(dataset_options)} dataset options, {len(initial_deployments) if initial_deployments else 0} deployments"
-    )
+    """Create the left sidebar with accordion-based dataset/deployment selection."""
+    logger.debug("Creating sidebar with accordion structure")
 
     return html.Div(
         [
@@ -88,7 +112,7 @@ def create_left_sidebar(available_datasets=None, initial_deployments=None):
                                             [
                                                 html.Strong(
                                                     [
-                                                        "Data Selection",
+                                                        "Datasets",
                                                     ],
                                                 ),
                                             ],
@@ -105,82 +129,12 @@ def create_left_sidebar(available_datasets=None, initial_deployments=None):
                     ),
                     html.Div(
                         [
-                            # Dataset Selection Section
-                            html.Div(
-                                [
-                                    html.Label(
-                                        "Dataset",
-                                        className="form-label fw-bold mt-3",
-                                    ),
-                                    dcc.Dropdown(
-                                        id="dataset-dropdown",
-                                        options=dataset_options,
-                                        value=default_dataset,
-                                        placeholder="Select a dataset...",
-                                        className="mb-3",
-                                        clearable=False,
-                                    ),
-                                    dcc.Loading(
-                                        id="dataset-loading",
-                                        type="circle",
-                                        children=html.Div(id="dataset-loading-output"),
-                                    ),
-                                ],
-                                className="px-3",
-                            ),
-                            # Deployment Selection Section
-                            html.Div(
-                                [
-                                    html.Label(
-                                        "Deployment",
-                                        className="form-label fw-bold mt-3",
-                                    ),
-                                    html.Div(
-                                        id="deployment-list-container",
-                                        children=[initial_deployment_ui],
-                                        className="mb-3",
-                                    ),
-                                    dcc.Loading(
-                                        id="deployment-loading",
-                                        type="circle",
-                                        children=html.Div(
-                                            id="deployment-loading-output"
-                                        ),
-                                    ),
-                                ],
-                                className="px-3",
-                            ),
-                            # Deployment info section (shows selected deployment details)
-                            html.Div(
-                                id="deployment-info-container",
-                                children=[],
-                                className="px-3 mb-3",
-                                style={
-                                    "display": "none"
-                                },  # Hidden until deployment selected
-                            ),
-                            # Load Button
-                            html.Div(
-                                [
-                                    dbc.Button(
-                                        "Load Visualization",
-                                        id="load-visualization-button",
-                                        color="primary",
-                                        size="lg",
-                                        disabled=True,
-                                        className="w-100",
-                                    ),
-                                    # Loading indicator for data fetch (inline, not fullscreen)
-                                    dcc.Loading(
-                                        id="visualization-loading",
-                                        type="circle",
-                                        children=html.Div(
-                                            id="visualization-loading-output",
-                                            className="mt-2 text-center",
-                                        ),
-                                    ),
-                                ],
-                                className="px-3 py-3",
+                            dbc.Accordion(
+                                id="dataset-accordion",
+                                children=[],  # Will be populated by callback
+                                start_collapsed=True,
+                                always_open=False,
+                                flush=True,
                             ),
                         ],
                         className="sidebar_content",

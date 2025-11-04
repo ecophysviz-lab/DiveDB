@@ -18,10 +18,12 @@ from layout import (
     create_bookmark_modal,
     create_empty_figure,
     create_empty_dataframe,
+    create_loading_overlay,
 )
 from callbacks import register_callbacks
 from clientside_callbacks import register_clientside_callbacks
 from selection_callbacks import register_selection_callbacks
+from logging_config import get_logger
 
 # Add DiveDB root to path for Immich integration
 sys.path.append(str(Path(__file__).parent.parent))
@@ -59,7 +61,7 @@ immich_service = ImmichService()
 # Datasets will be loaded on page load via callback, not at server startup
 
 
-def create_app_stores(dff, initial_deployments=None):
+def create_app_stores(dff):
     """Create the dcc.Store and dcc.Interval components."""
     return [
         # Location for triggering callbacks on page load
@@ -79,20 +81,14 @@ def create_app_stores(dff, initial_deployments=None):
         dcc.Store(id="manual-video-override", data=None),
         # Store for video timeline offset in seconds
         dcc.Store(id="video-time-offset", data=0),
-        # New stores for dataset/deployment selection
+        # Stores for dataset/deployment selection
         dcc.Store(id="selected-dataset", data=None),
         dcc.Store(id="selected-deployment", data=None),
-        # Trigger callbacks on page load
-        dcc.Store(id="trigger-initial-load", data=True),
-        dcc.Store(id="selected-date-range", data=None),
+        dcc.Store(
+            id="all-datasets-deployments", data={}
+        ),  # All datasets with deployments
         dcc.Store(id="selected-timezone", data=0),
-        dcc.Store(id="available-datasets", data=[]),  # Store for loaded datasets
-        dcc.Store(id="available-deployments", data=initial_deployments or []),
-        dcc.Store(id="deployment-date-ranges", data={}),
-        dcc.Store(id="visualization-loaded", data=False),
-        dcc.Store(id="loading-state", data={"stage": "idle", "message": ""}),
-        # Store for passing duck_pond reference (will be populated by app)
-        dcc.Store(id="duck-pond-config", data=None),
+        dcc.Store(id="is-loading-data", data=False),  # Track data loading state
     ]
 
 
@@ -103,8 +99,6 @@ def create_layout(
     video_options=None,
     restricted_time_range=None,
     events_df=None,
-    available_datasets=None,
-    initial_deployments=None,
 ):
     """Create the complete app layout."""
     return html.Div(
@@ -113,10 +107,7 @@ def create_layout(
                 [
                     html.Div([], className="announcement_bar"),
                     create_header(),
-                    create_left_sidebar(
-                        available_datasets=available_datasets,
-                        initial_deployments=initial_deployments,
-                    ),
+                    create_left_sidebar(),  # No initial data - populated by callback
                     create_main_content(fig),
                     create_right_sidebar(
                         data_json,
@@ -131,7 +122,8 @@ def create_layout(
                 className="grid",
             ),
             create_bookmark_modal(),
-            *create_app_stores(dff, initial_deployments=initial_deployments),
+            create_loading_overlay(),  # Add loading overlay
+            *create_app_stores(dff),
         ],
         id="main-layout",
         className="default-layout",
@@ -151,21 +143,20 @@ app.layout = create_layout(
     video_options=[],
     restricted_time_range=None,
     events_df=None,
-    available_datasets=[],
-    initial_deployments=[],
 )
 
 # Register all callbacks
-print("🚀 Starting callback registration...")
+logger = get_logger(__name__)
+logger.info("Starting callback registration...")
 register_callbacks(app, initial_dff, video_options=[])
-print("✓ Standard callbacks registered")
+logger.debug("Standard callbacks registered")
 # Register selection callbacks BEFORE clientside to establish primary outputs
 register_selection_callbacks(app, duck_pond, immich_service)
-print("✓ Selection callbacks registered")
+logger.debug("Selection callbacks registered")
 # Register clientside callbacks last (these use allow_duplicate=True)
 register_clientside_callbacks(app)
-print("✓ Clientside callbacks registered")
-print("🎉 All callbacks registered! App ready.")
+logger.debug("Clientside callbacks registered")
+logger.info("All callbacks registered! App ready.")
 
 
 if __name__ == "__main__":

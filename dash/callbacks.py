@@ -4,6 +4,9 @@ Server-side callback functions for the DiveDB data visualization dashboard.
 import dash
 from dash import Output, Input, State, callback_context
 from datetime import datetime
+from logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def parse_video_duration(duration_str):
@@ -327,7 +330,9 @@ def register_callbacks(app, dff, video_options=None):
                             break
 
                     if not clicked_video:
-                        print(f"⚠️ No matching video found for ID: {video_button_id}")
+                        logger.warning(
+                            f"No matching video found for ID: {video_button_id}"
+                        )
                     break
 
             if manual_click_triggered and clicked_video:
@@ -347,8 +352,8 @@ def register_callbacks(app, dff, video_options=None):
                 if best_video:
                     return best_video, None  # Clear manual override
                 else:
-                    print(
-                        f"🤖 No overlapping video found (offset: {time_offset}s) - clearing selection"
+                    logger.debug(
+                        f"No overlapping video found (offset: {time_offset}s) - clearing selection"
                     )
                     return None, None  # Clear both selection and manual override
 
