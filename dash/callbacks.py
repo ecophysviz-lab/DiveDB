@@ -3,7 +3,6 @@ Server-side callback functions for the DiveDB data visualization dashboard.
 """
 import dash
 from dash import Output, Input, State, callback_context
-import pandas as pd
 from datetime import datetime
 
 

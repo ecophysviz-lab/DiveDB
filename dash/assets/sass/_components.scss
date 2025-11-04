@@ -211,6 +211,63 @@
     }
 }
 
+// Dash Dropdown (dcc.Dropdown) styling
+// Target the dropdown container and all text elements within it
+#dataset-dropdown {
+    // React-select v1 classes
+    .Select-control,
+    .Select-value,
+    .Select-value-label,
+    .Select-input > input,
+    .Select-placeholder {
+        color: var(--blueLight) !important;
+    }
+    
+    // React-select v2+ uses auto-generated classes, so target by structure
+    > div {
+        color: var(--blueLight) !important;
+        
+        > div {
+            color: var(--blueLight) !important;
+            
+            // Target the single value display
+            > div:first-child {
+                color: var(--blueLight) !important;
+            }
+        }
+    }
+    
+    // Also target any direct text nodes or spans
+    span,
+    div[class*="singleValue"],
+    div[class*="placeholder"] {
+        color: var(--blueLight) !important;
+    }
+}
+
+// Ensure deployment hover text stays white
+.list-group-item.list-group-item-action:hover {
+    color: var(--white) !important;
+    
+    strong,
+    small {
+        color: var(--white) !important;
+    }
+}
+
+// Selected deployment info styling
+#deployment-info-container {
+    .bg-light {
+        background-color: var(--white) !important;
+        
+        strong,
+        span,
+        small {
+            color: var(--blueLight) !important;
+        }
+    }
+}
+
 .rc-slider {
     --slider-height: 6px;
     padding: 0;

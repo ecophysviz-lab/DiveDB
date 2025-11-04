@@ -412,6 +412,7 @@ class DuckPond:
         lake: Literal["data", "events"],
         dataset: str,
         mode: str = "append",
+        skip_view_refresh: bool = False,
     ):
         """Write data to dataset-specific Iceberg table"""
         # Ensure dataset is initialized
@@ -432,7 +433,8 @@ class DuckPond:
             logging.info(f"Successfully wrote {len(data)} rows to {table_name}")
 
             # Refresh views after writing to update metadata location
-            self.dataset_manager._create_dataset_views(dataset)
+            if not skip_view_refresh:
+                self.dataset_manager._create_dataset_views(dataset)
 
         except Exception as e:
             logging.error(f"Failed to write to {table_name}: {e}")
@@ -1107,6 +1109,75 @@ class DuckPond:
         """Get list of all initialized datasets"""
         return self.dataset_manager.get_all_datasets()
 
+    def get_all_datasets_and_deployments(self) -> Dict[str, List[Dict]]:
+        """
+        Get all datasets and their deployments in a single call using one optimized query.
+
+        Returns:
+            Dict mapping dataset names to lists of deployment records.
+            Each deployment record contains: deployment, animal, min_date, max_date, sample_count
+            Format: {"dataset1": [{"deployment": "...", "animal": "...", ...}, ...], ...}
+        """
+        datasets = self.get_all_datasets()
+        result = {}
+
+        if not datasets:
+            return result
+
+        # Ensure all datasets are initialized first
+        for dataset in datasets:
+            self.ensure_dataset_initialized(dataset)
+
+        # Build a single UNION ALL query for all valid datasets
+        union_queries = []
+        for dataset in datasets:
+            view_name = self.get_view_name(dataset, "data")
+            # Escape single quotes in dataset name for SQL literal
+            dataset_escaped = dataset.replace("'", "''")
+            # Use dataset field from the view, or hardcode it as a literal string
+            union_queries.append(
+                f"""
+                SELECT
+                    '{dataset_escaped}' as dataset,
+                    deployment,
+                    animal,
+                    MIN(datetime) as min_date,
+                    MAX(datetime) as max_date,
+                    COUNT(*) as sample_count
+                FROM {view_name}
+                WHERE deployment IS NOT NULL AND animal IS NOT NULL
+                GROUP BY deployment, animal
+            """
+            )
+
+        # Combine all queries with UNION ALL
+        combined_query = " UNION ALL ".join(union_queries)
+
+        # Execute single query for all datasets
+        all_deployments_df = self.conn.sql(combined_query).df()
+
+        # Group results by dataset
+        if len(all_deployments_df) > 0:
+            # Sort by dataset and min_date descending
+            all_deployments_df = all_deployments_df.sort_values(
+                by=["dataset", "min_date"], ascending=[True, False]
+            )
+
+            # Group by dataset and convert to list of dicts
+            for dataset in datasets:
+                dataset_df = all_deployments_df[
+                    all_deployments_df["dataset"] == dataset
+                ]
+                # Remove dataset column from records (it's redundant in the dict key)
+                dataset_df_clean = dataset_df.drop(columns=["dataset"])
+                result[dataset] = dataset_df_clean.to_dict("records")
+        else:
+            # No deployments found for any dataset
+            for dataset in datasets:
+                result[dataset] = []
+
+        return result
+
     def list_dataset_tables(self, dataset: str) -> List[str]:
         """List tables for a specific dataset"""
         return self.dataset_manager.list_dataset_tables(dataset)
@@ -1191,6 +1262,7 @@ class DuckPond:
         """
         Transform mixed-type values into wide format arrays.
         Transforms mixed-type values into separate typed columns for Iceberg storage.
+        Uses vectorized operations for performance.
 
         Args:
             values: list with mixed types (bool, int, float, str)
@@ -1198,37 +1270,68 @@ class DuckPond:
         Returns:
             tuple: (val_dbl_array, val_int_array, val_bool_array, val_str_array, data_type_array)
         """
-        # Initialize arrays for each type
-        val_dbl = np.full(len(values), None, dtype=object)
-        val_int = np.full(len(values), None, dtype=object)
-        val_bool = np.full(len(values), None, dtype=object)
-        val_str = np.full(len(values), None, dtype=object)
-        data_type = np.full(len(values), None, dtype=object)
+        # Convert to numpy array for vectorized operations
+        values_array = np.asarray(values, dtype=object)
+        n = len(values_array)
 
-        for i, value in enumerate(values):
-            if value is None or (isinstance(value, float) and np.isnan(value)):
-                # Handle null values
-                data_type[i] = "null"
-                continue
+        # Initialize output arrays
+        val_dbl = np.full(n, None, dtype=object)
+        val_int = np.full(n, None, dtype=object)
+        val_bool = np.full(n, None, dtype=object)
+        val_str = np.full(n, None, dtype=object)
+        data_type = np.full(n, None, dtype=object)
 
-            # Check for boolean (must come before numeric checks)
-            if isinstance(value, (bool, np.bool_)):
-                val_bool[i] = bool(value)
-                data_type[i] = "bool"
-            # Check for integer
-            elif isinstance(value, (int, np.integer)) and not isinstance(
-                value, (bool, np.bool_)
-            ):
-                val_int[i] = int(value)
-                data_type[i] = "int"
-            # Check for float
-            elif isinstance(value, (float, np.floating)) and np.isfinite(value):
-                val_dbl[i] = float(value)
-                data_type[i] = "double"
-            # Check for string or anything else
-            else:
-                val_str[i] = str(value)
-                data_type[i] = "str"
+        # Vectorized type checking using numpy
+        # Check for None values
+        is_none = np.array([v is None for v in values_array])
+
+        # Check for NaN values (only for float types)
+        is_nan = np.array(
+            [isinstance(v, (float, np.floating)) and np.isnan(v) for v in values_array]
+        )
+        is_null = is_none | is_nan
+
+        # Check for boolean (must come before numeric checks)
+        is_bool = np.array([isinstance(v, (bool, np.bool_)) for v in values_array])
+
+        # Check for integer (excluding booleans)
+        is_int = np.array(
+            [
+                isinstance(v, (int, np.integer)) and not isinstance(v, (bool, np.bool_))
+                for v in values_array
+            ]
+        )
+
+        # Check for float (excluding NaN)
+        is_float = np.array(
+            [
+                isinstance(v, (float, np.floating)) and np.isfinite(v)
+                for v in values_array
+            ]
+        )
+
+        # Everything else is string
+        is_str = ~(is_null | is_bool | is_int | is_float)
+
+        # Populate arrays using boolean indexing
+        if np.any(is_null):
+            data_type[is_null] = "null"
+
+        if np.any(is_bool):
+            val_bool[is_bool] = [bool(v) for v in values_array[is_bool]]
+            data_type[is_bool] = "bool"
+
+        if np.any(is_int):
+            val_int[is_int] = [int(v) for v in values_array[is_int]]
+            data_type[is_int] = "int"
+
+        if np.any(is_float):
+            val_dbl[is_float] = [float(v) for v in values_array[is_float]]
+            data_type[is_float] = "double"
+
+        if np.any(is_str):
+            val_str[is_str] = [str(v) for v in values_array[is_str]]
+            data_type[is_str] = "str"
 
         # Convert to PyArrow arrays with proper nullable types
         return (
@@ -1291,17 +1394,22 @@ class DuckPond:
         )
 
         # Create the wide format table using the explicit schema
+        # Use dictionary encoding for repeated metadata to reduce memory overhead
         wide_table = pa.table(
             [
-                pa.array([dataset] * len(values)),  # dataset
-                pa.array([metadata["animal"]] * len(values)),  # animal
-                pa.array([str(metadata["deployment"])] * len(values)),  # deployment
+                pa.array([dataset] * len(values)).dictionary_encode(),  # dataset
+                pa.array(
+                    [metadata["animal"]] * len(values)
+                ).dictionary_encode(),  # animal
+                pa.array(
+                    [str(metadata["deployment"])] * len(values)
+                ).dictionary_encode(),  # deployment
                 pa.array(
                     [metadata.get("recording")] * len(values)
-                ),  # recording (can be None)
-                pa.array([group] * len(values)),  # group
-                pa.array([class_name] * len(values)),  # class
-                pa.array([label] * len(values)),  # label
+                ).dictionary_encode(),  # recording (can be None)
+                pa.array([group] * len(values)).dictionary_encode(),  # group
+                pa.array([class_name] * len(values)).dictionary_encode(),  # class
+                pa.array([label] * len(values)).dictionary_encode(),  # label
                 times,  # datetime
                 val_dbl,  # val_dbl (from transformation)
                 val_int,  # val_int (from transformation)

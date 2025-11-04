@@ -56,35 +56,7 @@ app = dash.Dash(
 duck_pond = DuckPond.from_environment(notion_manager=notion_manager)
 immich_service = ImmichService()
 
-# Load datasets on startup
-print("🔍 Loading datasets from data lake...")
-available_datasets = duck_pond.get_all_datasets()
-print(f"📊 Found {len(available_datasets)} datasets: {available_datasets}")
-
-# Load deployments for the first dataset if available
-initial_deployments = []
-if available_datasets:
-    default_dataset = available_datasets[0]
-    print(f"🔍 Loading deployments for default dataset: {default_dataset}")
-    try:
-        view_name = duck_pond.get_view_name(default_dataset, "data")
-        query = f"""
-            SELECT DISTINCT
-                deployment,
-                animal,
-                MIN(datetime) as min_date,
-                MAX(datetime) as max_date,
-                COUNT(*) as sample_count
-            FROM {view_name}
-            WHERE deployment IS NOT NULL AND animal IS NOT NULL
-            GROUP BY deployment, animal
-            ORDER BY min_date DESC
-        """
-        deployments_df = duck_pond.conn.sql(query).df()
-        initial_deployments = deployments_df.to_dict("records")
-        print(f"📊 Found {len(initial_deployments)} deployments")
-    except Exception as e:
-        print(f"❌ Error loading initial deployments: {e}")
+# Datasets will be loaded on page load via callback, not at server startup
 
 
 def create_app_stores(dff, initial_deployments=None):
@@ -114,6 +86,7 @@ def create_app_stores(dff, initial_deployments=None):
         dcc.Store(id="trigger-initial-load", data=True),
         dcc.Store(id="selected-date-range", data=None),
         dcc.Store(id="selected-timezone", data=0),
+        dcc.Store(id="available-datasets", data=[]),  # Store for loaded datasets
         dcc.Store(id="available-deployments", data=initial_deployments or []),
         dcc.Store(id="deployment-date-ranges", data={}),
         dcc.Store(id="visualization-loaded", data=False),
@@ -178,8 +151,8 @@ app.layout = create_layout(
     video_options=[],
     restricted_time_range=None,
     events_df=None,
-    available_datasets=available_datasets,
-    initial_deployments=initial_deployments,
+    available_datasets=[],
+    initial_deployments=[],
 )
 
 # Register all callbacks

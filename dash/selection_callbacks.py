@@ -12,6 +12,58 @@ def register_selection_callbacks(app, duck_pond, immich_service):
     print("🔧 Registering selection callbacks...")
 
     @app.callback(
+        Output("dataset-dropdown", "options"),
+        Output("dataset-dropdown", "value"),
+        Output("available-datasets", "data"),
+        Output("dataset-loading-output", "children"),
+        Input("url", "pathname"),
+    )
+    def load_datasets_on_page_load(pathname):
+        """Load datasets when the page loads."""
+        print("🔍 Loading datasets from data lake on page load...")
+        try:
+            available_datasets = duck_pond.get_all_datasets()
+            print(f"📊 Found {len(available_datasets)} datasets: {available_datasets}")
+
+            if not available_datasets:
+                return (
+                    [],
+                    None,
+                    [],
+                    html.Div(
+                        "No datasets found in data lake",
+                        className="alert alert-warning small",
+                    ),
+                )
+
+            # Create dropdown options
+            dataset_options = [{"label": ds, "value": ds} for ds in available_datasets]
+            default_dataset = available_datasets[0]
+
+            success_msg = html.Div(
+                [
+                    html.I(className="fas fa-check-circle me-2"),
+                    f"Loaded {len(available_datasets)} datasets",
+                ],
+                className="alert alert-success small",
+            )
+
+            return dataset_options, default_dataset, available_datasets, success_msg
+
+        except Exception as e:
+            logging.error(f"Error loading datasets: {e}", exc_info=True)
+            error_msg = html.Div(
+                [
+                    html.Strong("Error: "),
+                    str(e),
+                    html.Br(),
+                    html.Small("Check console for details", className="text-muted"),
+                ],
+                className="alert alert-danger small",
+            )
+            return [], None, [], error_msg
+
+    @app.callback(
         Output("selected-dataset", "data"),
         Input("dataset-dropdown", "value"),
     )
@@ -38,24 +90,11 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             )
 
         try:
-            # Query distinct deployments from the dataset's data view
-            view_name = duck_pond.get_view_name(dataset, "data")
-            query = f"""
-                SELECT DISTINCT
-                    deployment,
-                    animal,
-                    MIN(datetime) as min_date,
-                    MAX(datetime) as max_date,
-                    COUNT(*) as sample_count
-                FROM {view_name}
-                WHERE deployment IS NOT NULL AND animal IS NOT NULL
-                GROUP BY deployment, animal
-                ORDER BY min_date DESC
-            """
+            # Get all datasets and deployments, then extract deployments for selected dataset
+            all_deployments = duck_pond.get_all_datasets_and_deployments()
+            deployments_data = all_deployments.get(dataset, [])
 
-            deployments_df = duck_pond.conn.sql(query).df()
-
-            if len(deployments_df) == 0:
+            if len(deployments_data) == 0:
                 return (
                     [],
                     html.P(
@@ -64,9 +103,6 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     ),
                     None,
                 )
-
-            # Convert to list of dicts for storage
-            deployments_data = deployments_df.to_dict("records")
 
             # Create deployment buttons
             deployment_buttons = []
@@ -358,7 +394,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 deployment_ids=deployment_id,
                 animal_ids=animal_id,
                 date_range=(date_range["start"], date_range["end"]),
-                frequency=1,  # 1 Hz sampling
+                frequency=0.1,  # 1 Hz sampling
                 labels=labels_to_load,
                 add_timestamp_column=True,
             )
