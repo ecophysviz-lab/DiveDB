@@ -88,32 +88,56 @@ class DatasetManager:
         for lake_name in self.lakes:
             table_name = f"{dataset}.{lake_name}"
             try:
-                partition_spec = PartitionSpec(
-                    PartitionField(
-                        source_id=2,  # animal field
-                        field_id=1001,
-                        transform=IdentityTransform(),
-                        name="animal",
-                    ),
-                    PartitionField(
-                        source_id=3,  # deployment field
-                        field_id=1002,
-                        transform=IdentityTransform(),
-                        name="deployment",
-                    ),
-                    PartitionField(
-                        source_id=6,  # class field
-                        field_id=1003,
-                        transform=IdentityTransform(),
-                        name="class",
-                    ),
-                    PartitionField(
-                        source_id=7,  # label field
-                        field_id=1004,
-                        transform=IdentityTransform(),
-                        name="label",
-                    ),
-                )
+                # Create partition spec based on lake type
+                if lake_name == "data":
+                    partition_spec = PartitionSpec(
+                        PartitionField(
+                            source_id=2,  # animal field
+                            field_id=1001,
+                            transform=IdentityTransform(),
+                            name="animal",
+                        ),
+                        PartitionField(
+                            source_id=3,  # deployment field
+                            field_id=1002,
+                            transform=IdentityTransform(),
+                            name="deployment",
+                        ),
+                        PartitionField(
+                            source_id=6,  # class field
+                            field_id=1003,
+                            transform=IdentityTransform(),
+                            name="class",
+                        ),
+                        PartitionField(
+                            source_id=7,  # label field
+                            field_id=1004,
+                            transform=IdentityTransform(),
+                            name="label",
+                        ),
+                    )
+                elif lake_name == "events":
+                    # Events schema: partition by animal, deployment, event_key
+                    partition_spec = PartitionSpec(
+                        PartitionField(
+                            source_id=2,  # animal field
+                            field_id=1001,
+                            transform=IdentityTransform(),
+                            name="animal",
+                        ),
+                        PartitionField(
+                            source_id=3,  # deployment field
+                            field_id=1002,
+                            transform=IdentityTransform(),
+                            name="deployment",
+                        ),
+                        PartitionField(
+                            source_id=6,  # event_key field (NOT class)
+                            field_id=1003,
+                            transform=IdentityTransform(),
+                            name="event_key",
+                        ),
+                    )
 
                 self.catalog.create_table_if_not_exists(
                     identifier=table_name,

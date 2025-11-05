@@ -412,6 +412,7 @@ class DuckPond:
         lake: Literal["data", "events"],
         dataset: str,
         mode: str = "append",
+        skip_view_refresh: bool = False,
     ):
         """Write data to dataset-specific Iceberg table"""
         # Ensure dataset is initialized
@@ -432,7 +433,8 @@ class DuckPond:
             logging.info(f"Successfully wrote {len(data)} rows to {table_name}")
 
             # Refresh views after writing to update metadata location
-            self.dataset_manager._create_dataset_views(dataset)
+            if not skip_view_refresh:
+                self.dataset_manager._create_dataset_views(dataset)
 
         except Exception as e:
             logging.error(f"Failed to write to {table_name}: {e}")
@@ -460,8 +462,7 @@ class DuckPond:
             add_timestamp_column: If True, adds a timestamp column (seconds since epoch)
             timestamp_col_name: Name for the timestamp column (default: "timestamp")
 
-        Returns:
-            Transformed DataFrame
+        Returns: Transformed DataFrame
         """
         if datetime_col not in df.columns:
             return df
@@ -477,6 +478,24 @@ class DuckPond:
             df[timestamp_col_name] = df[datetime_col].apply(lambda x: x.timestamp())
 
         return df
+
+    def _normalize_to_list(self, value: str | List[str] | None) -> List[str] | None:
+        """
+        Convert a single string to a list, or return as-is if already a list or None.
+        Args: value: String, list of strings, or None
+        Returns: List of strings, or None
+        """
+        if isinstance(value, str):
+            return [value]
+        return value
+
+    def _normalize_list_to_list(self, *params):
+        """
+        Normalize each parameter to a list using _normalize_to_list, and return the tuple of normalized values.
+        Args: *params: Any number of parameters (str, list, or None)
+        Returns: Tuple of lists or None, in the same order as params.
+        """
+        return tuple(self._normalize_to_list(param) for param in params)
 
     def _build_base_query(
         self,
@@ -919,18 +938,16 @@ class DuckPond:
         self.dataset_manager.ensure_dataset_initialized(dataset)
 
         # Convert single strings to lists
-        if isinstance(labels, str):
-            labels = [labels]
-        if isinstance(animal_ids, str):
-            animal_ids = [animal_ids]
-        if isinstance(deployment_ids, str):
-            deployment_ids = [deployment_ids]
-        if isinstance(recording_ids, str):
-            recording_ids = [recording_ids]
-        if isinstance(groups, str):
-            groups = [groups]
-        if isinstance(classes, str):
-            classes = [classes]
+        (
+            labels,
+            animal_ids,
+            deployment_ids,
+            recording_ids,
+            groups,
+            classes,
+        ) = self._normalize_list_to_list(
+            labels, animal_ids, deployment_ids, recording_ids, groups, classes
+        )
 
         # Build base query using the dataset-specific Data view
         view_name = f'"{dataset}_Data"'
@@ -981,6 +998,61 @@ class DuckPond:
             results = self.conn.sql(query)
             return DiveData(results, self.conn, notion_manager=self.notion_manager)
 
+    def estimate_data_size(
+        self,
+        dataset: str,
+        labels: str | List[str] | None = None,
+        animal_ids: str | List[str] | None = None,
+        deployment_ids: str | List[str] | None = None,
+        recording_ids: str | List[str] | None = None,
+        groups: str | List[str] | None = None,
+        classes: str | List[str] | None = None,
+        date_range: tuple[str, str] | None = None,
+    ) -> int:
+        """
+        Quickly estimate the number of rows that would be returned by get_data.
+        Uses COUNT(*) which is much faster than loading actual data.
+
+        Args:
+            Same as get_data() (excluding frequency, limit, pivoted, etc.)
+
+        Returns:
+            Estimated row count
+        """
+        # Ensure dataset is initialized
+        self.dataset_manager.ensure_dataset_initialized(dataset)
+
+        # Convert single strings to lists
+        (
+            labels,
+            animal_ids,
+            deployment_ids,
+            recording_ids,
+            groups,
+            classes,
+        ) = self._normalize_list_to_list(
+            labels, animal_ids, deployment_ids, recording_ids, groups, classes
+        )
+
+        # Build base query using existing method
+        view_name = f'"{dataset}_Data"'
+        base_query = self._build_base_query(
+            view_name=view_name,
+            labels=labels,
+            animal_ids=animal_ids,
+            deployment_ids=deployment_ids,
+            recording_ids=recording_ids,
+            groups=groups,
+            classes=classes,
+            date_range=date_range,
+            limit=None,
+        )
+
+        # Wrap in COUNT query
+        count_query = f"SELECT COUNT(*) as row_count FROM ({base_query})"
+        result = self.conn.sql(count_query).fetchone()
+        return result[0] if result else 0
+
     def get_events(
         self,
         dataset: str,
@@ -1024,14 +1096,14 @@ class DuckPond:
             return f"{predicate} IN ({quoted_values})"
 
         # Convert single strings to lists
-        if isinstance(animal_ids, str):
-            animal_ids = [animal_ids]
-        if isinstance(deployment_ids, str):
-            deployment_ids = [deployment_ids]
-        if isinstance(recording_ids, str):
-            recording_ids = [recording_ids]
-        if isinstance(event_keys, str):
-            event_keys = [event_keys]
+        (
+            animal_ids,
+            deployment_ids,
+            recording_ids,
+            event_keys,
+        ) = self._normalize_list_to_list(
+            animal_ids, deployment_ids, recording_ids, event_keys
+        )
 
         # Build query using the dataset-specific Events view
         view_name = self.get_view_name(dataset, "events")
@@ -1107,6 +1179,78 @@ class DuckPond:
         """Get list of all initialized datasets"""
         return self.dataset_manager.get_all_datasets()
 
+    def get_all_datasets_and_deployments(self) -> Dict[str, List[Dict]]:
+        """
+        Get all datasets and their deployments in a single call using one optimized query.
+
+        Returns:
+            Dict mapping dataset names to lists of deployment records.
+            Each deployment record contains: deployment, animal, min_date, max_date, sample_count
+            Format: {"dataset1": [{"deployment": "...", "animal": "...", ...}, ...], ...}
+        """
+        datasets = self.get_all_datasets()
+        result = {}
+
+        if not datasets:
+            return result
+
+        # Ensure all datasets are initialized first
+        for dataset in datasets:
+            self.ensure_dataset_initialized(dataset)
+
+        # Build a single UNION ALL query for all valid datasets
+        union_queries = []
+        for dataset in datasets:
+            view_name = self.get_view_name(dataset, "data")
+            # Escape single quotes in dataset name for SQL literal
+            dataset_escaped = dataset.replace("'", "''")
+            # Use dataset field from the view, or hardcode it as a literal string
+            union_queries.append(
+                f"""
+                SELECT
+                    '{dataset_escaped}' as dataset,
+                    deployment,
+                    animal,
+                    MIN(datetime) as min_date,
+                    MAX(datetime) as max_date,
+                    COUNT(*) as sample_count
+                FROM {view_name}
+                WHERE deployment IS NOT NULL AND animal IS NOT NULL
+                GROUP BY deployment, animal
+            """
+            )
+
+        # Combine all queries with UNION ALL
+        combined_query = " UNION ALL ".join(union_queries)
+
+        # Execute single query for all datasets
+        all_deployments_df = self.conn.sql(combined_query).df()
+        all_deployments_df["deployment_date"] = all_deployments_df["deployment"].apply(
+            lambda x: x.split("_")[0]
+        )
+
+        # Group results by dataset
+        if len(all_deployments_df) > 0:
+            # Sort by dataset and min_date descending
+            all_deployments_df = all_deployments_df.sort_values(
+                by=["dataset", "min_date"], ascending=[True, False]
+            )
+
+            # Group by dataset and convert to list of dicts
+            for dataset in datasets:
+                dataset_df = all_deployments_df[
+                    all_deployments_df["dataset"] == dataset
+                ]
+                # Remove dataset column from records (it's redundant in the dict key)
+                dataset_df_clean = dataset_df.drop(columns=["dataset"])
+                result[dataset] = dataset_df_clean.to_dict("records")
+        else:
+            # No deployments found for any dataset
+            for dataset in datasets:
+                result[dataset] = []
+
+        return result
+
     def list_dataset_tables(self, dataset: str) -> List[str]:
         """List tables for a specific dataset"""
         return self.dataset_manager.list_dataset_tables(dataset)
@@ -1118,6 +1262,48 @@ class DuckPond:
     def remove_dataset(self, dataset: str):
         """Remove a dataset and all its tables (use with caution!)"""
         return self.dataset_manager.remove_dataset(dataset)
+
+    def get_deployment_timezone_offset(self, deployment_id: str) -> float:
+        """
+        Get timezone offset for a deployment from Notion Deployments table.
+        Args: deployment_id: Deployment identifier (e.g., "2019-11-08_apfo-001")
+        Returns: Timezone offset in hours (e.g., 13.0 for Antarctica/McMurdo)
+        """
+        from zoneinfo import ZoneInfo
+        from datetime import datetime, timezone
+
+        try:
+            # Query the Deployments table (loaded from Notion into DuckDB)
+            result = self.conn.sql(
+                f"""
+                SELECT time_zone
+                FROM Deployments
+                WHERE deployment_id = '{deployment_id}'
+            """
+            ).fetchone()
+
+            if result and result[0]:
+                tz_name = result[0]
+                # Convert timezone name to UTC offset in hours
+                tz = ZoneInfo(tz_name)
+                offset_seconds = (
+                    datetime.now(timezone.utc)
+                    .astimezone(tz)
+                    .utcoffset()
+                    .total_seconds()
+                )
+                return offset_seconds / 3600
+            else:
+                logging.warning(
+                    f"No timezone found for deployment {deployment_id}, using UTC"
+                )
+
+        except Exception as e:
+            logging.warning(
+                f"Could not get timezone for deployment {deployment_id}: {e}"
+            )
+
+        return 0.0  # Default to UTC if not found
 
     def get_view_name(self, dataset: str, table_type: str) -> str:
         """
@@ -1191,6 +1377,7 @@ class DuckPond:
         """
         Transform mixed-type values into wide format arrays.
         Transforms mixed-type values into separate typed columns for Iceberg storage.
+        Uses vectorized operations for performance.
 
         Args:
             values: list with mixed types (bool, int, float, str)
@@ -1198,37 +1385,68 @@ class DuckPond:
         Returns:
             tuple: (val_dbl_array, val_int_array, val_bool_array, val_str_array, data_type_array)
         """
-        # Initialize arrays for each type
-        val_dbl = np.full(len(values), None, dtype=object)
-        val_int = np.full(len(values), None, dtype=object)
-        val_bool = np.full(len(values), None, dtype=object)
-        val_str = np.full(len(values), None, dtype=object)
-        data_type = np.full(len(values), None, dtype=object)
+        # Convert to numpy array for vectorized operations
+        values_array = np.asarray(values, dtype=object)
+        n = len(values_array)
 
-        for i, value in enumerate(values):
-            if value is None or (isinstance(value, float) and np.isnan(value)):
-                # Handle null values
-                data_type[i] = "null"
-                continue
+        # Initialize output arrays
+        val_dbl = np.full(n, None, dtype=object)
+        val_int = np.full(n, None, dtype=object)
+        val_bool = np.full(n, None, dtype=object)
+        val_str = np.full(n, None, dtype=object)
+        data_type = np.full(n, None, dtype=object)
 
-            # Check for boolean (must come before numeric checks)
-            if isinstance(value, (bool, np.bool_)):
-                val_bool[i] = bool(value)
-                data_type[i] = "bool"
-            # Check for integer
-            elif isinstance(value, (int, np.integer)) and not isinstance(
-                value, (bool, np.bool_)
-            ):
-                val_int[i] = int(value)
-                data_type[i] = "int"
-            # Check for float
-            elif isinstance(value, (float, np.floating)) and np.isfinite(value):
-                val_dbl[i] = float(value)
-                data_type[i] = "double"
-            # Check for string or anything else
-            else:
-                val_str[i] = str(value)
-                data_type[i] = "str"
+        # Vectorized type checking using numpy
+        # Check for None values
+        is_none = np.array([v is None for v in values_array])
+
+        # Check for NaN values (only for float types)
+        is_nan = np.array(
+            [isinstance(v, (float, np.floating)) and np.isnan(v) for v in values_array]
+        )
+        is_null = is_none | is_nan
+
+        # Check for boolean (must come before numeric checks)
+        is_bool = np.array([isinstance(v, (bool, np.bool_)) for v in values_array])
+
+        # Check for integer (excluding booleans)
+        is_int = np.array(
+            [
+                isinstance(v, (int, np.integer)) and not isinstance(v, (bool, np.bool_))
+                for v in values_array
+            ]
+        )
+
+        # Check for float (excluding NaN)
+        is_float = np.array(
+            [
+                isinstance(v, (float, np.floating)) and np.isfinite(v)
+                for v in values_array
+            ]
+        )
+
+        # Everything else is string
+        is_str = ~(is_null | is_bool | is_int | is_float)
+
+        # Populate arrays using boolean indexing
+        if np.any(is_null):
+            data_type[is_null] = "null"
+
+        if np.any(is_bool):
+            val_bool[is_bool] = [bool(v) for v in values_array[is_bool]]
+            data_type[is_bool] = "bool"
+
+        if np.any(is_int):
+            val_int[is_int] = [int(v) for v in values_array[is_int]]
+            data_type[is_int] = "int"
+
+        if np.any(is_float):
+            val_dbl[is_float] = [float(v) for v in values_array[is_float]]
+            data_type[is_float] = "double"
+
+        if np.any(is_str):
+            val_str[is_str] = [str(v) for v in values_array[is_str]]
+            data_type[is_str] = "str"
 
         # Convert to PyArrow arrays with proper nullable types
         return (
@@ -1291,17 +1509,22 @@ class DuckPond:
         )
 
         # Create the wide format table using the explicit schema
+        # Use dictionary encoding for repeated metadata to reduce memory overhead
         wide_table = pa.table(
             [
-                pa.array([dataset] * len(values)),  # dataset
-                pa.array([metadata["animal"]] * len(values)),  # animal
-                pa.array([str(metadata["deployment"])] * len(values)),  # deployment
+                pa.array([dataset] * len(values)).dictionary_encode(),  # dataset
+                pa.array(
+                    [metadata["animal"]] * len(values)
+                ).dictionary_encode(),  # animal
+                pa.array(
+                    [str(metadata["deployment"])] * len(values)
+                ).dictionary_encode(),  # deployment
                 pa.array(
                     [metadata.get("recording")] * len(values)
-                ),  # recording (can be None)
-                pa.array([group] * len(values)),  # group
-                pa.array([class_name] * len(values)),  # class
-                pa.array([label] * len(values)),  # label
+                ).dictionary_encode(),  # recording (can be None)
+                pa.array([group] * len(values)).dictionary_encode(),  # group
+                pa.array([class_name] * len(values)).dictionary_encode(),  # class
+                pa.array([label] * len(values)).dictionary_encode(),  # label
                 times,  # datetime
                 val_dbl,  # val_dbl (from transformation)
                 val_int,  # val_int (from transformation)

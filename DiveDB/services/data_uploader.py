@@ -11,6 +11,7 @@ from tqdm import tqdm
 import xarray as xr
 import json
 import math
+import time
 
 from DiveDB.services.duck_pond import DuckPond
 
@@ -64,6 +65,73 @@ class DataUploader:
             else:
                 serializable_attrs[key] = value
         return serializable_attrs
+
+    def _create_data_table(
+        self,
+        dataset: str,
+        metadata: Dict[str, Any],
+        times: pa.Array,
+        group: str,
+        class_name: str,
+        label: str,
+        values: Union[np.ndarray, List[Any]],
+    ) -> pa.Table:
+        """Helper function to create a PyArrow table for signal data without writing."""
+        # Convert numpy array to list if needed
+        if isinstance(values, np.ndarray):
+            values = values.tolist()
+
+        # Transform values using wide format
+        (
+            val_dbl,
+            val_int,
+            val_bool,
+            val_str,
+            data_type,
+        ) = self.duck_pond._create_wide_values(values)
+
+        # Create schema
+        wide_schema = pa.schema(
+            [
+                pa.field("dataset", pa.string(), nullable=False),
+                pa.field("animal", pa.string(), nullable=False),
+                pa.field("deployment", pa.string(), nullable=False),
+                pa.field("recording", pa.string(), nullable=True),
+                pa.field("group", pa.string(), nullable=False),
+                pa.field("class", pa.string(), nullable=False),
+                pa.field("label", pa.string(), nullable=False),
+                pa.field("datetime", pa.timestamp("us"), nullable=False),
+                pa.field("val_dbl", pa.float64(), nullable=True),
+                pa.field("val_int", pa.int64(), nullable=True),
+                pa.field("val_bool", pa.bool_(), nullable=True),
+                pa.field("val_str", pa.string(), nullable=True),
+                pa.field("data_type", pa.string(), nullable=False),
+            ]
+        )
+
+        # Create table with dictionary encoding for repeated metadata
+        table = pa.table(
+            [
+                pa.array([dataset] * len(values)).dictionary_encode(),
+                pa.array([metadata["animal"]] * len(values)).dictionary_encode(),
+                pa.array(
+                    [str(metadata["deployment"])] * len(values)
+                ).dictionary_encode(),
+                pa.array([metadata.get("recording")] * len(values)).dictionary_encode(),
+                pa.array([group] * len(values)).dictionary_encode(),
+                pa.array([class_name] * len(values)).dictionary_encode(),
+                pa.array([label] * len(values)).dictionary_encode(),
+                times,
+                val_dbl,
+                val_int,
+                val_bool,
+                val_str,
+                data_type,
+            ],
+            schema=wide_schema,
+        )
+
+        return table
 
     def _write_data_to_duck_pond(
         self,
@@ -167,7 +235,9 @@ class DataUploader:
                 schema=events_schema,
             )
 
-            self.duck_pond.write_to_iceberg(batch_table, "events", dataset=dataset)
+            self.duck_pond.write_to_iceberg(
+                batch_table, "events", dataset=dataset, skip_view_refresh=True
+            )
 
         gc.collect()
 
@@ -351,6 +421,9 @@ class DataUploader:
         rename_map (Optional[Dict[str, str]], optional): A dictionary mapping original variable names to new names.
         skip_validation (bool, optional): Skip validation of the netCDF file. Defaults to False.
         """
+        # Initialize timing dictionary
+        timing = {}
+        upload_start = time.time()
 
         # Extract dataset from metadata
         if "dataset" not in metadata:
@@ -363,13 +436,19 @@ class DataUploader:
         if rename_map is None:
             rename_map = {}
 
+        # Load dataset
+        t0 = time.time()
         ds = xr.open_dataset(netcdf_file_path)
+        timing["file_loading"] = time.time() - t0
 
         # validate netcdf file
+        t0 = time.time()
         if not skip_validation:
             self.validate_netcdf(ds)
+        timing["validation"] = time.time() - t0
 
         # Apply renaming if rename_map is provided
+        t0 = time.time()
         if rename_map:
             # Convert all data variable names to lowercase
             lower_case_rename_map = {k.lower(): v for k, v in rename_map.items()}
@@ -379,9 +458,42 @@ class DataUploader:
                     for var in ds.data_vars
                 }
             )
+        timing["renaming"] = time.time() - t0
+
+        # Calculate total work units for progress bar
+        sample_coords = [
+            coord
+            for coord in ds.coords
+            if "_sample" in coord.lower() and "event_data" not in coord.lower()
+        ]
+
+        # Count total variables to process
+        total_vars = 0
+        for coord in sample_coords:
+            variables_with_coord = [
+                var for var in ds.data_vars if coord in ds[var].dims
+            ]
+            for var_name in variables_with_coord:
+                var_data = ds[var_name]
+                if isinstance(var_data.values, np.ndarray) and var_data.values.ndim > 1:
+                    # Multi-variable data arrays
+                    total_vars += len(var_data.attrs.get("variables", []))
+                else:
+                    # Single-variable data arrays
+                    total_vars += 1
+
+        # Add 1 for event processing if events exist
+        event_data_vars = [var for var in ds.data_vars if var.startswith("event_data")]
+        has_events = bool(event_data_vars)
+        if has_events:
+            total_vars += 1
+
+        print(
+            f"Processing {len(sample_coords)} coordinate(s) with {total_vars} total variable(s) in the netCDF file."
+        )
 
         # Process event data variables
-        event_data_vars = [var for var in ds.data_vars if var.startswith("event_data")]
+        t0 = time.time()
         if event_data_vars:
             duration_var = next(
                 (var for var in event_data_vars if "duration" in var.lower()), None
@@ -434,22 +546,32 @@ class DataUploader:
                     event_keys=event_keys,
                     event_data=event_data,
                 )
+        timing["event_processing"] = time.time() - t0
 
-        # Process other data variables
-        sample_coords = [
-            coord
-            for coord in ds.coords
-            if "_sample" in coord.lower() and "event_data" not in coord.lower()
-        ]
-        print(f"Processing {sample_coords} datasets in the netCDF file.")
+        # Pre-compute time coordinates (optimization)
+        t0 = time.time()
+        time_coord_arrays = {}
+        for coord in sample_coords:
+            time_coord_arrays[coord] = pa.array(
+                ds.coords[coord].values,
+                type=self._get_datetime_type(ds.coords[coord]),
+            )
+        timing["time_coord_precompute"] = time.time() - t0
 
-        with tqdm(total=len(sample_coords), desc="Processing variables") as pbar:
+        # Process other data variables with enhanced progress tracking
+        t0 = time.time()
+
+        with tqdm(total=total_vars, desc="Processing variables") as pbar:
+            # Update progress for events if they were processed
+            if has_events:
+                pbar.update(1)
+
             for coord in sample_coords:
                 variables_with_coord = set(
                     var for var in ds.data_vars if coord in ds[var].dims
                 )
 
-                # Upload data
+                # Upload data with batched writes per variable
                 for var_name, var_data in ds[variables_with_coord].items():
                     if (
                         isinstance(var_data.values, np.ndarray)
@@ -459,14 +581,15 @@ class DataUploader:
                         for var_index, sub_var_name in enumerate(
                             var_data.attrs.get("variables", [])
                         ):
+                            # Collect all batches for this variable
+                            tables_to_write = []
+
                             for start in range(0, var_data.shape[0], batch_size):
                                 end = min(start + batch_size, var_data.shape[0])
 
                                 time_coord = list(var_data.coords.keys())[0]
-                                times = pa.array(
-                                    ds.coords[time_coord].values[start:end],
-                                    type=self._get_datetime_type(ds.coords[time_coord]),
-                                )
+                                # Slice from pre-computed time array
+                                times = time_coord_arrays[time_coord][start:end]
 
                                 group = var_data.attrs.get("group", None)
                                 class_name = var_name
@@ -475,7 +598,9 @@ class DataUploader:
                                 )
 
                                 values = var_data.values[start:end, var_index]
-                                self._write_data_to_duck_pond(
+
+                                # Create table but don't write yet
+                                table = self._create_data_table(
                                     dataset=dataset,
                                     metadata=metadata,
                                     times=times,
@@ -484,16 +609,30 @@ class DataUploader:
                                     label=label.lower(),
                                     values=values,
                                 )
+                                tables_to_write.append(table)
+
+                            # Write all batches for this variable at once
+                            if tables_to_write:
+                                combined_table = pa.concat_tables(tables_to_write)
+                                self.duck_pond.write_to_iceberg(
+                                    combined_table,
+                                    "data",
+                                    dataset=dataset,
+                                    skip_view_refresh=True,
+                                )
+                                gc.collect()
+
+                            pbar.update(1)
                     else:
                         # Handle single-variable data arrays
+                        tables_to_write = []
+
                         for start in range(0, var_data.shape[0], batch_size):
                             end = min(start + batch_size, var_data.shape[0])
 
                             time_coord = list(var_data.coords.keys())[0]
-                            times = pa.array(
-                                ds.coords[time_coord].values[start:end],
-                                type=self._get_datetime_type(ds.coords[time_coord]),
-                            )
+                            # Slice from pre-computed time array
+                            times = time_coord_arrays[time_coord][start:end]
 
                             group = var_data.attrs.get("group", None)
                             class_name = (
@@ -504,14 +643,18 @@ class DataUploader:
                             label = (
                                 var_data.attrs["variable"]
                                 if "variable" in var_data.attrs
-                                else var_data.attrs["variables"]
-                                if "variables" in var_data.attrs
-                                else var_name
+                                else (
+                                    var_data.attrs["variables"]
+                                    if "variables" in var_data.attrs
+                                    else var_name
+                                )
                             )
                             label = rename_map.get(label.lower(), label)
 
                             values = var_data.values[start:end]
-                            self._write_data_to_duck_pond(
+
+                            # Create table but don't write yet
+                            table = self._create_data_table(
                                 dataset=dataset,
                                 metadata=metadata,
                                 times=times,
@@ -520,7 +663,42 @@ class DataUploader:
                                 label=label.lower(),
                                 values=values,
                             )
+                            tables_to_write.append(table)
 
-                pbar.update(1)
+                        # Write all batches for this variable at once
+                        if tables_to_write:
+                            combined_table = pa.concat_tables(tables_to_write)
+                            self.duck_pond.write_to_iceberg(
+                                combined_table,
+                                "data",
+                                dataset=dataset,
+                                skip_view_refresh=True,
+                            )
+                            gc.collect()
 
-        print("Upload complete.")
+                        pbar.update(1)
+
+        timing["variable_processing"] = time.time() - t0
+
+        # Refresh views once at the end
+        t0 = time.time()
+        self.duck_pond.dataset_manager._create_dataset_views(dataset)
+        timing["view_refresh"] = time.time() - t0
+
+        # Calculate total time
+        timing["total"] = time.time() - upload_start
+
+        # Print timing summary
+        print("\n" + "=" * 60)
+        print("Upload Performance Summary")
+        print("=" * 60)
+        print(f"{'Step':<30} {'Time (s)':<15} {'% of Total':<15}")
+        print("-" * 60)
+        for step, duration in timing.items():
+            if step != "total":
+                percentage = (duration / timing["total"]) * 100
+                print(f"{step:<30} {duration:>10.2f}     {percentage:>10.1f}%")
+        print("-" * 60)
+        print(f"{'TOTAL':<30} {timing['total']:>10.2f}     {100.0:>10.1f}%")
+        print("=" * 60)
+        print("\nUpload complete.")

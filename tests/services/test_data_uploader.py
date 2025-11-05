@@ -198,6 +198,9 @@ class TestDataUploaderEvents:
             ],
         )
 
+        # Refresh views to make data visible in queries
+        duck_pond.dataset_manager._create_dataset_views(dataset)
+
         # Verify all events were written to single events table
         view_name = duck_pond.get_view_name(dataset, "events")
         results = duck_pond.conn.sql(
@@ -271,6 +274,9 @@ class TestDataUploaderEvents:
             short_descriptions=["Feeding behavior"],
             long_descriptions=["Extended feeding bout with multiple prey captures"],
         )
+
+        # Refresh views to make data visible in queries
+        duck_pond.dataset_manager._create_dataset_views(dataset)
 
         # Verify both events are in the same table
         view_name = duck_pond.get_view_name(dataset, "events")

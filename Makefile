@@ -44,3 +44,17 @@ build-dash:
 	echo "  → Installing Python package..." && \
 	pip install dist/$(component)-0.0.1.tar.gz $(if $(DEBUG),,> /dev/null 2>&1) && \
 	echo "  ✓ $(component) build complete"
+
+logging-on:
+	export DASH_LOG_LEVEL=DEBUG && \
+	export DASH_LOG_DATA_VIZ=DEBUG && \
+	export DASH_LOG_CALLBACKS=DEBUG && \
+	export DASH_LOG_SELECTION=DEBUG && \
+	export DASH_LOG_LAYOUT=DEBUG
+
+logging-off:
+	export DASH_LOG_LEVEL=WARNING && \
+	export DASH_LOG_DATA_VIZ=WARNING && \
+	export DASH_LOG_CALLBACKS=WARNING && \
+	export DASH_LOG_SELECTION=WARNING && \
+	export DASH_LOG_LAYOUT=WARNING

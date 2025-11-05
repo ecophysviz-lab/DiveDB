@@ -1,10 +1,14 @@
 """
 Server-side callback functions for the DiveDB data visualization dashboard.
 """
+
 import dash
-from dash import Output, Input, State, callback_context
-import pandas as pd
+from dash import Output, Input, State, callback_context, ALL
 from datetime import datetime
+import pandas as pd
+from logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def parse_video_duration(duration_str):
@@ -192,13 +196,22 @@ def register_callbacks(app, dff, video_options=None):
         return playhead_time, is_playing
 
     @app.callback(
-        Output("three-d-model", "activeTime"), [Input("playhead-slider", "value")]
+        Output("three-d-model", "activeTime"),
+        [Input("playhead-time", "data")],
+        State("playback-timestamps", "data"),
     )
-    def update_active_time(slider_value):
-        """Update the 3D model's active time based on slider position."""
-        # Find the nearest datetime to the slider value
-        nearest_idx = dff["timestamp"].sub(slider_value).abs().idxmin()
-        return nearest_idx
+    def update_active_time(playhead_time, timestamps):
+        """Update the 3D model's active time based on playhead position."""
+        if not timestamps:
+            raise dash.exceptions.PreventUpdate
+        # Find the nearest timestamp (not index!) to the playhead time
+        timestamps_series = pd.Series(timestamps)
+        nearest_idx = timestamps_series.sub(playhead_time).abs().idxmin()
+        # Return the actual timestamp value, not the index
+        # Convert to milliseconds for JavaScript
+        nearest_timestamp_seconds = timestamps[nearest_idx]
+        nearest_timestamp_ms = nearest_timestamp_seconds * 1000
+        return nearest_timestamp_ms
 
     @app.callback(
         Output("is-playing", "data"),
@@ -231,125 +244,144 @@ def register_callbacks(app, dff, video_options=None):
 
     @app.callback(
         Output("playhead-time", "data"),
-        Output("playhead-slider", "value"),
         Input("interval-component", "n_intervals"),
-        Input("playhead-slider", "value"),
         State("is-playing", "data"),
+        State("playback-timestamps", "data"),
+        State("playhead-time", "data"),
         prevent_initial_call=True,
     )
-    def update_playhead(n_intervals, slider_value, is_playing):
-        """Update playhead time based on interval timer or manual slider input."""
-        ctx = dash.callback_context
-        if not ctx.triggered:
+    def update_playhead_from_interval(
+        n_intervals, is_playing, timestamps, current_time
+    ):
+        """Update playhead time based on interval timer."""
+        logger.debug(
+            f"Interval callback fired: n_intervals={n_intervals}, is_playing={is_playing}, timestamps_len={len(timestamps) if timestamps else 0}, current_time={current_time}"
+        )
+
+        if not is_playing or not timestamps:
+            logger.debug("Preventing update: not playing or no timestamps")
             raise dash.exceptions.PreventUpdate
 
-        trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+        # Find the current index based on current playhead time
+        timestamps_series = pd.Series(timestamps)
+        current_idx = timestamps_series.sub(current_time).abs().idxmin()
+        next_idx = (
+            current_idx + 1 if current_idx + 1 < len(timestamps) else 0
+        )  # Loop back to start
+        new_time = timestamps[next_idx]
 
-        if trigger_id == "interval-component" and is_playing:
-            # Find the current index based on the slider value
-            current_idx = dff["timestamp"].sub(slider_value).abs().idxmin()
-            next_idx = (
-                current_idx + 1 if current_idx + 1 < len(dff) else 0
-            )  # Loop back to start
-            new_time = dff["timestamp"].iloc[next_idx]
-            return new_time, new_time
-        elif trigger_id == "playhead-slider":
-            return slider_value, slider_value
-        else:
-            raise dash.exceptions.PreventUpdate
+        logger.debug(
+            f"Playhead advancing: current_idx={current_idx}, next_idx={next_idx}, current_time={current_time}, new_time={new_time}"
+        )
+        return new_time
 
+    # NOTE: Slider → playhead-time sync is handled by clientside callback
+    # to avoid race conditions with the interval-based playhead updates
+
+    # TODO: Re-enable this callback after refactoring to avoid duplicate outputs
+    # This conflicts with the load_visualization callback in selection_callbacks.py
+    # @app.callback(
+    #     Output("graph-content", "figure"),
+    #     Input("playhead-time", "data"),
+    #     State("graph-content", "figure"),
+    # )
+    # def update_graph_playhead(playhead_timestamp, existing_fig):
+    #     """Update the graph with a vertical line showing current playhead position."""
+    #     playhead_time = pd.to_datetime(playhead_timestamp, unit="s")
+    #     existing_fig["layout"]["shapes"] = []
+    #     existing_fig["layout"]["shapes"].append(
+    #         dict(
+    #             type="line",
+    #             x0=playhead_time,
+    #             x1=playhead_time,
+    #             y0=0,
+    #             y1=1,
+    #             xref="x",
+    #             yref="paper",
+    #             line=dict(color="#73a9c4", width=2, dash="solid"),
+    #         )
+    #     )
+    #     existing_fig["layout"]["uirevision"] = "constant"
+    #     return existing_fig
+
+    # Video selection callback using pattern-matching for dynamically created video indicators
     @app.callback(
-        Output("graph-content", "figure"),
-        Input("playhead-time", "data"),
-        State("graph-content", "figure"),
+        Output("selected-video", "data"),
+        Output("manual-video-override", "data"),
+        [
+            Input("playhead-time", "data"),
+            Input({"type": "video-indicator", "id": ALL}, "n_clicks"),
+        ],
+        [
+            State("selected-video", "data"),
+            State("manual-video-override", "data"),
+            State("video-time-offset", "data"),
+            State("current-video-options", "data"),
+            State({"type": "video-indicator", "id": ALL}, "id"),
+        ],
     )
-    def update_graph_playhead(playhead_timestamp, existing_fig):
-        """Update the graph with a vertical line showing current playhead position."""
-        playhead_time = pd.to_datetime(playhead_timestamp, unit="s")
-        existing_fig["layout"]["shapes"] = []
-        existing_fig["layout"]["shapes"].append(
-            dict(
-                type="line",
-                x0=playhead_time,
-                x1=playhead_time,
-                y0=0,
-                y1=1,
-                xref="x",
-                yref="paper",
-                line=dict(color="#73a9c4", width=2, dash="solid"),
-            )
-        )
-        existing_fig["layout"]["uirevision"] = "constant"
-        return existing_fig
+    def video_selection_manager(
+        playhead_time,
+        n_clicks_list,
+        selected_video,
+        manual_override,
+        time_offset,
+        video_options,
+        video_ids,
+    ):
+        """Manage both auto and manual video selection with proper priority."""
+        if not video_options:
+            raise dash.exceptions.PreventUpdate
 
-    # Add video selection callback if video options are available
-    if video_options:
-        # Create inputs for all video indicators
-        video_ids = [f"video-{video.get('id', 'unknown')}" for video in video_options]
+        time_offset = time_offset or 0
+        ctx = callback_context
 
-        video_inputs = [Input(vid, "n_clicks") for vid in video_ids]
+        # Check if this was triggered by a manual click
+        manual_click_triggered = False
+        clicked_video = None
 
-        @app.callback(
-            Output("selected-video", "data"),
-            Output("manual-video-override", "data"),
-            [Input("playhead-time", "data")] + video_inputs,
-            [
-                State("selected-video", "data"),
-                State("manual-video-override", "data"),
-                State("video-time-offset", "data"),
-            ],
-        )
-        def video_selection_manager(playhead_time, *args):
-            """Manage both auto and manual video selection with proper priority."""
-            # Extract states from args (manual clicks are unused but required for callback signature)
-            manual_override = args[-2]  # Current manual override state
-            time_offset = args[-1] or 0  # Current time offset (default to 0 if None)
+        for trigger in ctx.triggered:
+            if "video-indicator" in trigger["prop_id"] and trigger.get("value"):
+                manual_click_triggered = True
+                # Extract the clicked video ID from the trigger
+                import json
 
-            ctx = callback_context
+                trigger_id = json.loads(trigger["prop_id"].split(".")[0])
+                clicked_video_id = trigger_id["id"]
 
-            # Check if this was triggered by a manual click
-            manual_click_triggered = False
-            clicked_video = None
+                # Find the corresponding video in video_options
+                for vid in video_options:
+                    if vid.get("id") == clicked_video_id:
+                        clicked_video = vid
+                        break
 
-            for trigger in ctx.triggered:
-                if trigger["prop_id"] != "playhead-time.data" and trigger.get("value"):
-                    manual_click_triggered = True
-                    clicked_id = trigger["prop_id"].split(".")[0]
-
-                    # Extract video ID from button ID (format: "video-{video_id}")
-                    video_button_id = clicked_id.replace("video-", "")
-
-                    # Find the corresponding video in video_options
-                    for vid in video_options:
-                        if vid.get("id") == video_button_id:
-                            clicked_video = vid
-                            break
-
-                    if not clicked_video:
-                        print(f"⚠️ No matching video found for ID: {video_button_id}")
-                    break
-
-            if manual_click_triggered and clicked_video:
-                # Manual selection - this becomes the new override
-                return clicked_video, clicked_video
-
-            elif manual_override:
-                # We have a manual override active - maintain it regardless of playhead
-                return manual_override, manual_override
-
-            else:
-                # Auto-selection based on playhead time with offset applied
-                best_video = find_best_overlapping_video(
-                    video_options, playhead_time, time_offset
-                )
-
-                if best_video:
-                    return best_video, None  # Clear manual override
-                else:
-                    print(
-                        f"🤖 No overlapping video found (offset: {time_offset}s) - clearing selection"
+                if not clicked_video:
+                    logger.warning(
+                        f"No matching video found for ID: {clicked_video_id}"
                     )
-                    return None, None  # Clear both selection and manual override
+                break
+
+        if manual_click_triggered and clicked_video:
+            # Manual selection - this becomes the new override
+            return clicked_video, clicked_video
+
+        elif manual_override:
+            # We have a manual override active - maintain it regardless of playhead
+            return manual_override, manual_override
+
+        else:
+            # Auto-selection based on playhead time with offset applied
+            best_video = find_best_overlapping_video(
+                video_options, playhead_time, time_offset
+            )
+
+            if best_video:
+                return best_video, None  # Clear manual override
+            else:
+                logger.debug(
+                    f"No overlapping video found (offset: {time_offset}s) - clearing selection"
+                )
+                return None, None  # Clear both selection and manual override
 
     @app.callback(
         Output("video-trimmer", "videoSrc"),
