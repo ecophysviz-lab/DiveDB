@@ -145,7 +145,10 @@ def create_layout(
 # Create initial empty layout
 initial_dff = create_empty_dataframe()
 initial_fig = create_empty_figure()
-initial_data_json = initial_dff[["datetime"]].to_json(orient="split")  # Minimal data
+# Set datetime as index to match structure sent by selection callback
+initial_data_json = (
+    initial_dff[["datetime"]].set_index("datetime").to_json(orient="split")
+)
 
 # Create the app layout with empty initial state
 app.layout = create_layout(

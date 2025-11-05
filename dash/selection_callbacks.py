@@ -12,8 +12,245 @@ from layout import (
     create_timeline_section,
     create_deployment_info_display,
 )
+from graph_utils import plot_tag_data_interactive5
 
 logger = get_logger(__name__)
+
+
+class DataPkl:
+    """Simple class to support both attribute and dict access for data_pkl structure."""
+
+    def __init__(self, sensor_data, sensor_info, derived_data=None, derived_info=None):
+        self.sensor_data = sensor_data
+        self.sensor_info = sensor_info
+        self.derived_data = derived_data or {}
+        self.derived_info = derived_info or {}
+
+    def __getitem__(self, key):
+        """Support dict-style access."""
+        if key == "sensor_data":
+            return self.sensor_data
+        elif key == "sensor_info":
+            return self.sensor_info
+        elif key == "derived_data":
+            return self.derived_data
+        elif key == "derived_info":
+            return self.derived_info
+        else:
+            raise KeyError(key)
+
+    def __contains__(self, key):
+        """Support 'in' operator."""
+        return key in ["sensor_data", "sensor_info", "derived_data", "derived_info"]
+
+
+def create_data_pkl_from_dataframe(dff):
+    """
+    Transform a pivoted DataFrame into the data_pkl structure expected by plot_tag_data_interactive5.
+
+    Matches the previous structure where:
+    - pitch, roll, heading are grouped as "prh" in derived_data
+    - depth is in derived_data
+    - Other signals (light, temperature, etc.) are in sensor_data
+
+    Args:
+        dff: DataFrame with 'datetime' column and signal columns
+
+    Returns:
+        DataPkl: data_pkl structure with sensor_data, sensor_info, derived_data, and derived_info
+    """
+    # Skip 'datetime' and 'timestamp' columns
+    data_columns = [col for col in dff.columns if col not in ["datetime", "timestamp"]]
+
+    if not data_columns:
+        return DataPkl(sensor_data={}, sensor_info={}, derived_data={}, derived_info={})
+
+    # Define sensor signals (go in sensor_data)
+    # TODO: Pull from Notion
+    sensor_patterns = {
+        "light": {"pattern": "light", "unit": "lux", "display_name": "Light"},
+        "temperature": {
+            "pattern": "temperature",
+            "unit": "°C",
+            "display_name": "Temperature (imu)",
+        },
+        "ecg": {"pattern": "ecg", "unit": "mV", "display_name": "ECG"},
+        "hr": {"pattern": "hr", "unit": "bpm", "display_name": "Heart Rate"},
+        "accelerometer": {
+            "pattern": "accelerometer",
+            "unit": "g",
+            "display_name": "Accelerometer",
+        },
+        "gyroscope": {
+            "pattern": "gyroscope",
+            "unit": "deg/s",
+            "display_name": "Gyroscope",
+        },
+        "magnetometer": {
+            "pattern": "magnetometer",
+            "unit": "μT",
+            "display_name": "Magnetometer",
+        },
+        "odba": {"pattern": "odba", "unit": "g", "display_name": "ODBA"},
+    }
+
+    # Define derived signals (go in derived_data)
+    # Note: depth and prh (pitch/roll/heading) are derived
+    derived_patterns = {
+        "depth": {"pattern": "depth", "unit": "m", "display_name": "Corrected Depth"},
+        "pressure": {"pattern": "pressure", "unit": "m", "display_name": "Pressure"},
+    }
+
+    sensor_data = {}
+    sensor_info = {}
+    derived_data = {}
+    derived_info = {}
+
+    # Track which columns have been assigned
+    assigned_columns = set()
+
+    # First pass: Handle prh (pitch, roll, heading) - these go together in derived_data
+    prh_cols = []
+    for col in data_columns:
+        if col.lower() in ["pitch", "roll", "heading"] and col not in assigned_columns:
+            prh_cols.append(col)
+            assigned_columns.add(col)
+
+    if prh_cols:
+        # Create prh DataFrame
+        prh_df = dff[["datetime"] + prh_cols].copy()
+        derived_data["prh"] = prh_df
+
+        # Create metadata for prh channels
+        prh_metadata = {}
+        display_names = {
+            "pitch": "Pitch",
+            "roll": "Roll",
+            "heading": "Heading",
+        }
+        for col in prh_cols:
+            col_lower = col.lower()
+            display_name = display_names.get(col_lower, col.replace("_", " ").title())
+            prh_metadata[col] = {
+                "original_name": display_name,
+                "unit": "°",
+            }
+
+        derived_info["prh"] = {
+            "channels": prh_cols,
+            "metadata": prh_metadata,
+        }
+
+    # Second pass: Handle depth/pressure (go in derived_data)
+    for signal_name, signal_config in derived_patterns.items():
+        pattern = signal_config["pattern"]
+        matching_cols = [
+            col
+            for col in data_columns
+            if pattern.lower() in col.lower() and col not in assigned_columns
+        ]
+
+        if matching_cols:
+            # Create DataFrame for this signal type
+            signal_df = dff[["datetime"] + matching_cols].copy()
+            derived_data[signal_name] = signal_df
+
+            # Create metadata for channels
+            channel_metadata = {}
+            for col in matching_cols:
+                # For single-channel signals, use signal name as metadata key if channel doesn't match
+                # For multi-channel signals, use channel name as metadata key
+                if len(matching_cols) == 1 and col.lower() != signal_name.lower():
+                    metadata_key = signal_name
+                else:
+                    metadata_key = col
+
+                channel_metadata[metadata_key] = {
+                    "original_name": signal_config["display_name"],
+                    "unit": signal_config["unit"],
+                }
+
+            derived_info[signal_name] = {
+                "channels": matching_cols,
+                "metadata": channel_metadata,
+            }
+
+            assigned_columns.update(matching_cols)
+
+    # Third pass: Handle sensor signals (go in sensor_data)
+    for signal_name, signal_config in sensor_patterns.items():
+        pattern = signal_config["pattern"]
+        matching_cols = [
+            col
+            for col in data_columns
+            if pattern.lower() in col.lower() and col not in assigned_columns
+        ]
+
+        if matching_cols:
+            # Create DataFrame for this signal type
+            signal_df = dff[["datetime"] + matching_cols].copy()
+            sensor_data[signal_name] = signal_df
+
+            # Create metadata for channels
+            # Note: metadata key should match the channel name (like in the example)
+            channel_metadata = {}
+            for col in matching_cols:
+                # For single-channel signals, use signal name as metadata key if channel doesn't match
+                # For multi-channel signals, use channel name as metadata key
+                if len(matching_cols) == 1 and col.lower() != signal_name.lower():
+                    metadata_key = signal_name
+                else:
+                    metadata_key = col
+
+                channel_metadata[metadata_key] = {
+                    "original_name": signal_config["display_name"],
+                    "unit": signal_config["unit"],
+                }
+
+            sensor_info[signal_name] = {
+                "channels": matching_cols,
+                "metadata": channel_metadata,
+            }
+
+            assigned_columns.update(matching_cols)
+
+    # Fourth pass: assign remaining columns to sensor_data by their base name
+    remaining_cols = [col for col in data_columns if col not in assigned_columns]
+
+    if remaining_cols:
+        # Group remaining columns by their base name (before any suffix)
+        other_groups = {}
+        for col in remaining_cols:
+            # Extract base name (everything before first underscore or use full name)
+            base_name = col.split("_")[0] if "_" in col else col
+            if base_name not in other_groups:
+                other_groups[base_name] = []
+            other_groups[base_name].append(col)
+
+        # Create signal entries for each group in sensor_data
+        for base_name, cols in other_groups.items():
+            signal_df = dff[["datetime"] + cols].copy()
+            sensor_data[base_name] = signal_df
+
+            channel_metadata = {}
+            for col in cols:
+                display_name = col.replace("_", " ").title()
+                channel_metadata[col] = {
+                    "original_name": display_name,
+                    "unit": "",  # No unit for unknown signals
+                }
+
+            sensor_info[base_name] = {
+                "channels": cols,
+                "metadata": channel_metadata,
+            }
+
+    return DataPkl(
+        sensor_data=sensor_data,
+        sensor_info=sensor_info,
+        derived_data=derived_data,
+        derived_info=derived_info,
+    )
 
 
 def register_selection_callbacks(app, duck_pond, immich_service):
@@ -89,6 +326,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         Output("deployment-info-display", "children"),
         Output("playback-timestamps", "data"),
         Output("current-video-options", "data"),
+        Output("three-d-model", "data"),
         # Playback control buttons
         Output("previous-button", "disabled"),
         Output("rewind-button", "disabled"),
@@ -114,6 +352,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
     ):
         """Handle deployment selection and automatically load visualization."""
         if not callback_context.triggered or not datasets_with_deployments:
+            # Create minimal empty data JSON for 3D model
+            empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
             return (
                 no_update,
                 no_update,
@@ -123,6 +363,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 no_update,
                 no_update,
                 [],
+                empty_data_json,
                 True,
                 True,
                 True,
@@ -134,6 +375,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             )
 
         if not n_clicks_list or not any(n_clicks_list):
+            # Create minimal empty data JSON for 3D model
+            empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
             return (
                 no_update,
                 no_update,
@@ -143,6 +386,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 no_update,
                 no_update,
                 [],
+                empty_data_json,
                 True,
                 True,
                 True,
@@ -157,6 +401,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         triggered_id = callback_context.triggered[0]["prop_id"]
 
         if "deployment-button" not in triggered_id:
+            # Create minimal empty data JSON for 3D model
+            empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
             return (
                 no_update,
                 no_update,
@@ -166,6 +412,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 no_update,
                 no_update,
                 [],
+                empty_data_json,
                 True,
                 True,
                 True,
@@ -188,6 +435,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             deployments_data = datasets_with_deployments.get(dataset, [])
             if not deployments_data or idx >= len(deployments_data):
                 logger.error(f"Invalid deployment index {idx} for dataset {dataset}")
+                # Create minimal empty data JSON for 3D model
+                empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
                 return (
                     no_update,
                     no_update,
@@ -197,6 +446,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     no_update,
                     no_update,
                     [],
+                    empty_data_json,
                     True,
                     True,
                     True,
@@ -214,7 +464,6 @@ def register_selection_callbacks(app, duck_pond, immich_service):
 
             # Now load the visualization for this deployment
             import plotly.graph_objects as go
-            from plotly.subplots import make_subplots
 
             deployment_id = selected_deployment["deployment"]
             animal_id = selected_deployment["animal"]
@@ -253,11 +502,9 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             priority_patterns = [
                 "depth",
                 "pressure",
-                "ecg",
-                "odba",
-                "hr",
                 "pitch",
                 "roll",
+                "temp_ext",
                 "heading",
                 "accelerometer",
                 "gyroscope",
@@ -377,6 +624,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     className="text-muted text-center py-4",
                 )
                 empty_info = html.P("No deployment info", className="text-muted")
+                # Create minimal empty data JSON for 3D model
+                empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
                 return (
                     selected_deployment,
                     dataset,
@@ -386,6 +635,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     empty_info,
                     [],
                     [],
+                    empty_data_json,
                     True,
                     True,
                     True,
@@ -408,6 +658,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 labels=labels_to_load,
                 add_timestamp_column=True,
                 apply_timezone_offset=timezone_offset,
+                pivoted=True,
             )
             t1 = time.time()
             logger.debug(f"Time taken: {t1 - t0:.2f} seconds")
@@ -436,6 +687,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     className="text-muted text-center py-4",
                 )
                 empty_info = html.P("No deployment info", className="text-muted")
+                # Create minimal empty data JSON for 3D model
+                empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
                 return (
                     selected_deployment,
                     dataset,
@@ -445,6 +698,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     empty_info,
                     [],
                     [],
+                    empty_data_json,
                     True,
                     True,
                     True,
@@ -484,6 +738,26 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     className="text-muted text-center py-4",
                 )
                 empty_info = html.P("No deployment info", className="text-muted")
+                # Prepare orientation data for 3D model (check if columns exist)
+                # Important: Set datetime as index so React component can access it via dataframe.index
+                if (
+                    "pitch" in dff.columns
+                    and "roll" in dff.columns
+                    and "heading" in dff.columns
+                ):
+                    logger.debug(
+                        f"3D model data prepared WITH orientation: {len(dff)} rows"
+                    )
+                    model_df = dff[["datetime", "pitch", "roll", "heading"]].set_index(
+                        "datetime"
+                    )
+                    model_data_json = model_df.to_json(orient="split")
+                else:
+                    logger.debug(
+                        f"3D model data prepared WITHOUT orientation: {len(dff)} rows"
+                    )
+                    model_df = dff[["datetime"]].set_index("datetime")
+                    model_data_json = model_df.to_json(orient="split")
                 return (
                     selected_deployment,
                     dataset,
@@ -493,6 +767,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     empty_info,
                     [],
                     [],
+                    model_data_json,
                     True,
                     True,
                     True,
@@ -503,44 +778,28 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     True,
                 )
 
-            # Create subplots for first 10 signals
-            num_plots = min(10, len(data_columns))
-            fig = make_subplots(
-                rows=num_plots,
-                cols=1,
-                shared_xaxes=True,
-                vertical_spacing=0.02,
-                subplot_titles=data_columns[:num_plots],
+            # Create data_pkl structure from DataFrame
+            logger.debug("Creating data_pkl structure from DataFrame...")
+            data_pkl = create_data_pkl_from_dataframe(dff)
+
+            # Determine zoom_range_selector_channel (use depth if available)
+            zoom_range_selector_channel = None
+            if (
+                "depth" in data_pkl["sensor_data"]
+                or "depth" in data_pkl["derived_data"]
+            ):
+                zoom_range_selector_channel = "depth"
+
+            # Create figure using plot_tag_data_interactive5
+            logger.debug("Creating figure with plot_tag_data_interactive5...")
+            fig = plot_tag_data_interactive5(
+                data_pkl=data_pkl,
+                zoom_range_selector_channel=zoom_range_selector_channel,
             )
 
-            # Add traces for each signal
-            for idx_col, col in enumerate(data_columns[:num_plots], start=1):
-                fig.add_trace(
-                    go.Scattergl(
-                        x=dff["datetime"],
-                        y=dff[col],
-                        mode="lines",
-                        name=col,
-                        showlegend=False,
-                    ),
-                    row=idx_col,
-                    col=1,
-                )
-
-            # Update layout
-            fig.update_layout(
-                height=600 + 80 * num_plots,
-                showlegend=False,
-                xaxis=dict(
-                    rangeslider=dict(visible=True, thickness=0.05),
-                    type="date",
-                ),
+            logger.info(
+                f"Created figure with {len(data_pkl['sensor_data'])} sensor groups and {len(data_pkl['derived_data'])} derived groups"
             )
-
-            # Update all x-axes to show date
-            fig.update_xaxes(type="date")
-
-            logger.info(f"Created figure with {num_plots} subplots")
 
             # Fetch events for this deployment
             logger.debug("Fetching events...")
@@ -592,6 +851,34 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 deployment_date=selected_deployment["deployment_date"],
             )
 
+            # Prepare orientation data for 3D model
+            # Important: Set datetime as index so React component can access it via dataframe.index
+            logger.debug(
+                f"Checking for orientation data. Available columns: {dff.columns.tolist()}"
+            )
+            if (
+                "pitch" in dff.columns
+                and "roll" in dff.columns
+                and "heading" in dff.columns
+            ):
+                model_df = dff[["datetime", "pitch", "roll", "heading"]].set_index(
+                    "datetime"
+                )
+                model_data_json = model_df.to_json(orient="split")
+                logger.debug(
+                    f"3D model data prepared WITH orientation: {len(model_df)} rows, {model_df.shape[1]} columns"
+                )
+                logger.debug(f"Columns: {model_df.columns.tolist()}")
+            else:
+                # No orientation data - send empty structure that component will recognize
+                logger.warning(
+                    f"No orientation data found. Columns available: {dff.columns.tolist()}"
+                )
+                # Create empty dataframe with proper structure but no data
+                empty_df = pd.DataFrame({"datetime": []}).set_index("datetime")
+                model_data_json = empty_df.to_json(orient="split")
+                logger.debug("3D model data prepared WITHOUT orientation (empty)")
+
             return (
                 selected_deployment,
                 dataset,
@@ -601,6 +888,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 deployment_info_html,
                 dff["timestamp"].tolist(),  # playback timestamps
                 video_options,  # current video options
+                model_data_json,  # three-d-model data
                 False,  # previous-button enabled
                 False,  # rewind-button enabled
                 False,  # play-button enabled
@@ -634,6 +922,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 f"Error: {str(e)}", className="text-danger text-center py-4"
             )
             error_info = html.P("Error loading deployment", className="text-danger")
+            # Create minimal empty data JSON for 3D model on error
+            empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
             return (
                 no_update,
                 no_update,
@@ -643,6 +933,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 error_info,
                 [],
                 [],
+                empty_data_json,
                 True,
                 True,
                 True,

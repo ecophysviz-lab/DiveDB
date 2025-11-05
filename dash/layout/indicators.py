@@ -302,7 +302,9 @@ def assign_event_colors(events_df):
     return color_map
 
 
-def generate_event_indicators_row(events_df, timestamp_min, timestamp_max):
+def generate_event_indicators_row(
+    events_df, timestamp_min, timestamp_max, max_events_per_type=1000
+):
     """Generate the event indicators rows for the timeline (one row per event type)."""
     # If no events, return empty list
     if events_df is None or len(events_df) == 0:
@@ -319,6 +321,13 @@ def generate_event_indicators_row(events_df, timestamp_min, timestamp_max):
     for event_type in event_types:
         # Filter events for this type
         type_events = events_df[events_df["event_key"] == event_type]
+
+        # LIMIT THE NUMBER OF EVENTS RENDERED
+        if len(type_events) > max_events_per_type:
+            logger.warning(
+                f"Event type '{event_type}' has {len(type_events)} events, limiting to {max_events_per_type}"
+            )
+            type_events = type_events.head(max_events_per_type)
 
         # Generate indicators for this event type
         event_indicators = []

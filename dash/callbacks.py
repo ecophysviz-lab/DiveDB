@@ -204,10 +204,14 @@ def register_callbacks(app, dff, video_options=None):
         """Update the 3D model's active time based on playhead position."""
         if not timestamps:
             raise dash.exceptions.PreventUpdate
-        # Find the nearest index to the playhead time
+        # Find the nearest timestamp (not index!) to the playhead time
         timestamps_series = pd.Series(timestamps)
         nearest_idx = timestamps_series.sub(playhead_time).abs().idxmin()
-        return nearest_idx
+        # Return the actual timestamp value, not the index
+        # Convert to milliseconds for JavaScript
+        nearest_timestamp_seconds = timestamps[nearest_idx]
+        nearest_timestamp_ms = nearest_timestamp_seconds * 1000
+        return nearest_timestamp_ms
 
     @app.callback(
         Output("is-playing", "data"),
