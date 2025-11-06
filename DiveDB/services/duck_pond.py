@@ -1229,6 +1229,87 @@ class DuckPond:
         """Get list of all initialized datasets"""
         return self.dataset_manager.get_all_datasets()
 
+    def _get_animal_icons(self, animal_ids: set) -> Dict[str, str]:
+        """
+        Fetch icon URLs for animals by traversing Animal DB -> Assets DB -> Icon property.
+
+        Args:
+            animal_ids: Set of animal IDs (e.g., {"apfo-001", "nesc-001"})
+
+        Returns:
+            Dict mapping animal_id -> icon_url, with fallback to default icon
+        """
+        icon_map = {}
+        default_icon = "/assets/images/seal.svg"
+
+        if not animal_ids or not self.notion_integration.notion_manager:
+            return icon_map
+
+        try:
+            # Get the Animal model
+            AnimalModel = self.notion_integration.notion_manager.get_model("Animal")
+
+            # Query animals - we need to filter by the animal name/ID
+            # The animal field in deployments is like "apfo-001", which should match
+            # a property in Animal DB (likely "Name" or "Animal ID")
+            all_animals = AnimalModel.objects.all()
+
+            for animal in all_animals:
+                # Try to get the animal identifier - could be in different properties
+                animal_name = None
+                for prop_name in ["Name", "Animal ID", "name", "animal_id"]:
+                    if hasattr(animal, prop_name):
+                        animal_name = getattr(animal, prop_name, None)
+                        if animal_name:
+                            break
+
+                # Skip if we can't find the animal name or it's not in our requested set
+                if not animal_name or animal_name not in animal_ids:
+                    continue
+
+                # Try to traverse to Assets DB using the injected relationship method
+                asset_records = animal.get_asset()
+                if asset_records and len(asset_records) > 0:
+                    # Get the first asset record (use first if multiple)
+                    asset = asset_records[0]
+
+                    # Extract Icon property - it's a files type property, parsed as a list of dicts
+                    # Each dict has: {'url': '...', 'name': '...', 'type': 'file', 'expiry_time': '...'}
+                    icon_value = None
+                    if hasattr(asset, "Icon"):
+                        icon_value = getattr(asset, "Icon", None)
+                    elif hasattr(asset, "icon"):
+                        icon_value = getattr(asset, "icon", None)
+
+                    if icon_value:
+                        # Files property is parsed as a list of file info dicts
+                        if isinstance(icon_value, list) and len(icon_value) > 0:
+                            # Get the first file's URL
+                            first_file = icon_value[0]
+                            if isinstance(first_file, dict) and "url" in first_file:
+                                icon_map[animal_name] = first_file["url"]
+                            else:
+                                icon_map[animal_name] = default_icon
+                        # Legacy handling for other formats (shouldn't happen with updated ORM)
+                        elif isinstance(icon_value, str):
+                            icon_map[animal_name] = icon_value
+                        elif isinstance(icon_value, dict) and "url" in icon_value:
+                            icon_map[animal_name] = icon_value["url"]
+                        else:
+                            icon_map[animal_name] = default_icon
+                    else:
+                        # No icon found, use default
+                        icon_map[animal_name] = default_icon
+                else:
+                    # No asset records found, use default
+                    icon_map[animal_name] = default_icon
+
+        except Exception as e:
+            logging.warning(f"Failed to fetch animal icons from Notion: {e}")
+            # Return what we have so far
+
+        return icon_map
+
     def get_all_datasets_and_deployments(self) -> Dict[str, List[Dict]]:
         """
         Get all datasets and their deployments in a single call using one optimized query.
@@ -1298,6 +1379,25 @@ class DuckPond:
             # No deployments found for any dataset
             for dataset in datasets:
                 result[dataset] = []
+
+        # Fetch icons from Notion for all animals in results
+        if result and self.notion_integration.notion_manager:
+            animal_ids = set()
+            for deployments in result.values():
+                for dep in deployments:
+                    if dep.get("animal"):
+                        animal_ids.add(dep["animal"])
+
+            if animal_ids:
+                animal_icon_map = self._get_animal_icons(animal_ids)
+
+                # Add icons to deployment records
+                for deployments in result.values():
+                    for dep in deployments:
+                        animal_id = dep.get("animal")
+                        dep["icon_url"] = animal_icon_map.get(
+                            animal_id, "/assets/images/seal.svg"
+                        )
 
         return result
 

@@ -12,6 +12,11 @@ logger = get_logger("layout")
 
 def create_dataset_accordion_item(dataset_name, deployments, item_id):
     """Create accordion item for a dataset with deployment buttons inside."""
+    # Get icon from first deployment's animal (with fallback to default)
+    icon_url = "/assets/images/seal.svg"  # Default fallback
+    if deployments and len(deployments) > 0:
+        icon_url = deployments[0].get("icon_url", "/assets/images/seal.svg")
+
     # Create deployment buttons for this dataset
     deployment_buttons = []
     for idx, dep in enumerate(deployments):
@@ -47,7 +52,7 @@ def create_dataset_accordion_item(dataset_name, deployments, item_id):
                                     [
                                         html.Div(
                                             [
-                                                html.Img(src="/assets/images/seal.svg"),
+                                                html.Img(src=icon_url),
                                             ],
                                             className="animal_border ratio ratio-1x1",
                                         ),

@@ -42,6 +42,7 @@ notion_manager = NotionORMManager(
         "Recording DB": os.getenv("NOTION_RECORDING_DB"),
         "Logger DB": os.getenv("NOTION_LOGGER_DB"),
         "Animal DB": os.getenv("NOTION_ANIMAL_DB"),
+        "Asset DB": os.getenv("NOTION_ASSETS_DB"),
         "Dataset DB": os.getenv("NOTION_DATASET_DB"),
         "Signal DB": os.getenv("NOTION_SIGNAL_DB"),
         "Standardized Channel DB": os.getenv("NOTION_STANDARDIZEDCHANNEL_DB"),

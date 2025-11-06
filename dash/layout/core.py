@@ -123,9 +123,21 @@ def create_main_content(fig, channel_options=None):
                                 ),
                                 dbc.Col(
                                     [
-                                        dbc.DropdownMenu(
+                                        html.Button(
                                             [
-                                                html.Div(
+                                                html.Img(
+                                                    src="/assets/images/filter.svg",
+                                                    className="",
+                                                ),
+                                                "Manage Channels",
+                                            ],
+                                            className="btn btn-sm btn-icon-only m-0",
+                                            id="graph-channels-toggle",
+                                            disabled=True,  # Disabled until dataset is loaded
+                                        ),
+                                        dbc.Popover(
+                                            [
+                                                dbc.PopoverBody(
                                                     [
                                                         dbc.ListGroup(
                                                             [
@@ -215,22 +227,14 @@ def create_main_content(fig, channel_options=None):
                                                     className="",
                                                 )
                                             ],
-                                            toggle_class_name="btn btn-sm btn-icon-only m-0",
+                                            target="graph-channels-toggle",
+                                            placement="bottom-start",
+                                            is_open=False,
                                             id="graph-channels",
-                                            direction="down",
-                                            align_end=False,
-                                            disabled=True,  # Disabled until dataset is loaded
-                                            label=[
-                                                html.Img(
-                                                    src="/assets/images/filter.svg",
-                                                    className="",
-                                                ),
-                                                "Manage Channels",
-                                            ],
                                         ),
                                         dbc.Tooltip(
                                             "Manage Channels",
-                                            target="graph-channels",
+                                            target="graph-channels-toggle",
                                             placement="right",
                                         ),
                                     ],
@@ -244,12 +248,41 @@ def create_main_content(fig, channel_options=None):
                     ),
                     html.Div(
                         [
+                            # Store for tracking current zoom range
+                            dcc.Store(id="current-zoom-range", data=None),
                             html.Div(
                                 [
                                     dcc.Graph(
                                         id="graph-content",
                                         figure=fig,
                                         responsive=True,
+                                    ),
+                                    # Floating button for loading higher resolution
+                                    html.Div(
+                                        [
+                                            dcc.Loading(
+                                                id="loading-high-res",
+                                                type="circle",
+                                                color="#0d6efd",
+                                                children=[
+                                                    dbc.Button(
+                                                        "Reload data for view",
+                                                        id="load-high-res-btn",
+                                                        color="primary",
+                                                        size="sm",
+                                                        className="btn-high-res",
+                                                    ),
+                                                    # Hidden div to trigger loading state
+                                                    html.Div(
+                                                        id="high-res-loading-state",
+                                                        style={"display": "none"},
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                        id="high-res-btn-container",
+                                        style={"display": "none"},
+                                        className="high-res-btn-overlay",
                                     ),
                                 ],
                                 className="graph-content-container",
