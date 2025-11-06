@@ -421,12 +421,30 @@ class NotionORMManager:
                 if not relation_db_id:
                     continue
 
-                # Find the related model name
-                related_model_name = f"{prop_name} DB"
+                # Normalize the relation ID by removing dashes for comparison
+                normalized_relation_id = relation_db_id.replace("-", "")
+
+                # Reverse-lookup the actual database name from the relation ID
+                target_db_name = None
+                for db_name, db_id in self.db_map.items():
+                    # Normalize the database ID by removing dashes for comparison
+                    normalized_db_id = db_id.replace("-", "")
+                    if normalized_db_id == normalized_relation_id:
+                        target_db_name = db_name
+                        break
+
+                # Determine the related model name from the actual target database
+                if target_db_name:
+                    # Use the actual target database name (e.g., "Signal DB")
+                    related_model_name = target_db_name
+                else:
+                    # Fallback to the property name for backward compatibility
+                    related_model_name = f"{prop_name} DB"
 
                 if related_model_name:
-                    # Create method name (pluralize for potentially multiple relations)
-                    method_name = f"get_{related_model_name.replace(' DB', '').lower()}"
+                    # Create method name based on the target database, not the property name
+                    # (e.g., "Signal DB" -> "get_signal")
+                    method_name = f"get_{related_model_name.replace(' DB', '').replace(' ', '_').lower()}"
 
                     # Define method
                     def get_related(

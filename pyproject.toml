@@ -6,41 +6,43 @@ build-backend = "setuptools.build_meta"
 name = "DiveDB"
 version = "0.1.0"
 dependencies = [
-  "black",
-  "bs4",
-  "dash",
-  "dash[testing]",
-  "dask",
-  "pyiceberg[sql-sqlite,pyarrow]<=0.9.1",
-  "pydantic<=2.11.7",
-  "dash_bootstrap_components",
-  "duckdb",
-  "edfio",
-  "pyiceberg[sql-sqlite,pyarrow]<=0.9.1",
-  "pydantic<=2.11.7",
-  "dash_bootstrap_components",
-  "flake8",
-  "google-cloud-storage",
-  "importlib-metadata==4.8.3",
-  "load_dotenv",
-  "mne",
-  "netcdf4",
-  "notion_client",
-  "numpy",
-  "pandas",
-  "pre-commit",
-  "psycopg2-binary",
-  "pyarrow",
-  "pyedflib",
-  "pytest",
-  "requests",
-  "pytest-mock",
-  "pytest-recording",
-  "python-keystoneclient",
-  "python-swiftclient",
-  "setuptools",
-  "tqdm",
-  "xarray",
+  # Core runtime dependencies only
+  "bs4==0.0.2",
+  "dask==2025.7.0",
+  "dash==3.1.1",
+  "dash-bootstrap-components==2.0.3",
+  "duckdb==1.3.2",
+  "edfio==0.4.9",
+  "google-cloud-storage==3.2.0",
+  "mne==1.10.0",
+  "netCDF4==1.7.2",
+  "notion-client==2.4.0",
+  "numpy==2.3.1",
+  "pandas==2.3.1",
+  "pyarrow==19.0.1",
+  "pyEDFlib==0.1.42",
+  "pyiceberg[sql-sqlite,pyarrow]==0.9.1",
+  "pydantic==2.11.7",
+  "psycopg2-binary==2.9.10",
+  "python-keystoneclient==5.6.0",
+  "python-swiftclient==4.8.0",
+  "requests==2.32.4",
+  "tqdm==4.67.1",
+  "xarray==2025.7.1",
+  # Special cases that might be needed
+  "importlib-metadata==4.8.3",  # Often needed for older Python
+  "load-dotenv==0.1.0",  # If needed for runtime config
+]
+
+[project.optional-dependencies]
+dev = [
+  "black==25.1.0",
+  "flake8==7.3.0",
+  "pre-commit==4.2.0",
+  "pytest==8.4.1",
+  "pytest-mock==3.14.1",
+  "pytest-recording==0.13.4",
+  "dash[testing]==3.1.1",
 ]
 
 # Add this section to explicitly specify only DiveDB as the package

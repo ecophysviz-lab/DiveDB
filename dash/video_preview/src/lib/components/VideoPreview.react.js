@@ -416,9 +416,7 @@ const VideoPreview = ({
             padding: "40px",
             textAlign: "center",
             backgroundColor: "#f8fafc",
-            border: "2px dashed #cbd5e1",
             borderRadius: "12px",
-            margin: "20px",
           }}
         >
           <h3 style={{ margin: "0 0 8px 0", color: "#475569" }}>

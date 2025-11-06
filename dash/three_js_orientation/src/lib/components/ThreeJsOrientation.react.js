@@ -31,6 +31,8 @@ const ThreeJsOrientation = ({
     heading: 0,
   });
 
+  const [hasOrientationData, setHasOrientationData] = useState(true);
+
   // Add a ref to store the target quaternion
   const targetQuaternionRef = useRef(new THREE.Quaternion());
 
@@ -217,17 +219,53 @@ const ThreeJsOrientation = ({
 
   // Update the model's rotation whenever data or activeTime changes
   useEffect(() => {
+    console.log("3D Model - useEffect triggered. Data length:", data?.length || 0, "activeTime:", activeTime);
     const updateModel = () => {
       let dataframe;
       try {
         dataframe = JSON.parse(data);
+        console.log("3D Model - Parsed dataframe structure:", {
+          hasIndex: !!dataframe.index,
+          hasData: !!dataframe.data,
+          hasColumns: !!dataframe.columns,
+          indexLength: dataframe.index?.length || 0,
+          dataLength: dataframe.data?.length || 0,
+          columns: dataframe.columns,
+          firstIndexValue: dataframe.index?.[0],
+          firstDataRow: dataframe.data?.[0],
+        });
       } catch (e) {
         console.error("Invalid data format:", e);
+        setHasOrientationData(false);
+        return;
+      }
+
+      // Check if dataframe has data
+      if (
+        !dataframe.index ||
+        !dataframe.data ||
+        dataframe.index.length === 0 ||
+        dataframe.data.length === 0
+      ) {
+        console.warn("Empty dataframe provided to 3D orientation component", {
+          hasIndex: !!dataframe.index,
+          hasData: !!dataframe.data,
+          indexLength: dataframe.index?.length || 0,
+          dataLength: dataframe.data?.length || 0,
+        });
+        setHasOrientationData(false);
+        setCurrentPRH({ pitch: 0, roll: 0, heading: 0 });
         return;
       }
 
       const timestamps = dataframe.index.map((t) => new Date(t).getTime());
       const activeTimestamp = activeTime;
+
+      console.log("3D Model Update Debug:");
+      console.log("  - activeTime received:", activeTime);
+      console.log("  - First timestamp in data:", timestamps[0]);
+      console.log("  - Last timestamp in data:", timestamps[timestamps.length - 1]);
+      console.log("  - Number of timestamps:", timestamps.length);
 
       // Find the nearest timestamp
       let nearestIndex = 0;
@@ -242,16 +280,44 @@ const ThreeJsOrientation = ({
       }
 
       // Map columns to indices
+      // Check if columns exist and is an array
+      if (!dataframe.columns || !Array.isArray(dataframe.columns)) {
+        console.warn("Invalid or missing columns in dataframe");
+        setHasOrientationData(false);
+        setCurrentPRH({ pitch: 0, roll: 0, heading: 0 });
+        return;
+      }
+
       const columnIndices = dataframe.columns.reduce((acc, col, idx) => {
         acc[col] = idx;
         return acc;
       }, {});
 
+      // Check if required orientation columns exist
+      if (
+        !("pitch" in columnIndices) ||
+        !("roll" in columnIndices) ||
+        !("heading" in columnIndices)
+      ) {
+        console.warn(
+          "Missing orientation data (pitch/roll/heading). Showing neutral orientation."
+        );
+        setHasOrientationData(false);
+        setCurrentPRH({ pitch: 0, roll: 0, heading: 0 });
+        // Reset to neutral quaternion
+        const neutralQuaternion = new THREE.Quaternion();
+        neutralQuaternion.setFromEuler(new THREE.Euler(0, Math.PI / 2, 0, "ZYX"));
+        targetQuaternionRef.current.copy(neutralQuaternion);
+        return;
+      }
+
+      setHasOrientationData(true);
+
       // Get the pitch, roll, and heading from the nearest timestamp
       const rowData = dataframe.data[nearestIndex];
-      const pitch = rowData[columnIndices.pitch];
-      const roll = rowData[columnIndices.roll];
-      const heading = rowData[columnIndices.heading];
+      const pitch = rowData[columnIndices.pitch] ?? 0;
+      const roll = rowData[columnIndices.roll] ?? 0;
+      const heading = rowData[columnIndices.heading] ?? 0;
 
       setCurrentPRH({ pitch, roll, heading });
 
@@ -361,26 +427,32 @@ const ThreeJsOrientation = ({
           fontSize: "14px",
         }}
       >
-        <ul style={{ listStyleType: "none", margin: 0, padding: 0 }}>
-          <li>
-            <strong>Pitch:</strong>{" "}
-            {currentPRH.pitch !== null
-              ? currentPRH.pitch.toFixed(2) + "°"
-              : "null"}
-          </li>
-          <li>
-            <strong>Roll:</strong>{" "}
-            {currentPRH.roll !== null
-              ? currentPRH.roll.toFixed(2) + "°"
-              : "null"}
-          </li>
-          <li>
-            <strong>Heading:</strong>{" "}
-            {currentPRH.heading !== null
-              ? currentPRH.heading.toFixed(2) + "°"
-              : "null"}
-          </li>
-        </ul>
+        {hasOrientationData ? (
+          <ul style={{ listStyleType: "none", margin: 0, padding: 0 }}>
+            <li>
+              <strong>Pitch:</strong>{" "}
+              {currentPRH.pitch !== null && currentPRH.pitch !== undefined
+                ? currentPRH.pitch.toFixed(2) + "°"
+                : "N/A"}
+            </li>
+            <li>
+              <strong>Roll:</strong>{" "}
+              {currentPRH.roll !== null && currentPRH.roll !== undefined
+                ? currentPRH.roll.toFixed(2) + "°"
+                : "N/A"}
+            </li>
+            <li>
+              <strong>Heading:</strong>{" "}
+              {currentPRH.heading !== null && currentPRH.heading !== undefined
+                ? currentPRH.heading.toFixed(2) + "°"
+                : "N/A"}
+            </li>
+          </ul>
+        ) : (
+          <div style={{ color: "#666", fontStyle: "italic" }}>
+            No orientation data available
+          </div>
+        )}
       </div>
 
       {/* Button to reset camera */}
