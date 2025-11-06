@@ -259,6 +259,8 @@ class NotionModel:
                     value = prop_data.get("formula", {}).get(formula_type)
                 else:
                     value = None
+            elif prop_type == "files":
+                value = cls._parse_files(prop_data.get("files", []))
             else:
                 value = None
 
@@ -309,6 +311,38 @@ class NotionModel:
             return datetime.datetime.fromisoformat(start_date.replace("Z", "+00:00"))
         else:
             return datetime.date.fromisoformat(start_date)
+
+    @staticmethod
+    def _parse_files(files_data):
+        """
+        Parse files property to list of file info dicts.
+        Each dict contains: url, name, type.
+        Returns list of dicts with file information.
+        """
+        if not files_data:
+            return []
+
+        parsed_files = []
+        for file_item in files_data:
+            file_type = file_item.get("type")
+            file_info = {
+                "name": file_item.get("name"),
+                "type": file_type,
+            }
+
+            # Handle internal Notion files
+            if file_type == "file":
+                file_data = file_item.get("file", {})
+                file_info["url"] = file_data.get("url")
+                file_info["expiry_time"] = file_data.get("expiry_time")
+            # Handle external files
+            elif file_type == "external":
+                external_data = file_item.get("external", {})
+                file_info["url"] = external_data.get("url")
+
+            parsed_files.append(file_info)
+
+        return parsed_files
 
 
 class NotionORMManager:

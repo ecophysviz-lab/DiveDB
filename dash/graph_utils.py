@@ -40,19 +40,6 @@ def plot_tag_data_interactive(
     Includes both sensor_data and derived_data.
     """
 
-    # Default sensor and derived data order
-    default_order = [
-        "depth",
-        "ecg",
-        "pressure",
-        "accelerometer",
-        "magnetometer",
-        "gyroscope",
-        "prh",
-        "temperature",
-        "light",
-    ]
-
     # Determine the sensors and derived data to plot
     if sensors is None:
         sensors = list(data_pkl.sensor_data.keys())
@@ -63,20 +50,14 @@ def plot_tag_data_interactive(
     # Combine sensors and derived data
     signals = sensors + derived_data_signals
 
-    # Sort signals with the range selector signal on top if specified
+    # Preserve user order, only move range selector signal to top if specified
     if zoom_range_selector_channel and zoom_range_selector_channel in signals:
         signals_sorted = [zoom_range_selector_channel] + [
             s for s in signals if s != zoom_range_selector_channel
         ]
     else:
-        signals_sorted = sorted(
-            signals,
-            key=lambda x: (
-                default_order.index(x)
-                if x in default_order
-                else len(default_order) + signals.index(x)
-            ),
-        )
+        # Maintain the exact order from the input
+        signals_sorted = signals
 
     # Add subplots: One row per signal, plus extra row for the blank plot and event values if needed
     extra_rows = len(plot_event_values) if plot_event_values else 0
@@ -318,9 +299,15 @@ def plot_tag_data_interactive(
         if row_counter == 2:
             # Align the title of the blank plot (row 2) with the first plot (row 1)
             fig.update_yaxes(title_text=signal, row=1, col=1)
+            # Invert depth axis if applicable
+            if "depth" in signal.lower():
+                fig.update_yaxes(autorange="reversed", row=1, col=1)
         else:
             # Keep the title where it is for the other rows
             fig.update_yaxes(title_text=signal, row=row_counter, col=1)
+            # Invert depth axis if applicable
+            if "depth" in signal.lower():
+                fig.update_yaxes(autorange="reversed", row=row_counter, col=1)
         row_counter += 1
 
     # Add event values as separate subplots

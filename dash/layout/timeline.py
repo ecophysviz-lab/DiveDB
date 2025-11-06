@@ -224,11 +224,15 @@ def create_timeline_section(dff, video_options=None, events_df=None):
     )
 
 
-def create_deployment_info_display(animal_id, deployment_date):
+def create_deployment_info_display(animal_id, deployment_date, icon_url=None):
     """Create the animal/deployment info display at bottom of footer."""
     # Parse deployment date
     date_dt = pd.to_datetime(deployment_date)
     date_str = date_dt.strftime("%B %d, %Y")
+
+    # Use provided icon_url or fallback to default
+    if not icon_url:
+        icon_url = "/assets/images/seal.svg"
 
     return dbc.Row(
         [
@@ -238,7 +242,7 @@ def create_deployment_info_display(animal_id, deployment_date):
                         html.Div(
                             [
                                 html.Img(
-                                    src="/assets/images/seal.svg",
+                                    src=icon_url,
                                 ),
                             ],
                             className="animal_border ratio ratio-1x1",

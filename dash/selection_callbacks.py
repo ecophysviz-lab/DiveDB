@@ -1021,6 +1021,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             deployment_info_html = create_deployment_info_display(
                 animal_id=animal_id,
                 deployment_date=selected_deployment["deployment_date"],
+                icon_url=selected_deployment.get("icon_url", "/assets/images/seal.svg"),
             )
 
             # Prepare orientation data for 3D model
@@ -1123,6 +1124,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
     @app.callback(
         Output("graph-content", "figure", allow_duplicate=True),
         Output("playback-timestamps", "data", allow_duplicate=True),
+        Output("graph-channels", "is_open"),
         Input("update-graph-btn", "n_clicks"),
         State({"type": "channel-select", "index": ALL}, "value"),
         State("selected-dataset", "data"),
@@ -1186,7 +1188,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         )
 
         logger.info(f"Graph updated successfully with {len(channel_values)} channels")
-        return fig, timestamps
+        return fig, timestamps, False
 
     @app.callback(
         Output("graph-channel-list", "children", allow_duplicate=True),
@@ -1322,13 +1324,25 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         return channel_rows + [buttons_row]
 
     @app.callback(
-        Output("graph-channels", "disabled"),
+        Output("graph-channels-toggle", "disabled"),
         Input("selected-dataset", "data"),
     )
     def toggle_manage_channels_button(selected_dataset):
         """Enable/disable the Manage Channels button based on dataset selection."""
         # Enable button when a dataset is selected, disable when None
         return selected_dataset is None
+
+    @app.callback(
+        Output("graph-channels", "is_open", allow_duplicate=True),
+        Input("graph-channels-toggle", "n_clicks"),
+        State("graph-channels", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_manage_channels_popover(n_clicks, is_open):
+        """Toggle the Manage Channels popover open/closed when button is clicked."""
+        if n_clicks:
+            return not is_open
+        return is_open
 
     @app.callback(
         Output("loading-overlay", "style"),

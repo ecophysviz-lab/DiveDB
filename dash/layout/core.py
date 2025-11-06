@@ -123,9 +123,21 @@ def create_main_content(fig, channel_options=None):
                                 ),
                                 dbc.Col(
                                     [
-                                        dbc.DropdownMenu(
+                                        html.Button(
                                             [
-                                                html.Div(
+                                                html.Img(
+                                                    src="/assets/images/filter.svg",
+                                                    className="",
+                                                ),
+                                                "Manage Channels",
+                                            ],
+                                            className="btn btn-sm btn-icon-only m-0",
+                                            id="graph-channels-toggle",
+                                            disabled=True,  # Disabled until dataset is loaded
+                                        ),
+                                        dbc.Popover(
+                                            [
+                                                dbc.PopoverBody(
                                                     [
                                                         dbc.ListGroup(
                                                             [
@@ -215,22 +227,14 @@ def create_main_content(fig, channel_options=None):
                                                     className="",
                                                 )
                                             ],
-                                            toggle_class_name="btn btn-sm btn-icon-only m-0",
+                                            target="graph-channels-toggle",
+                                            placement="bottom-start",
+                                            is_open=False,
                                             id="graph-channels",
-                                            direction="down",
-                                            align_end=False,
-                                            disabled=True,  # Disabled until dataset is loaded
-                                            label=[
-                                                html.Img(
-                                                    src="/assets/images/filter.svg",
-                                                    className="",
-                                                ),
-                                                "Manage Channels",
-                                            ],
                                         ),
                                         dbc.Tooltip(
                                             "Manage Channels",
-                                            target="graph-channels",
+                                            target="graph-channels-toggle",
                                             placement="right",
                                         ),
                                     ],
