@@ -73,96 +73,197 @@ class NotionIntegration:
             logging.debug(f"Failed to load Standardized Channel DB via Notion: {e}")
             return None
 
-    def load_signal_metadata_map(self) -> Dict[str, Dict]:
-        """Return a cached mapping of signal_notion_id -> metadata from Signal DB.
+    def load_signal_metadata_map(
+        self, channel_ids: Optional[List[str]] = None
+    ) -> Dict[str, Dict]:
+        """Return a cached mapping of channel_id -> metadata from Standardized Channels and Parent Signals.
 
-        Expects a Notion database named "Signal DB" with properties:
-        - Name: Signal name
-        - Description: Signal description
-        - Label: Display label
-        - Standardized Unit: Units
-        - Type: Signal type
-        - Color: Display color
-        - Icon (or similar): Icon path
+        Uses ORM to traverse from Standardized Channels to their Parent Signals,
+        combining channel-specific overrides with parent signal base properties.
 
-        Returns mapping where keys are Notion record IDs and values are dicts
-        with all metadata fields from Signal DB.
+        Args:
+            channel_ids: Optional list of channel IDs to load metadata for. If None, loads all channels.
+
+        Returns mapping where keys are Standardized Channel IDs and values are dicts
+        with all metadata fields (preferring channel overrides over parent defaults).
         """
-        if self._signal_metadata_cache:
+        # If specific channel_ids requested, don't use cache - fetch fresh
+        # If no channel_ids specified and cache exists, return cache
+        if channel_ids is None and self._signal_metadata_cache:
             return self._signal_metadata_cache
 
         mapping: Dict[str, Dict] = {}
+
+        if not self.notion_manager:
+            if channel_ids is None:
+                self._signal_metadata_cache = mapping
+            return mapping
+
+        # Normalize channel_ids to lowercase for case-insensitive comparison
+        normalized_filter = (
+            set(cid.lower() for cid in channel_ids) if channel_ids else None
+        )
+
+        # Helper functions for parsing
+        def parse_color(color_val):
+            """Extract hex color code from Notion color field"""
+            if pd.isna(color_val) or color_val is None or not color_val:
+                return None
+            color_str = str(color_val)
+            # Look for hex pattern in strings like '\\color {#e4d596} ███████'
+            hex_match = re.search(r"#([0-9a-fA-F]{6})", color_str)
+            if hex_match:
+                return hex_match.group(0).lower()
+            return None
+
+        def parse_icon(icon_val):
+            """Parse icon value, handling pandas <NA> and missing values"""
+            if pd.isna(icon_val) or icon_val is None or not icon_val:
+                return None
+            icon_str = str(icon_val).strip()
+            if icon_str in ("<NA>", "nan", "None", ""):
+                return None
+            return icon_str
+
+        def safe_get_attr(obj, *attr_names, default=None):
+            """Try multiple attribute names and return the first non-None value"""
+            for attr_name in attr_names:
+                if hasattr(obj, attr_name):
+                    val = getattr(obj, attr_name, None)
+                    if val is not None:
+                        return val
+            return default
+
         try:
-            if not self.notion_manager:
+            # Load Standardized Channels using ORM
+            print("Loading Standardized Channels via ORM for metadata mapping")
+            StandardizedChannelModel = self.notion_manager.get_model(
+                "Standardized Channel"
+            )
+            channel_records = StandardizedChannelModel.objects.all()
+
+            if not channel_records:
+                print("No Standardized Channel records found")
                 self._signal_metadata_cache = mapping
                 return mapping
 
-            # Prefer DuckDB materialized table if available
-            if "Signals" in (self._notion_table_names or []):
-                try:
-                    df = self.duckdb_connection.sql('SELECT * FROM "Signals"').df()
-                except Exception:
-                    df = None
-            else:
-                df = None
+            print(f"Found {len(channel_records)} Standardized Channel records")
 
-            if df is None:
-                logging.error("No Signals DB found in DuckDB")
-                return mapping
+            # Process each channel and traverse to parent signal
+            for channel in channel_records:
+                channel_id = safe_get_attr(channel, "Channel ID", "channel_id")
+                if not channel_id:
+                    print(f"Skipping channel {channel.id} - no Channel ID")
+                    continue
 
-            if df is not None and not df.empty:
-                # Extract all metadata from Signal DB using Notion ID as key
-                for _, row in df.iterrows():
-                    notion_id = row.get("id")  # Notion record ID
-                    if not notion_id:
-                        continue
+                # If filtering by specific channel_ids, skip channels not in the list
+                if normalized_filter and channel_id.lower() not in normalized_filter:
+                    continue
 
-                    # Parse color to extract hex code
-                    def parse_color(color_val):
-                        """Extract hex color code from Notion color field"""
-                        if pd.isna(color_val) or color_val is None:
-                            return None
-                        color_str = str(color_val)
-                        # Look for hex pattern in strings like '\\color {#e4d596} ███████'
-                        hex_match = re.search(r"#([0-9a-fA-F]{6})", color_str)
-                        if hex_match:
-                            return hex_match.group(0).lower()
-                        return None
+                print("Channel: ", channel)
+                print(
+                    f"Channel {channel_id}: methods={[attr for attr in dir(channel) if callable(getattr(channel, attr)) and not attr.startswith('__')]}"
+                )
 
-                    # Parse icon to handle pandas <NA> and missing values
-                    def parse_icon(icon_val):
-                        """Parse icon value, handling pandas <NA> and missing values"""
-                        # Debug logging to understand what we're getting
-                        logging.debug(
-                            f"Icon value: {repr(icon_val)}, type: {type(icon_val)}"
+                # Get parent signal using the injected relationship method
+                # Method is named after target database: get_signal() for Signal DB
+                parent_signals = None
+                if hasattr(channel, "get_signal"):
+                    parent_signals = channel.get_signal()
+                    print(
+                        f"Channel {channel_id}: Found {len(parent_signals) if parent_signals else 0} parent signal(s)"
+                    )
+                else:
+                    print(f"Channel {channel_id}: No get_signal method found")
+                # Extract parent signal properties if available
+                parent = (
+                    parent_signals[0]
+                    if parent_signals and len(parent_signals) > 0
+                    else None
+                )
+
+                if parent:
+                    # Combine channel overrides with parent signal defaults
+                    # Build description: parent description + channel description suffix
+                    parent_desc = (
+                        safe_get_attr(parent, "Description", "description") or ""
+                    )
+                    channel_suffix = (
+                        safe_get_attr(
+                            channel, "Description Suffix", "description_suffix"
                         )
+                        or ""
+                    )
+                    combined_description = (
+                        f"{parent_desc} {channel_suffix}".strip()
+                        if parent_desc or channel_suffix
+                        else None
+                    )
 
-                        # Handle pandas NA types
-                        if pd.isna(icon_val) or icon_val is None:
-                            return None
-                        # Convert to string and check for various "missing" representations
-                        icon_str = str(icon_val).strip()
-                        if icon_str in ("<NA>", "nan", "None", ""):
-                            return None
-                        return icon_str
+                    # Icon: prefer channel icon, fallback to parent icon
+                    channel_icon = parse_icon(getattr(channel, "icon", None))
+                    parent_icon = parse_icon(getattr(parent, "icon", None))
 
-                    # Build metadata dict with all fields from Signal DB
                     metadata = {
-                        "name": row.get("name"),
-                        "description": row.get("description"),
-                        "label": row.get("label"),
-                        "standardized_unit": row.get("standardized_unit"),
-                        "type": row.get("type"),
-                        "color": parse_color(row.get("color")),
-                        "icon": parse_icon(row.get("icon")),
+                        "name": safe_get_attr(parent, "Label", "Name", "label", "name"),
+                        "description": combined_description,
+                        "label": safe_get_attr(parent, "Label", "label"),
+                        "standardized_unit": safe_get_attr(
+                            channel, "Unit Override", "unit_override"
+                        )
+                        or safe_get_attr(parent, "Unit", "unit"),
+                        "type": safe_get_attr(parent, "Type", "type"),
+                        "color": parse_color(
+                            safe_get_attr(channel, "Color Override", "color_override")
+                        )
+                        or parse_color(safe_get_attr(parent, "Color", "color")),
+                        "icon": channel_icon or parent_icon,
                     }
 
-                    mapping[notion_id] = metadata
+                    mapping[channel_id] = metadata
+                    print(f"Mapped channel {channel_id} with parent signal metadata")
+                else:
+                    # No parent signal - use channel properties only
+                    print(
+                        f"Channel {channel_id} has no parent signal, using channel properties only"
+                    )
+                    metadata = {
+                        "name": safe_get_attr(
+                            channel, "Label", "Name", "label", "name"
+                        ),
+                        "description": safe_get_attr(
+                            channel,
+                            "Description Suffix",
+                            "Description",
+                            "description_suffix",
+                            "description",
+                        ),
+                        "label": safe_get_attr(channel, "Label", "label"),
+                        "standardized_unit": safe_get_attr(
+                            channel, "Unit Override", "Unit", "unit_override", "unit"
+                        ),
+                        "type": safe_get_attr(channel, "Type", "type"),
+                        "color": parse_color(
+                            safe_get_attr(
+                                channel,
+                                "Color Override",
+                                "Color",
+                                "color_override",
+                                "color",
+                            )
+                        ),
+                        "icon": parse_icon(getattr(channel, "icon", None)),
+                    }
+                    mapping[channel_id] = metadata
+
+            print(f"Successfully mapped {len(mapping)} channels to metadata")
 
         except Exception as e:
-            logging.debug(f"Failed to load Signal DB metadata: {e}")
+            print(f"Failed to load Signal DB metadata via ORM: {e}")
 
-        self._signal_metadata_cache = mapping
+        # Only cache when loading all channels (no filter)
+        if channel_ids is None:
+            self._signal_metadata_cache = mapping
         return mapping
 
     def build_stdchan_mappings(
@@ -353,8 +454,12 @@ class NotionIntegration:
 
     def get_metadata_mappings(
         self,
+        channel_ids: Optional[List[str]] = None,
     ) -> Tuple[Dict[str, str], Dict[str, str], Dict[str, Dict]]:
         """Get all metadata mappings needed for channel discovery.
+
+        Args:
+            channel_ids: Optional list of channel IDs to load metadata for. If None, loads all channels.
 
         Returns:
             Tuple of (channel_id_to_signal_id, original_alias_to_channel_id, signal_metadata_map)
@@ -378,8 +483,8 @@ class NotionIntegration:
                 original_alias_to_channel_id,
             ) = self.build_stdchan_mappings(std_df)
 
-        # Load all signal metadata
-        signal_metadata_map = self.load_signal_metadata_map()
+        # Load signal metadata (optionally filtered by channel_ids)
+        signal_metadata_map = self.load_signal_metadata_map(channel_ids=channel_ids)
 
         return (
             channel_id_to_signal_id,

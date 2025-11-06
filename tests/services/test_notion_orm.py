@@ -221,7 +221,7 @@ def test_relationships(notion_orm, mock_notion_client):
 
     # Get an animal and its recordings
     animal = Animal.get_animal({"Animal ID": "mian-013"})
-    recordings = animal.get_recordings()
+    recordings = animal.get_recording()
 
     # Verify relationship traversal
     assert len(recordings) == 2

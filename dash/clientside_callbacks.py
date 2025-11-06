@@ -131,5 +131,55 @@ def register_clientside_callbacks(app):
         prevent_initial_call=True,
     )
 
-    # TODO: Re-enable playhead visualization once duplicate callback issue is resolved
-    # For now, playhead updates are disabled to avoid conflicts with load_visualization callback
+    # Playhead tracking line on graph
+    # This callback draws a vertical line on the graph that follows the playhead position
+    app.clientside_callback(
+        """
+        function(playhead_time, existing_fig) {
+            // Prevent update if no valid data
+            if (!playhead_time || !existing_fig) {
+                return window.dash_clientside.no_update;
+            }
+            
+            // Convert playhead timestamp (seconds) to milliseconds
+            const playhead_ms = playhead_time * 1000;
+            
+            // Create Date object and convert to ISO string
+            const playhead_date = new Date(playhead_ms);
+            const playhead_iso = playhead_date.toISOString();
+            
+            // Clone the existing figure to avoid mutation
+            const updated_fig = {...existing_fig};
+            
+            // Ensure layout exists
+            if (!updated_fig.layout) {
+                updated_fig.layout = {};
+            }
+            
+            // Update shapes with vertical line at playhead position
+            updated_fig.layout.shapes = [{
+                type: 'line',
+                x0: playhead_iso,
+                x1: playhead_iso,
+                y0: 0,
+                y1: 1,
+                xref: 'x',
+                yref: 'paper',
+                line: {
+                    color: '#73a9c4',
+                    width: 2,
+                    dash: 'solid'
+                }
+            }];
+            
+            // Preserve UI state (zoom, pan, etc.)
+            updated_fig.layout.uirevision = 'constant';
+            
+            return updated_fig;
+        }
+        """,
+        Output("graph-content", "figure", allow_duplicate=True),
+        [Input("playhead-time", "data")],
+        [State("graph-content", "figure")],
+        prevent_initial_call=True,
+    )

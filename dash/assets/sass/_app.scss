@@ -8,6 +8,7 @@
 @use "typography" as *;
 @use "buttons" as *;
 @use "components" as *;
+@use "forms" as *;
 
 @import url('https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap');
 
@@ -179,21 +180,96 @@ body {
 	container: main-view-grid-area / inline-size;
 	position: relative;
 
-	.content {
-		overflow: hidden;
-		background-color: red;
-		border-radius: var(--bs-border-radius);
-		width: 100%;
-	}
+    .sidebar {
+        .sidebar_header {
+            padding: calc(1 * var(--grid-gap)) calc(1.25 * var(--grid-gap));
+            background-color: var(--white);
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 6px 12px rgba(var(--blueExtraDark-rgb), .1);
+            border-top-left-radius: var(--bs-border-radius);
+            border-top-right-radius: var(--bs-border-radius);
 
-	.main_content_scroll {
-		background: var(--white);
-		overflow-y: auto;
-		height: 100%;
-		width: 100%;
-		padding: 20px;
-        padding: 20px 30px 20px 10px;
-	}
+            h2 {
+                margin: 0;
+                font-size: 1.25rem;
+            }
+
+            p {
+                color: var(--blue);
+            }
+
+            .toggle-button {
+                cursor: pointer;
+                font-size: 1.5rem;
+                color: var(--white);
+            }
+
+            .sidebar_title {
+                display: block;
+            }
+        }
+        
+        .sidebar_content {
+            background: var(--white);
+            padding: 20px 30px 20px 10px;
+            border-bottom-left-radius: var(--bs-border-radius);
+            border-bottom-right-radius: var(--bs-border-radius);
+        }
+    }
+    
+    #graph-channels {
+        .dropdown-menu {
+            --bs-dropdown-min-width: calc(100vw - (var(--left-sidebar-width) * 1px) - (var(--right-sidebar-width)) - 60px);
+            --bs-dropdown-padding-y: 0;
+            margin-top: 8px;
+        }
+
+        .list-group {
+            padding: 20px;
+        }
+    }
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    height: 100%;
+    width: 100%;
+    min-height: 0;
+
+    .sidebar_header {
+        padding: calc(1 * var(--grid-gap)) calc(1.25 * var(--grid-gap));
+        background-color: var(--blueDark);
+        position: relative;
+        z-index: 10;
+        box-shadow: 0 6px 12px rgba(var(--blueExtraDark-rgb), .5);
+
+        h2 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+
+        .toggle-button {
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: var(--white);
+        }
+
+        .sidebar_title {
+            display: block;
+        }
+    }
+
+    .sidebar_content {
+        flex: 1;
+        overflow-y: auto;
+        padding-top: 0;
+        color: var(--white);
+        width: 100%;
+        display: block;
+    }
 }
 
 .left_sidebar, .right_sidebar {
@@ -208,45 +284,8 @@ body {
 	width: calc(var(--left-sidebar-width) * 1px);
 	z-index: var(--left-sidebar-grid-area-z-index);
 
-    .sidebar {
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-        height: 100%;
-        width: 100%;
-        min-height: 0;
-
-        .sidebar_header {
-            padding: calc(1 * var(--grid-gap)) calc(1.25 * var(--grid-gap));
-            background-color: var(--blueDark);
-            position: relative;
-            z-index: 10;
-            box-shadow: 0 6px 12px rgba(var(--blueExtraDark-rgb), .5);
-
-            h2 {
-                margin: 0;
-                font-size: 1.25rem;
-            }
-
-            .toggle-button {
-                cursor: pointer;
-                font-size: 1.5rem;
-                color: var(--white);
-            }
-
-            .sidebar_title {
-                display: block;
-            }
-        }
-
-        .sidebar_content {
-            flex: 1;
-            overflow-y: auto;
-            padding-top: 0;
-            color: var(--white);
-            width: calc(var(--left-sidebar-width) * 1px);
-            display: block;
-        }
+    .sidebar_content {
+        width: calc(var(--left-sidebar-width) * 1px);
     }
 }
 
@@ -402,6 +441,10 @@ body {
     #video-trimmer {
         @include cover;
 
+        > * {
+            @include cover;
+        }
+
         video {
             width: 100%;
             height: 100%;
@@ -425,6 +468,13 @@ body {
             li {
                 color: var(--blueExtraDark);
             }
+        }
+
+        .btn-resetview {
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            margin: 0;
         }
     }
 }

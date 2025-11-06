@@ -144,6 +144,7 @@ class DuckPond:
         dataset: str,
         include_metadata: bool = True,
         pack_groups: bool = True,
+        load_metadata: bool = True,
     ) -> List[Dict]:
         """
         Discover available channels for a dataset and optionally hydrate metadata from Signal DB.
@@ -151,27 +152,29 @@ class DuckPond:
         Args:
             dataset: Dataset identifier
             include_metadata: If True, join metadata from Signal DB via Standardized Channel DB lookup
-            include: Which kinds to return: variables, groups, or both
             pack_groups: If True, groups are returned as one collection with all standardized children
+            load_metadata: If False, skip loading metadata from Notion (faster for initial discovery)
 
         Returns:
             List[Dict] of channels/groups as specified
         """
 
         triples, present_groups = self._discover_dataset_channels(dataset)
-
+        # print(triples)
+        # print(present_groups)
         # Prepare lookup mappings
         channel_id_to_signal_id: Dict[str, str] = {}
         original_alias_to_channel_id: Dict[str, str] = {}
         signal_metadata_map: Dict[str, Dict] = {}
 
-        if include_metadata and self.notion_manager:
+        if include_metadata and load_metadata and self.notion_manager:
             (
                 channel_id_to_signal_id,
                 original_alias_to_channel_id,
                 signal_metadata_map,
             ) = self.notion_integration.get_metadata_mappings()
-
+        # import pprint
+        # pprint.pprint({"signal_metadata_map": signal_metadata_map})
         # Build a presence map for labels per group for quick lookup
         group_to_labels_present: Dict[str, set] = {}
         for g, c, label in triples:
@@ -201,7 +204,9 @@ class DuckPond:
             signal_meta = None
             if signal_id:
                 signal_meta = signal_metadata_map.get(signal_id)
-
+            # print(signal_meta)
+            # import pprint
+            # pprint.pprint(signal_metadata_map)
             # Build item with metadata from Signal DB (no fallbacks)
             item = {
                 "kind": "variable",
@@ -239,7 +244,9 @@ class DuckPond:
             group_meta = None
             # Find Signal DB record with matching name
             for signal_id, metadata in signal_metadata_map.items():
-                if metadata.get("name", "").lower() == group_name.lower():
+                print("metadata", metadata, group_name)
+                name = metadata.get("name") if metadata.get("name") else "None"
+                if name.lower() == group_name.lower():
                     group_meta = metadata
                     break
 
@@ -329,6 +336,49 @@ class DuckPond:
             results.append(group_item)
 
         return results
+
+    def get_channels_metadata(
+        self, dataset: str, channel_ids: List[str]
+    ) -> Dict[str, Dict]:
+        """
+        Get metadata for specific channels only (lazy loading).
+
+        Args:
+            dataset: Dataset identifier
+            channel_ids: List of channel IDs to load metadata for
+
+        Returns:
+            Dict mapping channel_id -> metadata dict
+        """
+        if not self.notion_manager or not channel_ids:
+            return {}
+
+        # Get metadata mappings for specific channels only
+        (
+            channel_id_to_signal_id,
+            original_alias_to_channel_id,
+            signal_metadata_map,
+        ) = self.notion_integration.get_metadata_mappings(channel_ids=channel_ids)
+
+        # Build result dict keyed by channel_id
+        result = {}
+        for channel_id in channel_ids:
+            chan_key = channel_id.lower()
+
+            # Try direct channel_id lookup first
+            signal_id = None
+            if chan_key in channel_id_to_signal_id:
+                signal_id = channel_id_to_signal_id[chan_key]
+            # Try alias lookup
+            elif chan_key in original_alias_to_channel_id:
+                mapped_channel_id = original_alias_to_channel_id[chan_key]
+                signal_id = channel_id_to_signal_id.get(mapped_channel_id.lower())
+
+            # Get metadata from Signal DB if signal ID found
+            if signal_id and signal_id in signal_metadata_map:
+                result[channel_id] = signal_metadata_map[signal_id]
+
+        return result
 
     @classmethod
     def from_environment(cls, **kwargs):

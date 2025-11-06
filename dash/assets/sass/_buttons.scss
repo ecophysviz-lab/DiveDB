@@ -81,6 +81,21 @@
 		}
 	}
 
+	&.btn-xs {
+		--cs-font-size-start: 11.5;
+		--cs-font-size-end: 13;
+		--cs-padding-y-start: 5;
+		--cs-padding-y-end: 7;
+		--cs-padding-x-start: 10;
+		--cs-padding-x-end: 14;
+		--cs-min-width-start: 65;
+		--cs-min-width-end: 80;
+
+		&:hover {
+			--border-width: 8px;
+		}
+	}
+
 	&.w-100 {
 		--cs-padding-x-start: 11;
 		--cs-padding-x-end: 15;
@@ -291,6 +306,23 @@
 			&:after {
 				transform: scale(1.15);
 			}
+		}
+	}
+
+	&.btn-nobg {
+		background-color: transparent!important;
+		border-color: transparent!important;
+		color: var(--darkBlue);
+		text-transform: none;
+		letter-spacing: 0;
+		--cs-padding-y-start: 2;
+		--cs-padding-y-end: 3;
+		--cs-padding-x-start: 2;
+		--cs-padding-x-end: 3;
+
+		&:hover {
+			color: var(--blue);
+			transform: none!important;
 		}
 	}
 

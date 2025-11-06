@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
 from pathlib import Path
 from dash import dcc, html
+import pandas as pd
 
 from DiveDB.services.duck_pond import DuckPond
 from DiveDB.services.notion_orm import NotionORMManager
@@ -94,6 +95,10 @@ def create_app_stores(dff):
         ),  # All datasets with deployments
         dcc.Store(id="selected-timezone", data=0),
         dcc.Store(id="is-loading-data", data=False),  # Track data loading state
+        dcc.Store(id="channel-order", data=[]),  # Track channel order
+        # Stores for channel management
+        dcc.Store(id="available-channels", data=[]),  # Channel options from DuckPond
+        dcc.Store(id="selected-channels", data=[]),  # User-selected channels to display
     ]
 
 
@@ -104,6 +109,7 @@ def create_layout(
     video_options=None,
     restricted_time_range=None,
     events_df=None,
+    channel_options=None,
     use_empty_footer=False,
 ):
     """Create the complete app layout."""
@@ -122,7 +128,7 @@ def create_layout(
                     html.Div([], className="announcement_bar"),
                     create_header(),
                     create_left_sidebar(),  # No initial data - populated by callback
-                    create_main_content(fig),
+                    create_main_content(fig, channel_options=channel_options),
                     create_right_sidebar(
                         data_json,
                         dff["timestamp"].min(),
@@ -145,10 +151,10 @@ def create_layout(
 # Create initial empty layout
 initial_dff = create_empty_dataframe()
 initial_fig = create_empty_figure()
-# Set datetime as index to match structure sent by selection callback
-initial_data_json = (
-    initial_dff[["datetime"]].set_index("datetime").to_json(orient="split")
-)
+# Create empty data JSON with proper structure for 3D model
+# Use completely empty dataframe (no rows, no columns) to avoid errors
+empty_model_df = pd.DataFrame({"datetime": []}).set_index("datetime")
+initial_data_json = empty_model_df.to_json(orient="split")
 
 # Create the app layout with empty initial state
 app.layout = create_layout(
@@ -158,13 +164,14 @@ app.layout = create_layout(
     video_options=[],
     restricted_time_range=None,
     events_df=None,
+    channel_options=None,  # Will use default fallback options
     use_empty_footer=True,  # Start with empty footer
 )
 
 # Register all callbacks
 logger = get_logger(__name__)
 logger.info("Starting callback registration...")
-register_callbacks(app, initial_dff, video_options=[])
+register_callbacks(app, initial_dff, video_options=[], channel_options=None)
 logger.debug("Standard callbacks registered")
 # Register selection callbacks BEFORE clientside to establish primary outputs
 register_selection_callbacks(app, duck_pond, immich_service)

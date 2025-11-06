@@ -276,6 +276,24 @@ def plot_tag_data_interactive5(
         ),
         height=600 + 50 * (len(signals_sorted) + extra_rows),
         showlegend=True,
+        uirevision="constant",  # Maintain UI state across updates
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.15,
+            xanchor="right",
+            x=1,
+        ),
+        font_family="Figtree",
+        title_font_family="Figtree",
+        font=dict(
+            family="Figtree",
+            size=14,
+            weight="bold",
+        ),
+        paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
+        plot_bgcolor="rgba(245,245,245,1)",  # Light gray plot background
+        margin=dict(l=0, r=0, t=0, b=0),
     )
 
     return fig

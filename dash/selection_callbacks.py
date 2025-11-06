@@ -3,7 +3,7 @@ Selection callbacks for dataset, deployment, and date range selection.
 """
 
 import dash
-from dash import Output, Input, State, html, callback_context, no_update
+from dash import Output, Input, State, html, callback_context, no_update, ALL
 import pandas as pd
 import time
 from logging_config import get_logger
@@ -44,17 +44,130 @@ class DataPkl:
         return key in ["sensor_data", "sensor_info", "derived_data", "derived_info"]
 
 
-def create_data_pkl_from_dataframe(dff):
+def _create_data_pkl_from_groups(dff, data_columns, group_membership):
+    """
+    Create data_pkl structure using group_membership information.
+
+    Groups columns by their parent group so they appear together on the same subplot.
+    Preserves the order that groups were added to group_membership.
+    """
+    sensor_data = {}
+    sensor_info = {}
+    derived_data = {}
+    derived_info = {}
+
+    # Group columns by their parent group, preserving order from group_membership
+    # Note: group_membership keys are in the order of labels_to_load
+    groups = {}
+    group_order = []  # Track the order groups are first seen
+    for col, group_info in group_membership.items():
+        # Only process columns that exist in the DataFrame
+        if col not in data_columns:
+            continue
+
+        group_name = group_info["group"]
+
+        if group_name not in groups:
+            groups[group_name] = {
+                "columns": [],
+                "group_label": group_info["group_label"],
+                "group_metadata": group_info["group_metadata"],
+            }
+            group_order.append(group_name)  # Track order
+        groups[group_name]["columns"].append(col)
+
+    # Create sensor_data/derived_data entries for each group IN ORDER
+    for group_name in group_order:
+        group_data = groups[group_name]
+        columns = group_data["columns"]
+        group_meta = group_data["group_metadata"]
+
+        # Create DataFrame for this group
+        signal_df = dff[["datetime"] + columns].copy()
+
+        # Determine if this should go in sensor_data or derived_data
+        # Use naming convention: derived_data_* goes to derived, sensor_data_* goes to sensor
+        # For cleaner display, strip the prefix from the group name
+        if group_name.startswith("derived_data_"):
+            display_name = group_name.replace("derived_data_", "")
+            target_data = derived_data
+            target_info = derived_info
+        elif group_name.startswith("sensor_data_"):
+            display_name = group_name.replace("sensor_data_", "")
+            target_data = sensor_data
+            target_info = sensor_info
+        else:
+            # Default: use as-is and put in sensor_data
+            display_name = group_name
+            target_data = sensor_data
+            target_info = sensor_info
+
+        target_data[display_name] = signal_df
+
+        # Create metadata for each channel in this group
+        channel_metadata = {}
+        for col in columns:
+            # Try to get metadata from group_meta channels list
+            col_meta = None
+            if group_meta and "channels" in group_meta:
+                for ch in group_meta["channels"]:
+                    if ch.get("channel_id") == col or ch.get("label") == col:
+                        col_meta = ch
+                        break
+
+            if col_meta:
+                # Prioritize line_label (individual channel label) over other labels
+                # This ensures each channel in a group gets a unique name and color
+                # Fallback chain: line_label -> label -> channel_id (col)
+                channel_name = (
+                    col_meta.get("line_label")
+                    or col_meta.get("label")
+                    or col_meta.get("channel_id")
+                    or col
+                )
+                # If channel_name is still just the raw column name, format it nicely
+                if channel_name == col:
+                    channel_name = col.replace("_", " ").title()
+
+                channel_metadata[col] = {
+                    "original_name": channel_name,
+                    "unit": col_meta.get("y_units") or "",
+                }
+            else:
+                # Fallback metadata - use the column name itself, formatted nicely
+                channel_metadata[col] = {
+                    "original_name": col.replace("_", " ").title(),
+                    "unit": "",
+                }
+
+        target_info[display_name] = {
+            "channels": columns,
+            "metadata": channel_metadata,
+        }
+
+        # Debug: Log metadata for this group
+        logger.debug(
+            f"Group '{display_name}' metadata: {[(col, meta['original_name']) for col, meta in channel_metadata.items()]}"
+        )
+
+    return DataPkl(
+        sensor_data=sensor_data,
+        sensor_info=sensor_info,
+        derived_data=derived_data,
+        derived_info=derived_info,
+    )
+
+
+def create_data_pkl_from_dataframe(dff, group_membership=None):
     """
     Transform a pivoted DataFrame into the data_pkl structure expected by plot_tag_data_interactive5.
 
-    Matches the previous structure where:
-    - pitch, roll, heading are grouped as "prh" in derived_data
-    - depth is in derived_data
-    - Other signals (light, temperature, etc.) are in sensor_data
+    Uses group_membership to organize columns by their parent group, ensuring that channels
+    belonging to the same group (e.g., ax, ay, az for accelerometer) are plotted together.
 
     Args:
         dff: DataFrame with 'datetime' column and signal columns
+        group_membership: Dict mapping each label to its group info {label: {group, group_label, group_metadata}}
 
     Returns:
         DataPkl: data_pkl structure with sensor_data, sensor_info, derived_data, and derived_info
@@ -64,6 +177,10 @@ def create_data_pkl_from_dataframe(dff):
 
     if not data_columns:
         return DataPkl(sensor_data={}, sensor_info={}, derived_data={}, derived_info={})
+
+    # If group_membership is provided, use it to organize columns
+    if group_membership:
+        return _create_data_pkl_from_groups(dff, data_columns, group_membership)
 
     # Define sensor signals (go in sensor_data)
     # TODO: Pull from Notion
@@ -253,6 +370,304 @@ def create_data_pkl_from_dataframe(dff):
     )
 
 
+def generate_graph_from_channels(
+    duck_pond,
+    dataset,
+    deployment_id,
+    animal_id,
+    date_range,
+    timezone_offset,
+    selected_channels,
+    selected_deployment,
+    available_channels=None,
+):
+    """
+    Fetch data and generate graph for selected channels.
+
+    Args:
+        duck_pond: DuckPond instance
+        dataset: Dataset identifier
+        deployment_id: Deployment identifier
+        animal_id: Animal identifier
+        date_range: Dict with 'start' and 'end' datetime strings
+        timezone_offset: Timezone offset in hours
+        selected_channels: List of channel identifiers (can be group names or individual labels)
+        selected_deployment: Deployment metadata dict (for sample_count)
+        available_channels: List of channel metadata from DuckPond (optional)
+
+    Returns:
+        Tuple of (fig, dff, timestamps)
+    """
+    import plotly.graph_objects as go
+
+    logger.debug(f"Generating graph for channels: {selected_channels}")
+
+    # Step 1: Expand groups to individual labels using priority patterns
+    # Priority patterns for label matching (most important first)
+    priority_patterns = [
+        "depth",
+        "pressure",
+        "pitch",
+        "roll",
+        "temp_ext",
+        "heading",
+        "accelerometer",
+        "gyroscope",
+        "magnetometer",
+        "temperature",
+        "light",
+    ]
+
+    labels_to_load = []
+    group_membership = {}  # Track which group each label belongs to
+
+    if available_channels:
+        # Build a lookup for groups
+        channel_lookup = {}
+        for channel in available_channels:
+            if channel.get("kind") == "group":
+                # Group - add to lookup
+                channel_lookup[channel.get("group")] = channel
+            elif channel.get("kind") == "variable":
+                # Individual variable - add to lookup
+                channel_lookup[channel.get("label")] = channel
+
+        # Expand selected channels with priority ordering
+        for selected in selected_channels:
+            if selected in channel_lookup:
+                channel_meta = channel_lookup[selected]
+                if channel_meta.get("kind") == "group":
+                    # Expand group to its individual channels, sorted by priority
+                    group_channels = channel_meta.get("channels", [])
+
+                    # Sort channels by priority pattern matching
+                    def get_priority_score(ch):
+                        """Return priority score (lower is higher priority)"""
+                        label = (ch.get("channel_id") or ch.get("label") or "").lower()
+                        for idx, pattern in enumerate(priority_patterns):
+                            if pattern in label:
+                                return idx
+                        return len(
+                            priority_patterns
+                        )  # Unprioritized items go to the end
+
+                    sorted_channels = sorted(group_channels, key=get_priority_score)
+
+                    # Add sorted channels to labels_to_load and track group membership
+                    for ch in sorted_channels:
+                        label = ch.get("channel_id") or ch.get("label")
+                        if label and label not in labels_to_load:
+                            labels_to_load.append(label)
+                            group_membership[label] = {
+                                "group": selected,
+                                "group_label": channel_meta.get("label") or selected,
+                                "group_metadata": channel_meta,
+                            }
+                else:
+                    # Individual label
+                    label = channel_meta.get("label") or channel_meta.get("channel_id")
+                    if label and label not in labels_to_load:
+                        labels_to_load.append(label)
+                        group_membership[label] = {
+                            "group": label,
+                            "group_label": channel_meta.get("y_label") or label,
+                            "group_metadata": channel_meta,
+                        }
+            else:
+                # Fallback: use as-is if not found in metadata
+                if selected not in labels_to_load:
+                    labels_to_load.append(selected)
+                    group_membership[selected] = {
+                        "group": selected,
+                        "group_label": selected,
+                        "group_metadata": None,
+                    }
+    else:
+        # No metadata available - use selected_channels as-is
+        labels_to_load = list(selected_channels)
+        for label in labels_to_load:
+            group_membership[label] = {
+                "group": label,
+                "group_label": label,
+                "group_metadata": None,
+            }
+
+    logger.debug(f"Expanded to {len(labels_to_load)} labels: {labels_to_load}")
+
+    # Load metadata for selected channels only (lazy loading for performance)
+    logger.debug("Loading metadata for selected channels...")
+    channels_metadata = duck_pond.get_channels_metadata(
+        dataset=dataset, channel_ids=labels_to_load
+    )
+    logger.debug(f"Loaded metadata for {len(channels_metadata)} channels")
+
+    # Enrich group_membership with metadata
+    for label, metadata in channels_metadata.items():
+        if label in group_membership and group_membership[label]["group_metadata"]:
+            # If there's already group metadata, we might want to add channel-specific metadata
+            # For now, we'll update the channels list within group_metadata if it exists
+            group_meta = group_membership[label]["group_metadata"]
+            if "channels" in group_meta:
+                # Find the channel in the channels list and update it
+                for ch in group_meta["channels"]:
+                    if ch.get("channel_id") == label or ch.get("label") == label:
+                        # Update with fresh metadata
+                        ch.update(
+                            {
+                                "y_label": metadata.get("label"),
+                                "y_description": metadata.get("description"),
+                                "y_units": metadata.get("standardized_unit"),
+                                "line_label": metadata.get("label"),
+                                "color": metadata.get("color"),
+                                "icon": metadata.get("icon"),
+                            }
+                        )
+
+    # Step 2: Adaptive frequency adjustment based on data volume
+    MAX_TARGET_ROWS = 100_000  # Configurable target
+    time_span_seconds = (
+        pd.to_datetime(date_range["end"]) - pd.to_datetime(date_range["start"])
+    ).total_seconds()
+
+    # Validate inputs before calculation
+    if time_span_seconds <= 0:
+        time_span_seconds = 1  # Prevent division by zero
+
+    # Quick metadata-based estimate
+    sample_count = selected_deployment.get("sample_count", 0)
+    rough_estimate = sample_count * len(labels_to_load)
+
+    # Get precise count if rough estimate is high
+    if rough_estimate > MAX_TARGET_ROWS * 5:  # 5x threshold for detailed check
+        logger.debug(
+            f"High data volume detected (rough: {rough_estimate:,}), getting precise estimate..."
+        )
+        t0 = time.time()
+        estimated_rows = duck_pond.estimate_data_size(
+            dataset=dataset,
+            labels=labels_to_load,
+            deployment_ids=deployment_id,
+            animal_ids=animal_id,
+            date_range=(date_range["start"], date_range["end"]),
+        )
+        t1 = time.time()
+        logger.debug(f"Estimate time: {t1 - t0:.2f}s, rows: {estimated_rows:,}")
+    else:
+        estimated_rows = rough_estimate
+        logger.debug(f"Estimated rows (from metadata): {estimated_rows:,}")
+
+    # Calculate adjusted frequency if needed
+    if estimated_rows == 0:
+        adjusted_frequency = 0.1
+    elif estimated_rows > MAX_TARGET_ROWS:
+        native_sample_rate = (
+            estimated_rows / (len(labels_to_load) * time_span_seconds)
+            if time_span_seconds > 0 and len(labels_to_load) > 0
+            else 1.0
+        )
+        adjusted_frequency = (
+            MAX_TARGET_ROWS / (len(labels_to_load) * time_span_seconds)
+            if time_span_seconds > 0 and len(labels_to_load) > 0
+            else 0.1
+        )
+        downsample_factor = (
+            native_sample_rate / adjusted_frequency if adjusted_frequency > 0 else 1.0
+        )
+        logger.info(
+            f"Downsampling: {native_sample_rate:.2f} Hz → {adjusted_frequency:.4f} Hz ({downsample_factor:.1f}x)"
+        )
+    else:
+        adjusted_frequency = 0.1
+        logger.debug(f"Using default frequency: {adjusted_frequency} Hz")
+
+    # Step 3: Load data at adjusted frequency
+    if not labels_to_load:
+        # No labels to load - return empty figure
+        fig = go.Figure()
+        fig.update_layout(
+            annotations=[
+                dict(
+                    text="No channels selected",
+                    xref="paper",
+                    yref="paper",
+                    x=0.5,
+                    y=0.5,
+                    showarrow=False,
+                    font=dict(size=16, color="red"),
+                )
+            ],
+            height=600,
+        )
+        empty_dff = pd.DataFrame({"datetime": [], "timestamp": []})
+        return fig, empty_dff, []
+
+    logger.debug("Loading data...")
+    t0 = time.time()
+    dff = duck_pond.get_data(
+        dataset=dataset,
+        deployment_ids=deployment_id,
+        animal_ids=animal_id,
+        date_range=(date_range["start"], date_range["end"]),
+        frequency=adjusted_frequency,
+        labels=labels_to_load,
+        add_timestamp_column=True,
+        apply_timezone_offset=timezone_offset,
+        pivoted=True,
+    )
+    t1 = time.time()
+    logger.debug(f"Data load time: {t1 - t0:.2f}s")
+    logger.debug(f"Data shape: {dff.shape if not dff.empty else 'EMPTY'}")
+
+    if dff.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            annotations=[
+                dict(
+                    text="No data in selected range",
+                    xref="paper",
+                    yref="paper",
+                    x=0.5,
+                    y=0.5,
+                    showarrow=False,
+                    font=dict(size=16, color="orange"),
+                )
+            ],
+            height=600,
+        )
+        # Return a properly structured empty dataframe with required columns
+        empty_dff = pd.DataFrame({"datetime": [], "timestamp": []})
+        return fig, empty_dff, []
+
+    logger.info(f"Loaded {len(dff)} rows with {len(dff.columns)} columns")
+
+    # Step 4: Create data_pkl structure from DataFrame
+    logger.debug("Creating data_pkl structure...")
+    # import pprint
+    # logger.debug("Group membership:\n%s", pprint.pformat(group_membership, indent=2))
+    data_pkl = create_data_pkl_from_dataframe(dff, group_membership=group_membership)
+
+    # Determine zoom_range_selector_channel (use depth if available)
+    zoom_range_selector_channel = None
+    if "depth" in data_pkl["sensor_data"] or "depth" in data_pkl["derived_data"]:
+        zoom_range_selector_channel = "depth"
+
+    # Step 5: Create figure using plot_tag_data_interactive5
+    logger.debug("Creating figure...")
+    fig = plot_tag_data_interactive5(
+        data_pkl=data_pkl,
+        zoom_range_selector_channel=zoom_range_selector_channel,
+    )
+
+    logger.info(
+        f"Created figure with {len(data_pkl['sensor_data'])} sensor groups and {len(data_pkl['derived_data'])} derived groups"
+    )
+
+    # Extract timestamps for playback
+    timestamps = dff["timestamp"].tolist() if "timestamp" in dff.columns else []
+
+    return fig, dff, timestamps
+
+
 def register_selection_callbacks(app, duck_pond, immich_service):
     """Register all selection-related callbacks with the given app instance."""
     logger.debug("Registering selection callbacks...")
@@ -336,6 +751,9 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         Output("save-button", "disabled"),
         Output("playback-rate", "disabled"),
         Output("fullscreen-button", "disabled"),
+        # Channel management outputs
+        Output("available-channels", "data"),
+        Output("selected-channels", "data"),
         Input(
             {
                 "type": "deployment-button",
@@ -372,6 +790,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 True,
                 True,
+                [],  # available-channels
+                [],  # selected-channels
             )
 
         if not n_clicks_list or not any(n_clicks_list):
@@ -395,6 +815,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 True,
                 True,
+                [],  # available-channels
+                [],  # selected-channels
             )
 
         # Find which button was clicked
@@ -421,6 +843,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 True,
                 True,
+                [],  # available-channels
+                [],  # selected-channels
             )
 
         # Extract dataset and index from triggered_id
@@ -455,6 +879,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     True,
                     True,
                     True,
+                    [],  # available-channels
+                    [],  # selected-channels
                 )
 
             selected_deployment = deployments_data[idx]
@@ -483,322 +909,70 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             logger.info(f"Loading visualization for deployment: {deployment_id}")
             logger.debug(f"Date range: {date_range['start']} to {date_range['end']}")
 
-            # Discover available labels/signals for this deployment
-            view_name = duck_pond.get_view_name(dataset, "data")
-            labels_query = f"""
-                SELECT DISTINCT label
-                FROM {view_name}
-                WHERE deployment = '{deployment_id}'
-                AND animal = '{animal_id}'
-                AND label IS NOT NULL
-                ORDER BY label
-            """
-            labels_df = duck_pond.conn.sql(labels_query).df()
-            available_labels = labels_df["label"].tolist()
-
-            logger.debug(f"Found {len(available_labels)} total labels")
-
-            # Define priority signal patterns (ordered by importance)
-            priority_patterns = [
-                "depth",
-                "pressure",
-                "pitch",
-                "roll",
-                "temp_ext",
-                "heading",
-                "accelerometer",
-                "gyroscope",
-                "magnetometer",
-                "temperature",
-                "light",
-            ]
-
-            # Filter and prioritize labels based on patterns
-            prioritized_labels = []
-            for pattern in priority_patterns:
-                matching = [
-                    label
-                    for label in available_labels
-                    if pattern.lower() in label.lower()
-                    and label not in prioritized_labels
-                ]
-                prioritized_labels.extend(matching)
-
-            # Use prioritized labels, fallback to first 10 if no matches
-            labels_to_load = (
-                prioritized_labels[:15] if prioritized_labels else available_labels[:10]
-            )
-
-            logger.debug(
-                f"Selected {len(labels_to_load)} priority labels: {labels_to_load}"
-            )
-
-            # Adaptive frequency adjustment based on data volume
-            MAX_TARGET_ROWS = 100_000  # Configurable target
-            time_span_seconds = (
-                pd.to_datetime(date_range["end"]) - pd.to_datetime(date_range["start"])
-            ).total_seconds()
-
-            # Validate inputs before calculation
-            if time_span_seconds <= 0:
-                time_span_seconds = 1  # Prevent division by zero
-
-            # Step 1: Quick metadata-based estimate
-            sample_count = selected_deployment.get("sample_count", 0)
-            rough_estimate = sample_count * len(labels_to_load)
-
-            # Step 2: Get precise count if rough estimate is high
-            if rough_estimate > MAX_TARGET_ROWS * 5:  # 5x threshold for detailed check
-                logger.debug(
-                    f"High data volume detected (rough: {rough_estimate:,}), getting precise estimate..."
-                )
-                t0 = time.time()
-                estimated_rows = duck_pond.estimate_data_size(
-                    dataset=dataset,
-                    labels=labels_to_load,
-                    deployment_ids=deployment_id,
-                    animal_ids=animal_id,
-                    date_range=(date_range["start"], date_range["end"]),
-                )
-                t1 = time.time()
-                logger.debug(f"Time taken: {t1 - t0:.2f} seconds")
-                logger.debug(f"Precise estimate: {estimated_rows:,} rows")
-            else:
-                estimated_rows = rough_estimate
-                logger.debug(f"Estimated rows (from metadata): {estimated_rows:,}")
-
-            # Step 3: Calculate adjusted frequency if needed
-            if estimated_rows == 0:
-                # No data available, skip adjustment
-                adjusted_frequency = 0.1
-            elif estimated_rows > MAX_TARGET_ROWS:
-                # Calculate native sample rate
-                native_sample_rate = (
-                    estimated_rows / (len(labels_to_load) * time_span_seconds)
-                    if time_span_seconds > 0
-                    else 1.0
-                )
-
-                # Calculate target frequency to hit row limit
-                adjusted_frequency = (
-                    MAX_TARGET_ROWS / (len(labels_to_load) * time_span_seconds)
-                    if time_span_seconds > 0
-                    else 0.1
-                )
-
-                # No minimum limit as per requirements
-                downsample_factor = (
-                    native_sample_rate / adjusted_frequency
-                    if adjusted_frequency > 0
-                    else 1.0
-                )
-
-                logger.info(
-                    f"Downsampling: {native_sample_rate:.2f} Hz → {adjusted_frequency:.4f} Hz ({downsample_factor:.1f}x reduction)"
-                )
-            else:
-                adjusted_frequency = 0.1  # Use default frequency
-                logger.debug(
-                    f"Data volume within limits, using default frequency: {adjusted_frequency} Hz"
-                )
-
-            if not labels_to_load:
-                # No data found - return empty figure with message
-                fig = go.Figure()
-                fig.update_layout(
-                    annotations=[
-                        dict(
-                            text=f"No data found for deployment {deployment_id}",
-                            xref="paper",
-                            yref="paper",
-                            x=0.5,
-                            y=0.5,
-                            showarrow=False,
-                            font=dict(size=16, color="red"),
-                        )
-                    ],
-                    height=600,
-                )
-                empty_timeline = html.P(
-                    "No data available for timeline",
-                    className="text-muted text-center py-4",
-                )
-                empty_info = html.P("No deployment info", className="text-muted")
-                # Create minimal empty data JSON for 3D model
-                empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
-                return (
-                    selected_deployment,
-                    dataset,
-                    fig,
-                    False,
-                    empty_timeline,
-                    empty_info,
-                    [],
-                    [],
-                    empty_data_json,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                )
-
-            # Load data at adjusted frequency
-            logger.debug("Loading data...")
-            t0 = time.time()
-            dff = duck_pond.get_data(
+            # Fetch available channels from DuckPond (without metadata for speed)
+            logger.debug("Fetching available channels...")
+            available_channels = duck_pond.get_available_channels(
                 dataset=dataset,
-                deployment_ids=deployment_id,
-                animal_ids=animal_id,
-                date_range=(date_range["start"], date_range["end"]),
-                frequency=adjusted_frequency,
-                labels=labels_to_load,
-                add_timestamp_column=True,
-                apply_timezone_offset=timezone_offset,
-                pivoted=True,
+                include_metadata=True,
+                pack_groups=True,
+                load_metadata=False,
             )
-            t1 = time.time()
-            logger.debug(f"Time taken: {t1 - t0:.2f} seconds")
-            logger.debug(
-                f"Data loaded - Shape: {dff.shape if not dff.empty else 'EMPTY'}"
-            )
+            logger.debug(f"Found {len(available_channels)} channel options")
 
-            if dff.empty:
-                fig = go.Figure()
-                fig.update_layout(
-                    annotations=[
-                        dict(
-                            text="No data in selected range",
-                            xref="paper",
-                            yref="paper",
-                            x=0.5,
-                            y=0.5,
-                            showarrow=False,
-                            font=dict(size=16, color="orange"),
-                        )
-                    ],
-                    height=600,
-                )
-                empty_timeline = html.P(
-                    "No data available for timeline",
-                    className="text-muted text-center py-4",
-                )
-                empty_info = html.P("No deployment info", className="text-muted")
-                # Create minimal empty data JSON for 3D model
-                empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
-                return (
-                    selected_deployment,
-                    dataset,
-                    fig,
-                    False,
-                    empty_timeline,
-                    empty_info,
-                    [],
-                    [],
-                    empty_data_json,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                )
-
-            logger.info(f"Loaded {len(dff)} rows with {len(dff.columns)} columns")
-
-            # Create a simple multi-subplot figure
-            # Skip 'datetime' and 'timestamp' columns
-            data_columns = [
-                col for col in dff.columns if col not in ["datetime", "timestamp"]
+            # Debug: Log all available group names
+            available_groups = [
+                ch.get("group")
+                for ch in available_channels
+                if ch.get("kind") == "group"
             ]
+            logger.debug(f"Available groups: {available_groups}")
 
-            if not data_columns:
-                fig = go.Figure()
-                fig.update_layout(
-                    annotations=[
-                        dict(
-                            text="No signal data to display",
-                            xref="paper",
-                            yref="paper",
-                            x=0.5,
-                            y=0.5,
-                            showarrow=False,
-                            font=dict(size=16, color="orange"),
-                        )
-                    ],
-                    height=600,
-                )
-                empty_timeline = html.P(
-                    "No data available for timeline",
-                    className="text-muted text-center py-4",
-                )
-                empty_info = html.P("No deployment info", className="text-muted")
-                # Prepare orientation data for 3D model (check if columns exist)
-                # Important: Set datetime as index so React component can access it via dataframe.index
-                if (
-                    "pitch" in dff.columns
-                    and "roll" in dff.columns
-                    and "heading" in dff.columns
-                ):
-                    logger.debug(
-                        f"3D model data prepared WITH orientation: {len(dff)} rows"
-                    )
-                    model_df = dff[["datetime", "pitch", "roll", "heading"]].set_index(
-                        "datetime"
-                    )
-                    model_data_json = model_df.to_json(orient="split")
-                else:
-                    logger.debug(
-                        f"3D model data prepared WITHOUT orientation: {len(dff)} rows"
-                    )
-                    model_df = dff[["datetime"]].set_index("datetime")
-                    model_data_json = model_df.to_json(orient="split")
-                return (
-                    selected_deployment,
-                    dataset,
-                    fig,
-                    False,
-                    empty_timeline,
-                    empty_info,
-                    [],
-                    [],
-                    model_data_json,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                )
+            # Select default channels - prioritize groups like depth, prh, pressure, temperature, light
+            # Note: We only show groups in the UI, so only select groups by default
+            default_priority = ["depth", "prh", "pressure", "temperature", "light"]
+            selected_channels = []
 
-            # Create data_pkl structure from DataFrame
-            logger.debug("Creating data_pkl structure from DataFrame...")
-            data_pkl = create_data_pkl_from_dataframe(dff)
+            for priority_name in default_priority:
+                for channel in available_channels:
+                    # Only use groups
+                    if channel.get("kind") == "group":
+                        group_name = channel.get("group", "")
+                        # Match if priority name is in group name (handles prefixes like derived_data_depth)
+                        if priority_name.lower() in group_name.lower():
+                            selected_channels.append(group_name)
+                            logger.debug(
+                                f"Matched priority '{priority_name}' to group '{group_name}'"
+                            )
+                            break
+                # Limit to first 5 channels
+                if len(selected_channels) >= 5:
+                    break
 
-            # Determine zoom_range_selector_channel (use depth if available)
-            zoom_range_selector_channel = None
-            if (
-                "depth" in data_pkl["sensor_data"]
-                or "depth" in data_pkl["derived_data"]
-            ):
-                zoom_range_selector_channel = "depth"
+            # If no matches, use first 3 available groups
+            if not selected_channels:
+                logger.debug("No priority matches found, selecting first 3 groups")
+                for channel in available_channels:
+                    # Only use groups
+                    if channel.get("kind") == "group":
+                        group_name = channel.get("group")
+                        selected_channels.append(group_name)
+                        logger.debug(f"Added fallback group: {group_name}")
+                        if len(selected_channels) >= 3:
+                            break
 
-            # Create figure using plot_tag_data_interactive5
-            logger.debug("Creating figure with plot_tag_data_interactive5...")
-            fig = plot_tag_data_interactive5(
-                data_pkl=data_pkl,
-                zoom_range_selector_channel=zoom_range_selector_channel,
-            )
+            logger.debug(f"Default selected channels: {selected_channels}")
 
-            logger.info(
-                f"Created figure with {len(data_pkl['sensor_data'])} sensor groups and {len(data_pkl['derived_data'])} derived groups"
+            # Generate graph using the new helper function
+            fig, dff, timestamps = generate_graph_from_channels(
+                duck_pond=duck_pond,
+                dataset=dataset,
+                deployment_id=deployment_id,
+                animal_id=animal_id,
+                date_range=date_range,
+                timezone_offset=timezone_offset,
+                selected_channels=selected_channels,
+                selected_deployment=selected_deployment,
+                available_channels=available_channels,
             )
 
             # Fetch events for this deployment
@@ -886,7 +1060,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 False,
                 timeline_html,
                 deployment_info_html,
-                dff["timestamp"].tolist(),  # playback timestamps
+                timestamps,  # playback timestamps from generate_graph_from_channels
                 video_options,  # current video options
                 model_data_json,  # three-d-model data
                 False,  # previous-button enabled
@@ -897,6 +1071,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 False,  # save-button enabled
                 False,  # playback-rate enabled
                 False,  # fullscreen-button enabled
+                available_channels,  # available-channels from DuckPond
+                selected_channels,  # selected-channels (default selection)
             )
 
         except Exception as e:
@@ -942,7 +1118,219 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 True,
                 True,
+                [],  # available-channels
+                [],  # selected-channels
             )
+
+    @app.callback(
+        Output("graph-content", "figure", allow_duplicate=True),
+        Output("playback-timestamps", "data", allow_duplicate=True),
+        Input("update-graph-btn", "n_clicks"),
+        State({"type": "channel-select", "index": ALL}, "value"),
+        State("selected-dataset", "data"),
+        State("selected-deployment", "data"),
+        State("available-channels", "data"),
+        State("all-datasets-deployments", "data"),
+        prevent_initial_call=True,
+    )
+    def update_graph_from_channels(
+        n_clicks,
+        channel_values,
+        dataset,
+        deployment_data,
+        available_channels,
+        datasets_with_deployments,
+    ):
+        """Update graph when user clicks Update Graph button."""
+        if not n_clicks or not channel_values or not dataset or not deployment_data:
+            raise dash.exceptions.PreventUpdate
+
+        logger.info(f"Updating graph with selected channels: {channel_values}")
+
+        # Get deployment details
+        deployment_id = deployment_data["deployment"]
+        animal_id = deployment_data["animal"]
+
+        # Find full deployment data for sample_count
+        deployments_list = datasets_with_deployments.get(dataset, [])
+        selected_deployment = None
+        for dep in deployments_list:
+            if dep["deployment"] == deployment_id and dep["animal"] == animal_id:
+                selected_deployment = dep
+                break
+
+        if not selected_deployment:
+            logger.error(f"Could not find deployment {deployment_id} in datasets")
+            raise dash.exceptions.PreventUpdate
+
+        # Get timezone offset
+        timezone_offset = duck_pond.get_deployment_timezone_offset(deployment_id)
+
+        # Build date range
+        min_dt = pd.to_datetime(selected_deployment["min_date"])
+        max_dt = pd.to_datetime(selected_deployment["max_date"])
+        date_range = {
+            "start": min_dt.isoformat(),
+            "end": max_dt.isoformat(),
+        }
+
+        # Generate graph with selected channels
+        fig, dff, timestamps = generate_graph_from_channels(
+            duck_pond=duck_pond,
+            dataset=dataset,
+            deployment_id=deployment_id,
+            animal_id=animal_id,
+            date_range=date_range,
+            timezone_offset=timezone_offset,
+            selected_channels=channel_values,
+            selected_deployment=selected_deployment,
+            available_channels=available_channels,
+        )
+
+        logger.info(f"Graph updated successfully with {len(channel_values)} channels")
+        return fig, timestamps
+
+    @app.callback(
+        Output("graph-channel-list", "children", allow_duplicate=True),
+        Input("selected-channels", "data"),
+        State("available-channels", "data"),
+        prevent_initial_call=True,
+    )
+    def populate_channel_list_from_selection(selected_channels, available_channels):
+        """Populate the channel list UI based on selected channels."""
+        import dash_bootstrap_components as dbc
+
+        logger.debug(
+            f"populate_channel_list_from_selection triggered with selected_channels: {selected_channels}"
+        )
+
+        if not selected_channels:
+            logger.debug("No selected channels, preventing update")
+            raise dash.exceptions.PreventUpdate
+
+        logger.debug(
+            f"Populating channel list with {len(selected_channels)} channels: {selected_channels}"
+        )
+
+        # Convert available_channels to dropdown format - ONLY GROUPS
+        dropdown_options = []
+        if available_channels:
+            for option in available_channels:
+                if isinstance(option, dict):
+                    kind = option.get("kind")
+                    # Only show groups, not individual variables
+                    if kind == "group":
+                        group_name = option.get("group")
+                        display_label = option.get("label") or group_name
+                        # Note: icons are URLs and can't be displayed in Select dropdowns
+                        dropdown_options.append(
+                            {"label": display_label, "value": group_name}
+                        )
+        else:
+            # Fallback options (all groups)
+            dropdown_options = [
+                {"label": "Depth", "value": "depth"},
+                {"label": "Pitch, roll, heading", "value": "prh"},
+                {"label": "Temperature", "value": "temperature"},
+                {"label": "Light", "value": "light"},
+            ]
+
+        logger.debug(
+            f"Dropdown options available: {[opt['value'] for opt in dropdown_options]}"
+        )
+
+        # Build channel rows
+        channel_rows = []
+        for idx, channel_value in enumerate(selected_channels, start=1):
+            logger.debug(f"Creating row {idx} for channel: {channel_value}")
+
+            # Check if channel_value exists in dropdown_options
+            matching_option = next(
+                (opt for opt in dropdown_options if opt["value"] == channel_value), None
+            )
+            if not matching_option:
+                logger.warning(
+                    f"Channel '{channel_value}' not found in dropdown options!"
+                )
+
+            channel_row = dbc.ListGroupItem(
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            html.Button(
+                                html.Img(
+                                    src="/assets/images/drag.svg",
+                                    className="drag-icon",
+                                ),
+                                className="btn btn-icon-only btn-sm",
+                                id={"type": "channel-drag", "index": idx},
+                            ),
+                            width="auto",
+                            className="drag-handle",
+                        ),
+                        dbc.Col(
+                            dbc.Select(
+                                options=dropdown_options,
+                                value=channel_value,
+                                id={"type": "channel-select", "index": idx},
+                            ),
+                        ),
+                        dbc.Col(
+                            html.Button(
+                                html.Img(
+                                    src="/assets/images/remove.svg",
+                                    className="remove-icon",
+                                ),
+                                className="btn btn-icon-only btn-sm",
+                                id={"type": "channel-remove", "index": idx},
+                            ),
+                            width="auto",
+                        ),
+                    ],
+                    align="center",
+                    className="g-2",
+                ),
+            )
+            channel_rows.append(channel_row)
+
+        # Add buttons side-by-side in one row
+        buttons_row = dbc.ListGroupItem(
+            dbc.Row(
+                [
+                    dbc.Col(
+                        dbc.Button(
+                            "Add Graph",
+                            color="primary",
+                            className="btn-xs btn-stroke my-1 w-100",
+                            id="add-graph-btn",
+                        ),
+                        width=3,
+                    ),
+                    dbc.Col(
+                        dbc.Button(
+                            "Update Graph",
+                            color="success",
+                            className="btn-xs my-1 w-100",
+                            id="update-graph-btn",
+                        ),
+                        width=3,
+                    ),
+                ],
+                align="center",
+                className="g-2 justify-content-end",
+            ),
+        )
+
+        return channel_rows + [buttons_row]
+
+    @app.callback(
+        Output("graph-channels", "disabled"),
+        Input("selected-dataset", "data"),
+    )
+    def toggle_manage_channels_button(selected_dataset):
+        """Enable/disable the Manage Channels button based on dataset selection."""
+        # Enable button when a dataset is selected, disable when None
+        return selected_dataset is None
 
     @app.callback(
         Output("loading-overlay", "style"),
