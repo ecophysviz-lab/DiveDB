@@ -12,7 +12,7 @@ from layout import (
     create_timeline_section,
     create_deployment_info_display,
 )
-from graph_utils import plot_tag_data_interactive5
+from graph_utils import plot_tag_data_interactive
 
 logger = get_logger(__name__)
 
@@ -160,7 +160,7 @@ def _create_data_pkl_from_groups(dff, data_columns, group_membership):
 
 def create_data_pkl_from_dataframe(dff, group_membership=None):
     """
-    Transform a pivoted DataFrame into the data_pkl structure expected by plot_tag_data_interactive5.
+    Transform a pivoted DataFrame into the data_pkl structure expected by plot_tag_data_interactive.
 
     Uses group_membership to organize columns by their parent group, ensuring that channels
     belonging to the same group (e.g., ax, ay, az for accelerometer) are plotted together.
@@ -642,8 +642,6 @@ def generate_graph_from_channels(
 
     # Step 4: Create data_pkl structure from DataFrame
     logger.debug("Creating data_pkl structure...")
-    # import pprint
-    # logger.debug("Group membership:\n%s", pprint.pformat(group_membership, indent=2))
     data_pkl = create_data_pkl_from_dataframe(dff, group_membership=group_membership)
 
     # Determine zoom_range_selector_channel (use depth if available)
@@ -651,9 +649,9 @@ def generate_graph_from_channels(
     if "depth" in data_pkl["sensor_data"] or "depth" in data_pkl["derived_data"]:
         zoom_range_selector_channel = "depth"
 
-    # Step 5: Create figure using plot_tag_data_interactive5
+    # Step 5: Create figure using plot_tag_data_interactive
     logger.debug("Creating figure...")
-    fig = plot_tag_data_interactive5(
+    fig = plot_tag_data_interactive(
         data_pkl=data_pkl,
         zoom_range_selector_channel=zoom_range_selector_channel,
     )
@@ -1394,3 +1392,164 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             "display": "none",
         }
         return style
+
+    @app.callback(
+        Output("current-zoom-range", "data"),
+        Output("high-res-btn-container", "style"),
+        Input("graph-content", "relayoutData"),
+        State("selected-deployment", "data"),
+        State("current-zoom-range", "data"),
+        prevent_initial_call=True,
+    )
+    def detect_zoom_and_show_button(relayout_data, deployment_data, current_zoom):
+        """Detect when user zooms and show the Load Higher Resolution button."""
+        if not relayout_data or not deployment_data:
+            return no_update, no_update
+
+        # Check if this is a zoom event (xaxis.range changed)
+        if "xaxis.range[0]" in relayout_data and "xaxis.range[1]" in relayout_data:
+            zoom_start = relayout_data["xaxis.range[0]"]
+            zoom_end = relayout_data["xaxis.range[1]"]
+
+            # Store the zoom range
+            zoom_range = {
+                "start": zoom_start,
+                "end": zoom_end,
+            }
+
+            # Check if this is different from the current zoom (to avoid showing button on same zoom)
+            if (
+                current_zoom
+                and current_zoom.get("start") == zoom_start
+                and current_zoom.get("end") == zoom_end
+            ):
+                return no_update, no_update
+
+            # Show the button
+            button_style = {"display": "block"}
+
+            logger.info(f"Zoom detected: {zoom_start} to {zoom_end}")
+            return zoom_range, button_style
+
+        # Check if user clicked "reset axes" or "autoscale"
+        elif "xaxis.autorange" in relayout_data:
+            # Hide button on reset
+            button_style = {"display": "none"}
+            return None, button_style
+
+        return no_update, no_update
+
+    @app.callback(
+        Output("graph-content", "figure", allow_duplicate=True),
+        Output("playback-timestamps", "data", allow_duplicate=True),
+        Output("high-res-btn-container", "style", allow_duplicate=True),
+        Output("high-res-loading-state", "children", allow_duplicate=True),
+        Input("load-high-res-btn", "n_clicks"),
+        State("current-zoom-range", "data"),
+        State("selected-dataset", "data"),
+        State("selected-deployment", "data"),
+        State({"type": "channel-select", "index": ALL}, "value"),
+        State("available-channels", "data"),
+        State("all-datasets-deployments", "data"),
+        prevent_initial_call=True,
+    )
+    def load_high_resolution_data(
+        n_clicks,
+        zoom_range,
+        dataset,
+        deployment_data,
+        channel_values,
+        available_channels,
+        datasets_with_deployments,
+    ):
+        """Load higher resolution data for the zoomed time range."""
+        if not n_clicks or not zoom_range or not dataset or not deployment_data:
+            raise dash.exceptions.PreventUpdate
+
+        logger.info(f"Loading high resolution data for zoom range: {zoom_range}")
+
+        # Get deployment details
+        deployment_id = deployment_data["deployment"]
+        animal_id = deployment_data["animal"]
+
+        # Find full deployment data for sample_count
+        deployments_list = datasets_with_deployments.get(dataset, [])
+        selected_deployment = None
+        for dep in deployments_list:
+            if dep["deployment"] == deployment_id and dep["animal"] == animal_id:
+                selected_deployment = dep
+                break
+
+        if not selected_deployment:
+            logger.error(f"Could not find deployment {deployment_id} in datasets")
+            raise dash.exceptions.PreventUpdate
+
+        # Get timezone offset
+        timezone_offset = duck_pond.get_deployment_timezone_offset(deployment_id)
+
+        # Convert zoom range strings to proper ISO format datetime strings
+        # IMPORTANT: The zoom range from Plotly is in the display timezone (already offset)
+        # We need to reverse the offset to get back to UTC for querying
+        zoom_start_dt = pd.to_datetime(zoom_range["start"])
+        zoom_end_dt = pd.to_datetime(zoom_range["end"])
+
+        # Reverse the timezone offset to get back to UTC
+        # The display time has already been offset, so we subtract it to get original UTC
+        zoom_start_utc = zoom_start_dt - pd.Timedelta(hours=timezone_offset)
+        zoom_end_utc = zoom_end_dt - pd.Timedelta(hours=timezone_offset)
+
+        date_range = {
+            "start": zoom_start_utc.isoformat(),
+            "end": zoom_end_utc.isoformat(),
+        }
+
+        logger.info(
+            f"Loading data for zoomed range (UTC): {date_range['start']} to {date_range['end']}"
+        )
+        logger.info(
+            f"Original zoom range (display timezone): {zoom_range['start']} to {zoom_range['end']}"
+        )
+
+        # Use channel_values from the channel-select components
+        # channel_values is a list from the pattern-matching callback
+        selected_channels = channel_values if channel_values else []
+
+        logger.debug(f"Selected channels for high-res load: {selected_channels}")
+        logger.debug(
+            f"Available channels passed: {len(available_channels) if available_channels else 0} channels"
+        )
+
+        # Debug: Log available groups to verify channel names
+        if available_channels:
+            available_groups = [
+                ch.get("group")
+                for ch in available_channels
+                if ch.get("kind") == "group"
+            ]
+            logger.debug(f"Available groups in high-res callback: {available_groups}")
+
+        # Generate graph with selected channels and zoomed date range
+        # The existing adaptive frequency logic will provide higher resolution for smaller windows
+        fig, dff, timestamps = generate_graph_from_channels(
+            duck_pond=duck_pond,
+            dataset=dataset,
+            deployment_id=deployment_id,
+            animal_id=animal_id,
+            date_range=date_range,
+            timezone_offset=timezone_offset,
+            selected_channels=selected_channels,
+            selected_deployment=selected_deployment,
+            available_channels=available_channels,
+        )
+
+        # Hide the button after loading
+        button_style = {"display": "none"}
+
+        logger.info(
+            f"High resolution data loaded successfully with {len(timestamps)} timestamps"
+        )
+
+        # Update loading state to trigger the loading indicator to hide
+        loading_state = str(time.time())
+
+        return fig, timestamps, button_style, loading_state

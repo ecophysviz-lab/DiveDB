@@ -19,6 +19,7 @@ dependencies = [
   "notion-client==2.4.0",
   "numpy==2.3.1",
   "pandas==2.3.1",
+  "plotly_resampler==0.11.0",
   "pyarrow==19.0.1",
   "pyEDFlib==0.1.42",
   "pyiceberg[sql-sqlite,pyarrow]==0.9.1",

@@ -136,45 +136,39 @@ class NotionIntegration:
 
         try:
             # Load Standardized Channels using ORM
-            print("Loading Standardized Channels via ORM for metadata mapping")
+            logging.info("Loading Standardized Channels via ORM for metadata mapping")
             StandardizedChannelModel = self.notion_manager.get_model(
                 "Standardized Channel"
             )
             channel_records = StandardizedChannelModel.objects.all()
 
             if not channel_records:
-                print("No Standardized Channel records found")
+                logging.warning("No Standardized Channel records found")
                 self._signal_metadata_cache = mapping
                 return mapping
 
-            print(f"Found {len(channel_records)} Standardized Channel records")
+            logging.info(f"Found {len(channel_records)} Standardized Channel records")
 
             # Process each channel and traverse to parent signal
             for channel in channel_records:
                 channel_id = safe_get_attr(channel, "Channel ID", "channel_id")
                 if not channel_id:
-                    print(f"Skipping channel {channel.id} - no Channel ID")
+                    logging.warning(f"Skipping channel {channel.id} - no Channel ID")
                     continue
 
                 # If filtering by specific channel_ids, skip channels not in the list
                 if normalized_filter and channel_id.lower() not in normalized_filter:
                     continue
-
-                print("Channel: ", channel)
-                print(
-                    f"Channel {channel_id}: methods={[attr for attr in dir(channel) if callable(getattr(channel, attr)) and not attr.startswith('__')]}"
-                )
-
                 # Get parent signal using the injected relationship method
                 # Method is named after target database: get_signal() for Signal DB
                 parent_signals = None
                 if hasattr(channel, "get_signal"):
                     parent_signals = channel.get_signal()
-                    print(
+                    logging.info(
                         f"Channel {channel_id}: Found {len(parent_signals) if parent_signals else 0} parent signal(s)"
                     )
                 else:
-                    print(f"Channel {channel_id}: No get_signal method found")
+                    logging.warning(f"Channel {channel_id}: No get_signal method found")
                 # Extract parent signal properties if available
                 parent = (
                     parent_signals[0]
@@ -221,10 +215,12 @@ class NotionIntegration:
                     }
 
                     mapping[channel_id] = metadata
-                    print(f"Mapped channel {channel_id} with parent signal metadata")
+                    logging.info(
+                        f"Mapped channel {channel_id} with parent signal metadata"
+                    )
                 else:
                     # No parent signal - use channel properties only
-                    print(
+                    logging.warning(
                         f"Channel {channel_id} has no parent signal, using channel properties only"
                     )
                     metadata = {
@@ -256,10 +252,10 @@ class NotionIntegration:
                     }
                     mapping[channel_id] = metadata
 
-            print(f"Successfully mapped {len(mapping)} channels to metadata")
+            logging.info(f"Successfully mapped {len(mapping)} channels to metadata")
 
         except Exception as e:
-            print(f"Failed to load Signal DB metadata via ORM: {e}")
+            logging.error(f"Failed to load Signal DB metadata via ORM: {e}")
 
         # Only cache when loading all channels (no filter)
         if channel_ids is None:

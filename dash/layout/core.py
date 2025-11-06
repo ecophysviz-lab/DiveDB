@@ -244,12 +244,41 @@ def create_main_content(fig, channel_options=None):
                     ),
                     html.Div(
                         [
+                            # Store for tracking current zoom range
+                            dcc.Store(id="current-zoom-range", data=None),
                             html.Div(
                                 [
                                     dcc.Graph(
                                         id="graph-content",
                                         figure=fig,
                                         responsive=True,
+                                    ),
+                                    # Floating button for loading higher resolution
+                                    html.Div(
+                                        [
+                                            dcc.Loading(
+                                                id="loading-high-res",
+                                                type="circle",
+                                                color="#0d6efd",
+                                                children=[
+                                                    dbc.Button(
+                                                        "Reload data for view",
+                                                        id="load-high-res-btn",
+                                                        color="primary",
+                                                        size="sm",
+                                                        className="btn-high-res",
+                                                    ),
+                                                    # Hidden div to trigger loading state
+                                                    html.Div(
+                                                        id="high-res-loading-state",
+                                                        style={"display": "none"},
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                        id="high-res-btn-container",
+                                        style={"display": "none"},
+                                        className="high-res-btn-overlay",
                                     ),
                                 ],
                                 className="graph-content-container",

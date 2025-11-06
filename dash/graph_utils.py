@@ -1,7 +1,11 @@
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
+from plotly_resampler import FigureResampler, register_plotly_resampler
 import json
 import os
+import numpy as np
+
+register_plotly_resampler(mode="auto")
 
 
 with open(os.path.join(os.path.dirname(__file__), "color_mapping.json"), "r") as f:
@@ -18,13 +22,14 @@ def generate_random_color():
     return f"#{r():02x}{r():02x}{r():02x}"
 
 
-def plot_tag_data_interactive5(
+def plot_tag_data_interactive(
     data_pkl,
     sensors=None,
     derived_data_signals=None,
     channels=None,
     time_range=None,
     note_annotations=None,
+    state_annotations=None,
     zoom_start_time=None,
     zoom_end_time=None,
     plot_event_values=None,
@@ -76,8 +81,8 @@ def plot_tag_data_interactive5(
     # Add subplots: One row per signal, plus extra row for the blank plot and event values if needed
     extra_rows = len(plot_event_values) if plot_event_values else 0
     total_rows = len(signals_sorted) + extra_rows + 1  # +1 for the blank plot
-    fig = make_subplots(
-        rows=total_rows, cols=1, shared_xaxes=True, vertical_spacing=0.03
+    fig = FigureResampler(
+        make_subplots(rows=total_rows, cols=1, shared_xaxes=True, vertical_spacing=0.03)
     )
 
     row_counter = 1
@@ -102,8 +107,10 @@ def plot_tag_data_interactive5(
 
         for channel in signal_channels:
             if channel in signal_data_filtered.columns:
-                x_data = signal_data_filtered["datetime"]
-                y_data = signal_data_filtered[channel]
+                x_data = np.ascontiguousarray(
+                    signal_data_filtered["datetime"].to_numpy()
+                )
+                y_data = np.ascontiguousarray(signal_data_filtered[channel].to_numpy())
 
                 # Set labels and line properties
                 original_name = (
@@ -118,13 +125,13 @@ def plot_tag_data_interactive5(
 
                 fig.add_trace(
                     go.Scatter(
-                        x=x_data,
-                        y=y_data,
                         mode="lines",
                         name=y_label,
                         line=dict(color=color),
                         connectgaps=True,
                     ),
+                    hf_x=x_data,
+                    hf_y=y_data,
                     row=row_counter,
                     col=1,
                 )
@@ -179,27 +186,49 @@ def plot_tag_data_interactive5(
             y_offsets = {}
 
             for note_type, note_params in note_annotations.items():
-                note_channel = note_params["sensor"]
+                # Check if the annotation applies to the current signal
+                if signal != note_params.get("signal"):
+                    continue  # Skip annotations not tied to this signal
+
+                # Get signal data
                 signal_data, signal_info = (
-                    (data_pkl.sensor_data.get(signal), data_pkl.sensor_info.get(signal))
-                    if signal in data_pkl.sensor_data
+                    (
+                        data_pkl["sensor_data"].get(signal),
+                        data_pkl["sensor_info"].get(signal),
+                    )
+                    if signal in data_pkl["sensor_data"]
                     else (
-                        data_pkl.derived_data.get(signal),
-                        data_pkl.derived_info.get(signal),
+                        data_pkl["derived_data"].get(signal),
+                        data_pkl["derived_info"].get(signal),
                     )
                 )
 
-                if signal_data is not None and note_channel in signal_data.columns:
-                    filtered_notes = data_pkl.event_data[
-                        (data_pkl.event_data["key"] == note_type)
-                        & (data_pkl.event_data["datetime"] >= time_range[0])
-                        & (data_pkl.event_data["datetime"] <= time_range[1])
-                    ]
+                if signal_data is not None and signal_info is not None:
+                    # Use the first channel of this signal for positioning
+                    if "channels" in signal_info and signal_info["channels"]:
+                        first_channel = signal_info["channels"][0]
+                    else:
+                        continue  # Skip if no channels available
+
+                    if first_channel not in signal_data.columns:
+                        continue  # Skip if channel not in data
+
+                    # Filter by time range if provided
+                    if time_range:
+                        filtered_notes = data_pkl["event_data"][
+                            (data_pkl["event_data"]["key"] == note_type)
+                            & (data_pkl["event_data"]["datetime"] >= time_range[0])
+                            & (data_pkl["event_data"]["datetime"] <= time_range[1])
+                        ]
+                    else:
+                        filtered_notes = data_pkl["event_data"][
+                            data_pkl["event_data"]["key"] == note_type
+                        ]
 
                     if not filtered_notes.empty:
                         symbol = note_params.get("symbol", "circle")
                         color = note_params.get("color", "rgba(128, 128, 128, 0.5)")
-                        y_fixed = (2 / 3) * signal_data[note_channel].max()
+                        y_fixed = (2 / 3) * signal_data[first_channel].max()
 
                         scatter_x, scatter_y = [], []
                         for dt in filtered_notes["datetime"]:
@@ -222,6 +251,68 @@ def plot_tag_data_interactive5(
                             col=1,
                         )
                         plotted_annotations.add(note_type)
+
+        # Plot State Events (Rectangles for Continuous Events)
+        if state_annotations:
+            for event_type, event_params in state_annotations.items():
+                if signal != event_params.get("signal"):
+                    continue
+
+                # Find the row index corresponding to the signal
+                signal_row = signals_sorted.index(signal)
+
+                # Check if signal is in sensor_data or derived_data
+                if signal in data_pkl["sensor_data"]:
+                    signal_data = data_pkl["sensor_data"][signal]
+                elif signal in data_pkl["derived_data"]:
+                    signal_data = data_pkl["derived_data"][signal]
+                else:
+                    continue  # Skip if signal not found
+
+                # Get state events for this type
+                if "event_data" in data_pkl and data_pkl["event_data"] is not None:
+                    import pandas as pd
+
+                    state_events = data_pkl["event_data"][
+                        (data_pkl["event_data"]["key"] == event_type)
+                    ]
+
+                    # Filter by time range if provided
+                    if time_range:
+                        state_events = state_events[
+                            (state_events["datetime"] >= time_range[0])
+                            & (state_events["datetime"] <= time_range[1])
+                        ]
+
+                    for _, event in state_events.iterrows():
+                        start_time = event["datetime"]
+                        end_time = start_time + pd.to_timedelta(
+                            event["duration"], unit="s"
+                        )
+
+                        # Ensure the y-range is valid for the given signal
+                        y_min = (
+                            signal_data.iloc[:, 1:].min().min()
+                        )  # Min value across all channels
+                        y_max = (
+                            signal_data.iloc[:, 1:].max().max()
+                        )  # Max value across all channels
+
+                        # Draw a shaded rectangle on the specified signal
+                        fig.add_shape(
+                            type="rect",
+                            x0=start_time,
+                            x1=end_time,
+                            y0=y_min,
+                            y1=y_max,
+                            fillcolor=event_params.get(
+                                "color", "rgba(150, 150, 150, 0.3)"
+                            ),
+                            line=dict(width=0),
+                            row=signal_row + 2,  # +2 to account for blank plot
+                            col=1,
+                            layer="below",
+                        )
 
         # Update y-axis label for each subplot
         if row_counter == 2:
