@@ -21,15 +21,15 @@ def valid_netcdf_dataset():
 
     ds = xr.Dataset(
         {
-            "data_var1": (("sensor_samples",), np.random.rand(5)),
+            "data_var1": (("signal_samples",), np.random.rand(5)),
             "data_var2": (
-                ("sensor_samples", "sensor_variables"),
+                ("signal_samples", "signal_variables"),
                 np.random.rand(5, 2),
             ),
         },
         coords={
-            "sensor_samples": ("sensor_samples", time_samples),
-            "sensor_variables": ("sensor_variables", variable_labels),
+            "signal_samples": ("signal_samples", time_samples),
+            "signal_variables": ("signal_variables", variable_labels),
         },
     )
 
@@ -100,7 +100,7 @@ def test_validate_data_invalid(valid_netcdf_dataset, duck_pond):
     """Test NetCDF validation with invalid data"""
     uploader = DataUploader(duck_pond=duck_pond)
     ds = valid_netcdf_dataset
-    ds = ds.rename({"sensor_samples": "sensor"})
+    ds = ds.rename({"signal_samples": "parent_signal"})
 
     with pytest.raises(NetCDFValidationError):
         uploader.validate_netcdf(ds)

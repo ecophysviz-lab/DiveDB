@@ -2,7 +2,7 @@
 
 [![Quality control badge](https://github.com/ecophysviz-lab/DiveDB/actions/workflows/quality-control.yml/badge.svg)](https://github.com/ecophysviz-lab/DiveDB/actions/workflows/quality-control.yml)
 
-DiveDB is designed to organize and analyze biologging data collected by any sensor on any marine mammal. By storing your data in a structured data lake, DiveDB enforces consistency, allowing you to query data across multiple dives, sensors, and animals. The primary goals of DiveDB include:
+DiveDB is designed to organize and analyze biologging data collected by any signal on any marine mammal. By storing your data in a structured data lake, DiveDB enforces consistency, allowing you to query data across multiple dives, signals, and animals. The primary goals of DiveDB include:
 
 - **Metadata Management**: Utilizing [Notion](https://www.notion.so/) databases to provide a collaborative interface for managing the metadata associated with each dive.
 - **Data Reliability and Consistency**: Employing [Apache Iceberg](https://iceberg.apache.org/) to bring ACID transactions to big data workloads, ensuring data reliability and consistency.
@@ -116,7 +116,7 @@ The `DuckPond` class in `duck_pond.py` manages three distinct Iceberg tables, ea
 
 ### 1. Data Table Schema (Wide Format)
 
-The `data` table stores sensor data using a wide schema approach instead of nested structs. This provides better query performance and easier analytics:
+The `data` table stores signal data using a wide schema approach instead of nested structs. This provides better query performance and easier analytics:
 
 - **dataset**: High-level dataset identifier (required, string)
 - **animal**: The identifier for the animal from which data is collected (required, string)
@@ -278,7 +278,7 @@ DiveDB provides a powerful visualization tool using [Dash](https://dash.plotly.c
 ### Key Components
 
 - **Dash Application**: The script initializes a Dash application that serves as the main interface for data visualization.
-- **Plotly Graphs**: Interactive plots are created using Plotly, allowing users to explore sensor and derived data over time.
+- **Plotly Graphs**: Interactive plots are created using Plotly, allowing users to explore signal and derived data over time.
 - **Three.js Orientation**: The `three_js_orientation` component is used to render a 3D model, providing a visual representation of the animal's orientation based on the data.
 - **Video Preview**: The `video_preview` component allows users to view synchronized video footage alongside the data plots.
 
@@ -302,11 +302,11 @@ DiveDB provides a powerful visualization tool using [Dash](https://dash.plotly.c
 
    - **Video Synchronization**: The `video_preview` component provides a video player that is synchronized with the data plots. This allows you to view video footage alongside the data, providing context to the visualized events.
 
-   - **Interactive Plots**: The application includes a series of interactive plots generated using Plotly. These plots display various sensor and derived data signals, such as ECG, temperature, and depth. You can zoom into specific time ranges and explore the data in detail.
+   - **Interactive Plots**: The application includes a series of interactive plots generated using Plotly. These plots display various signal and derived data signals, such as ECG, temperature, and depth. You can zoom into specific time ranges and explore the data in detail.
 
 1. **Control Playback**: Use the play and pause buttons to control the playback of the data and video. The playhead slider allows you to navigate through the data timeline.
 
-1. **Customize Visualization**: The script is designed to be flexible. You can modify the data sources, add new sensors, or change the visualization parameters to suit your needs.
+1. **Customize Visualization**: The script is designed to be flexible. You can modify the data sources, add new signals, or change the visualization parameters to suit your needs.
 
 ### Example Data
 

@@ -34,6 +34,8 @@ from immich_integration import ImmichService  # noqa: E402
 
 load_dotenv()
 
+os.getenv("NOTION_ASSETS_DB")
+
 # Initialize Notion manager
 notion_manager = NotionORMManager(
     token=os.getenv("NOTION_TOKEN"),

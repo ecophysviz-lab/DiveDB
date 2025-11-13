@@ -186,14 +186,12 @@ def get_edf_label_for_signal(signal_class_name, signal_name):
     """
     Return a signal label that conforms to EDF spec label length requirements (<17 characters)
 
-    Adds class name as prefix to signal name, e.g. for multichannel sensor output,
+    Adds class name as prefix to signal name, e.g. for multichannel signal output,
     where each channel is an individual signal in the resultant EDF (e.g. for
     accelerometer x, y, and z signals).
     """
-    if signal_class_name.startswith("sensor_data"):
+    if signal_class_name.startswith("signal_data"):
         class_prefix = signal_class_name[12:]
-    elif signal_class_name.startswith("derived_data"):
-        class_prefix = "derived_" + signal_class_name[13:]
     else:
         class_prefix = signal_class_name
 
@@ -217,10 +215,8 @@ def get_edf_label_for_signal(signal_class_name, signal_name):
 
 
 def data_processing_details(signal_class_name):
-    if signal_class_name.startswith("derived_data"):
-        return "derived"
-    elif signal_class_name.startswith("sensor_data"):
-        return "sensor"
+    if signal_class_name.startswith("signal_data"):
+        return "parent_signal"
     else:
         return ""
 
@@ -240,7 +236,7 @@ def get_physical_dimension(signal_name):
 def construct_recording_edf(multisignal_data_df, metadata):
     """
     Return an `edfio.Edf` constructed from an input table of timestamps from
-    multiple sensor signals belonging to a single recording.
+    multiple signal signals belonging to a single recording.
 
     Assumes and does not validate that input is (a) from a single recording and
     (b) each signal is uniformly sampled and continuous (i.e., no gaps).

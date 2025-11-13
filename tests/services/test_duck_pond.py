@@ -57,7 +57,7 @@ def sample_data(test_schema):
             pa.array(["seal_001"]),  # animal
             pa.array(["deploy_001"]),  # deployment
             pa.array(["rec_001"]),  # recording
-            pa.array(["sensor_data"]),  # group
+            pa.array(["signal_data"]),  # group
             pa.array(["accelerometer"]),  # class
             pa.array(["acc_x"]),  # label
             pa.array([pd.Timestamp("2024-01-01T00:00:00")]),  # datetime
@@ -80,7 +80,7 @@ def sample_int_data(test_schema):
             pa.array(["seal_002"]),  # animal
             pa.array(["deploy_002"]),  # deployment
             pa.array(["rec_002"]),  # recording
-            pa.array(["sensor_data"]),  # group
+            pa.array(["signal_data"]),  # group
             pa.array(["accelerometer"]),  # class
             pa.array(["acc_y"]),  # label
             pa.array([pd.Timestamp("2024-01-01T01:00:00")]),  # datetime
@@ -343,8 +343,8 @@ class TestDuckPondDataTransformation:
         assert val_dbl[2].as_py() == 1.0
         assert data_type[2].as_py() == "double"
 
-    def test_write_sensor_data_complete_workflow(self, duck_pond):
-        """Test the complete sensor data writing workflow"""
+    def test_write_signal_data_complete_workflow(self, duck_pond):
+        """Test the complete signal data writing workflow"""
         import pandas as pd
 
         # Create test data
@@ -356,14 +356,14 @@ class TestDuckPondDataTransformation:
         }
         times = pa.array([pd.Timestamp("2024-01-15T12:00:00")] * 5)
         # Use list instead of numpy array to preserve original types
-        values = [1.5, 10, True, "sensor_error", False]
+        values = [1.5, 10, True, "signal_error", False]
 
         # Write data
         rows_written = duck_pond.write_signal_data(
             dataset=dataset,
             metadata=metadata,
             times=times,
-            group="sensor_data",
+            group="signal_data",
             class_name="temperature",
             label="temp_c",
             values=values,
@@ -397,10 +397,10 @@ class TestDuckPondDataTransformation:
         assert results[2][2] is True  # boolean_value
         assert results[2][4] == 1.0  # value (bool converted to double)
 
-        assert results[3][3] == "sensor_error"  # string_value
+        assert results[3][3] == "signal_error"  # string_value
         assert results[3][4] is None  # value (string can't convert to double)
 
-    def test_write_sensor_data_with_dataset_partitioning(self, duck_pond):
+    def test_write_signal_data_with_dataset_partitioning(self, duck_pond):
         """Test that dataset partitioning works correctly"""
         import pandas as pd
 
