@@ -236,6 +236,8 @@ def create_main_content(fig, channel_options=None):
                                             "Manage Channels",
                                             target="graph-channels-toggle",
                                             placement="right",
+                                            delay={"show": 100, "hide": 0},
+                                            autohide=True,
                                         ),
                                     ],
                                     width={"size": "auto"},

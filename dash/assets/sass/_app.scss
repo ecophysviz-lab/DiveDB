@@ -529,19 +529,20 @@ body {
         .video_available_indicator {
             width: 100%;
             height: 3px;
-            background-color: var(--blue);
+            background-color: rgba(var(--blue-rgb), 0.2);
             border-radius: 3px;
             z-index: 10;
             position: relative;
-            margin: 8px 0;
+            margin: 4px 0;
 
             > button {
                 display: block;
                 position: absolute;
-                top: -50%;
+                top: 0;
                 left: calc(var(--start) / var(--length) * 100%);
                 width: calc((var(--end) - var(--start)) / var(--length) * 100%);
-                height: 200%;
+                height: 5px;
+                transform: translateY(-50%);
                 background: transparent;
                 transition: all 0.3s ease-out;
                 border: none;
@@ -551,18 +552,19 @@ body {
                 &::before {
                     content: '';
                     width: 100%;
-                    height: 50%;
-                    top: 25%;
+                    height: 100%;
+                    top: 0;
                     left: 0;
                     position: absolute;
                     background-color: var(--blueMedium);
+                    border-radius: 3px;
                     transition: all 0.3s ease-out;
                 }
 
                 &:hover {
                     &::before {
                         background-color: var(--blueLight);
-                        transform: scaleY(1.25);
+                        transform: scaleY(1.5);
                     }
                 }
             }

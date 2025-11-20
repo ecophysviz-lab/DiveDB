@@ -384,6 +384,74 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
                 return None, None  # Clear both selection and manual override
 
     @app.callback(
+        Output("playhead-time", "data", allow_duplicate=True),
+        Output("is-playing", "data", allow_duplicate=True),
+        Output("play-button", "children", allow_duplicate=True),
+        Output("play-button", "className", allow_duplicate=True),
+        [
+            Input({"type": "video-indicator", "id": ALL}, "n_clicks"),
+        ],
+        [
+            State("current-video-options", "data"),
+            State({"type": "video-indicator", "id": ALL}, "id"),
+            State("video-time-offset", "data"),
+        ],
+        prevent_initial_call=True,
+    )
+    def jump_to_video_on_click(
+        n_clicks_list,
+        video_options,
+        video_ids,
+        time_offset,
+    ):
+        """Jump playhead to video start time and start playback when video indicator is clicked."""
+        if not video_options or not callback_context.triggered:
+            raise dash.exceptions.PreventUpdate
+
+        time_offset = time_offset or 0
+        ctx = callback_context
+
+        # Check if this was triggered by a video indicator click
+        clicked_video = None
+        for trigger in ctx.triggered:
+            if "video-indicator" in trigger["prop_id"] and trigger.get("value"):
+                # Extract the clicked video ID from the trigger
+                import json
+
+                trigger_id = json.loads(trigger["prop_id"].split(".")[0])
+                clicked_video_id = trigger_id["id"]
+
+                # Find the corresponding video in video_options
+                for vid in video_options:
+                    if vid.get("id") == clicked_video_id:
+                        clicked_video = vid
+                        break
+
+                if clicked_video:
+                    break
+
+        if not clicked_video:
+            raise dash.exceptions.PreventUpdate
+
+        # Calculate the video start time
+        video_start_time = parse_video_created_time(clicked_video.get("fileCreatedAt"))
+
+        # Apply time offset to get the adjusted start time
+        adjusted_video_start = video_start_time + time_offset
+
+        logger.info(
+            f"Jumping to video start: {clicked_video.get('filename')} at {adjusted_video_start}"
+        )
+
+        # Return: new playhead time, playing=True, button text="Pause", button class
+        return (
+            adjusted_video_start,
+            True,
+            "Pause",
+            "btn btn-primary btn-round btn-pause btn-lg",
+        )
+
+    @app.callback(
         Output("video-trimmer", "videoSrc"),
         Output("video-trimmer", "videoMetadata"),
         Output("video-trimmer", "datasetStartTime"),

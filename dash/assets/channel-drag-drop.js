@@ -12,7 +12,7 @@ function initializeDragDrop() {
     const channelList = document.getElementById('graph-channel-list');
     if (!channelList) {
         console.log('Channel list not found, retrying...');
-        setTimeout(initializeDragDrop, 500);
+        setTimeout(initializeDragDrop, 1000);
         return;
     }
     
