@@ -57,7 +57,7 @@ def sample_data(test_schema):
             pa.array(["seal_001"]),  # animal
             pa.array(["deploy_001"]),  # deployment
             pa.array(["rec_001"]),  # recording
-            pa.array(["sensor_data"]),  # group
+            pa.array(["signal_data"]),  # group
             pa.array(["accelerometer"]),  # class
             pa.array(["acc_x"]),  # label
             pa.array([pd.Timestamp("2024-01-01T00:00:00")]),  # datetime
@@ -80,7 +80,7 @@ def sample_int_data(test_schema):
             pa.array(["seal_002"]),  # animal
             pa.array(["deploy_002"]),  # deployment
             pa.array(["rec_002"]),  # recording
-            pa.array(["sensor_data"]),  # group
+            pa.array(["signal_data"]),  # group
             pa.array(["accelerometer"]),  # class
             pa.array(["acc_y"]),  # label
             pa.array([pd.Timestamp("2024-01-01T01:00:00")]),  # datetime

@@ -149,7 +149,7 @@ User Action → Callback → Store Update → UI Update → Next Callback
 **Purpose**: Plotly graph creation utilities
 
 **Key Functions**:
-- `plot_tag_data_interactive(data_pkl, sensors=None, derived_data_signals=None, channels=None, time_range=None, note_annotations=None, state_annotations=None, zoom_start_time=None, zoom_end_time=None, plot_event_values=None, zoom_range_selector_channel=None)` → FigureResampler - Main plotting function
+- `plot_tag_data_interactive(data_pkl, signals=None, channels=None, time_range=None, note_annotations=None, state_annotations=None, zoom_start_time=None, zoom_end_time=None, plot_event_values=None, zoom_range_selector_channel=None)` → FigureResampler - Main plotting function
 
 **Features**:
 - Creates `FigureResampler` objects for performance with large datasets
@@ -339,23 +339,17 @@ User Action → Callback → Store Update → UI Update → Next Callback
 
 ```python
 DataPkl(
-    sensor_data={
+    signal_data={
         "depth": pd.DataFrame(columns=["datetime", "depth"]),
         "temperature": pd.DataFrame(columns=["datetime", "temp_ext"]),
+        "prh": pd.DataFrame(columns=["datetime", "pitch", "roll", "heading"]),
         ...
     },
-    sensor_info={
+    signal_info={
         "depth": {
             "channels": ["depth"],
             "metadata": {"depth": {"original_name": "Depth", "unit": "m"}}
         },
-        ...
-    },
-    derived_data={
-        "prh": pd.DataFrame(columns=["datetime", "pitch", "roll", "heading"]),
-        ...
-    },
-    derived_info={
         "prh": {
             "channels": ["pitch", "roll", "heading"],
             "metadata": {...}
@@ -365,7 +359,7 @@ DataPkl(
 )
 ```
 
-**Access**: Supports both attribute (`data_pkl.sensor_data`) and dict (`data_pkl["sensor_data"]`) access
+**Access**: Supports both attribute (`data_pkl.signal_data`) and dict (`data_pkl["signal_data"]`) access
 
 ### Deployment Metadata Structure
 

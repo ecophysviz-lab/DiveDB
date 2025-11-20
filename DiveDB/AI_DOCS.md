@@ -564,7 +564,7 @@ duck_pond.write_signal_data(
     dataset="my-dataset",
     metadata={"animal": "apfo-001a", "deployment": "2019-11-08_apfo-001"},
     times=times,
-    group="sensor_data",
+    group="signal_data",
     class_name="depth_sensor",
     label="depth",
     values=values

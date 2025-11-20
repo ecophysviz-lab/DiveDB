@@ -458,6 +458,28 @@ class DataUploader:
                     for var in ds.data_vars
                 }
             )
+
+        # Normalize prefixes: convert sensor_data_* and derived_data_* to signal_data_*
+        prefix_normalization_map = {}
+        for var in ds.data_vars:
+            var_lower = var.lower()
+            if var_lower.startswith("sensor_data_") or var_lower.startswith(
+                "derived_data_"
+            ):
+                # Extract the part after the prefix
+                if var_lower.startswith("sensor_data_"):
+                    new_name = (
+                        "signal_data_" + var[12:]
+                    )  # Keep original case after prefix
+                else:  # derived_data_
+                    new_name = (
+                        "signal_data_" + var[13:]
+                    )  # Keep original case after prefix
+                prefix_normalization_map[var] = new_name
+
+        if prefix_normalization_map:
+            ds = ds.rename(prefix_normalization_map)
+
         timing["renaming"] = time.time() - t0
 
         # Calculate total work units for progress bar
@@ -592,6 +614,9 @@ class DataUploader:
                                 times = time_coord_arrays[time_coord][start:end]
 
                                 group = var_data.attrs.get("group", None)
+                                # Normalize group: convert sensor_data or derived_data to signal_data
+                                if group == "sensor_data" or group == "derived_data":
+                                    group = "signal_data"
                                 class_name = var_name
                                 label = rename_map.get(
                                     sub_var_name.lower(), sub_var_name
@@ -635,6 +660,9 @@ class DataUploader:
                             times = time_coord_arrays[time_coord][start:end]
 
                             group = var_data.attrs.get("group", None)
+                            # Normalize group: convert sensor_data or derived_data to signal_data
+                            if group == "sensor_data" or group == "derived_data":
+                                group = "signal_data"
                             class_name = (
                                 var_name
                                 if "variables" in var_data.attrs

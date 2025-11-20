@@ -190,10 +190,8 @@ def get_edf_label_for_signal(signal_class_name, signal_name):
     where each channel is an individual signal in the resultant EDF (e.g. for
     accelerometer x, y, and z signals).
     """
-    if signal_class_name.startswith("sensor_data"):
+    if signal_class_name.startswith("signal_data"):
         class_prefix = signal_class_name[12:]
-    elif signal_class_name.startswith("derived_data"):
-        class_prefix = "derived_" + signal_class_name[13:]
     else:
         class_prefix = signal_class_name
 
@@ -217,10 +215,8 @@ def get_edf_label_for_signal(signal_class_name, signal_name):
 
 
 def data_processing_details(signal_class_name):
-    if signal_class_name.startswith("derived_data"):
-        return "derived"
-    elif signal_class_name.startswith("sensor_data"):
-        return "sensor"
+    if signal_class_name.startswith("signal_data"):
+        return "signal"
     else:
         return ""
 

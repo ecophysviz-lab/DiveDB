@@ -24,8 +24,7 @@ def generate_random_color():
 
 def plot_tag_data_interactive(
     data_pkl,
-    sensors=None,
-    derived_data_signals=None,
+    signals=None,
     channels=None,
     time_range=None,
     note_annotations=None,
@@ -37,18 +36,12 @@ def plot_tag_data_interactive(
 ):
     """
     Function to plot tag data interactively using Plotly with optional initial zooming into a specific time range.
-    Includes both sensor_data and derived_data.
+    Uses unified signal_data structure.
     """
 
-    # Determine the sensors and derived data to plot
-    if sensors is None:
-        sensors = list(data_pkl.sensor_data.keys())
-
-    if derived_data_signals is None and "derived_data" in data_pkl:
-        derived_data_signals = list(data_pkl["derived_data"].keys())
-
-    # Combine sensors and derived data
-    signals = sensors + derived_data_signals
+    # Determine the signals to plot
+    if signals is None:
+        signals = list(data_pkl.signal_data.keys())
 
     # Preserve user order, only move range selector signal to top if specified
     if zoom_range_selector_channel and zoom_range_selector_channel in signals:
@@ -117,32 +110,11 @@ def plot_tag_data_interactive(
                     col=1,
                 )
 
-    # Iterate through both sensor data and derived data and plot
+    # Iterate through signals and plot
     for signal in signals_sorted:
-        if signal in data_pkl["sensor_data"]:
-            signal_data = data_pkl["sensor_data"][signal]
-            signal_info = data_pkl["sensor_info"][signal]
-
-            plot_signal_data(signal, signal_data, signal_info)
-
-            if row_counter == 1:  # Right after the first plot
-                # Add blank plot with height of 200 pixels after the first plot
-                fig.add_trace(
-                    go.Scatter(x=[], y=[], mode="markers", showlegend=False),
-                    row=row_counter + 1,
-                    col=1,
-                )
-                fig.update_yaxes(
-                    showticklabels=False, row=row_counter + 1, col=1
-                )  # Hide tick labels
-                fig.update_xaxes(
-                    showticklabels=False, row=row_counter + 1, col=1
-                )  # Hide tick labels
-                row_counter += 1  # Skip to the next row after the blank plot
-
-        elif signal in data_pkl["derived_data"]:
-            signal_data = data_pkl["derived_data"][signal]
-            signal_info = data_pkl["derived_info"][signal]
+        if signal in data_pkl["signal_data"]:
+            signal_data = data_pkl["signal_data"][signal]
+            signal_info = data_pkl["signal_info"][signal]
 
             plot_signal_data(signal, signal_data, signal_info)
 
@@ -172,17 +144,8 @@ def plot_tag_data_interactive(
                     continue  # Skip annotations not tied to this signal
 
                 # Get signal data
-                signal_data, signal_info = (
-                    (
-                        data_pkl["sensor_data"].get(signal),
-                        data_pkl["sensor_info"].get(signal),
-                    )
-                    if signal in data_pkl["sensor_data"]
-                    else (
-                        data_pkl["derived_data"].get(signal),
-                        data_pkl["derived_info"].get(signal),
-                    )
-                )
+                signal_data = data_pkl["signal_data"].get(signal)
+                signal_info = data_pkl["signal_info"].get(signal)
 
                 if signal_data is not None and signal_info is not None:
                     # Use the first channel of this signal for positioning
@@ -242,13 +205,10 @@ def plot_tag_data_interactive(
                 # Find the row index corresponding to the signal
                 signal_row = signals_sorted.index(signal)
 
-                # Check if signal is in sensor_data or derived_data
-                if signal in data_pkl["sensor_data"]:
-                    signal_data = data_pkl["sensor_data"][signal]
-                elif signal in data_pkl["derived_data"]:
-                    signal_data = data_pkl["derived_data"][signal]
-                else:
+                # Get signal data
+                if signal not in data_pkl["signal_data"]:
                     continue  # Skip if signal not found
+                signal_data = data_pkl["signal_data"][signal]
 
                 # Get state events for this type
                 if "event_data" in data_pkl and data_pkl["event_data"] is not None:

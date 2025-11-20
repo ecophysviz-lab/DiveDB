@@ -22,28 +22,22 @@ logger = get_logger(__name__)
 class DataPkl:
     """Simple class to support both attribute and dict access for data_pkl structure."""
 
-    def __init__(self, sensor_data, sensor_info, derived_data=None, derived_info=None):
-        self.sensor_data = sensor_data
-        self.sensor_info = sensor_info
-        self.derived_data = derived_data or {}
-        self.derived_info = derived_info or {}
+    def __init__(self, signal_data, signal_info):
+        self.signal_data = signal_data
+        self.signal_info = signal_info
 
     def __getitem__(self, key):
         """Support dict-style access."""
-        if key == "sensor_data":
-            return self.sensor_data
-        elif key == "sensor_info":
-            return self.sensor_info
-        elif key == "derived_data":
-            return self.derived_data
-        elif key == "derived_info":
-            return self.derived_info
+        if key == "signal_data":
+            return self.signal_data
+        elif key == "signal_info":
+            return self.signal_info
         else:
             raise KeyError(key)
 
     def __contains__(self, key):
         """Support 'in' operator."""
-        return key in ["sensor_data", "sensor_info", "derived_data", "derived_info"]
+        return key in ["signal_data", "signal_info"]
 
 
 def _create_data_pkl_from_groups(dff, data_columns, group_membership):
@@ -53,10 +47,8 @@ def _create_data_pkl_from_groups(dff, data_columns, group_membership):
     Groups columns by their parent group so they appear together on the same subplot.
     Preserves the order that groups were added to group_membership.
     """
-    sensor_data = {}
-    sensor_info = {}
-    derived_data = {}
-    derived_info = {}
+    signal_data = {}
+    signal_info = {}
 
     # Group columns by their parent group, preserving order from group_membership
     # Note: group_membership keys are in the order of labels_to_load
@@ -78,7 +70,7 @@ def _create_data_pkl_from_groups(dff, data_columns, group_membership):
             group_order.append(group_name)  # Track order
         groups[group_name]["columns"].append(col)
 
-    # Create sensor_data/derived_data entries for each group IN ORDER
+    # Create signal_data entries for each group IN ORDER
     for group_name in group_order:
         group_data = groups[group_name]
         columns = group_data["columns"]
@@ -87,24 +79,13 @@ def _create_data_pkl_from_groups(dff, data_columns, group_membership):
         # Create DataFrame for this group
         signal_df = dff[["datetime"] + columns].copy()
 
-        # Determine if this should go in sensor_data or derived_data
-        # Use naming convention: derived_data_* goes to derived, sensor_data_* goes to sensor
-        # For cleaner display, strip the prefix from the group name
-        if group_name.startswith("derived_data_"):
-            display_name = group_name.replace("derived_data_", "")
-            target_data = derived_data
-            target_info = derived_info
-        elif group_name.startswith("sensor_data_"):
-            display_name = group_name.replace("sensor_data_", "")
-            target_data = sensor_data
-            target_info = sensor_info
+        # Strip signal_data_ prefix if present for cleaner display
+        if group_name.startswith("signal_data_"):
+            display_name = group_name.replace("signal_data_", "")
         else:
-            # Default: use as-is and put in sensor_data
             display_name = group_name
-            target_data = sensor_data
-            target_info = sensor_info
 
-        target_data[display_name] = signal_df
+        signal_data[display_name] = signal_df
 
         # Create metadata for each channel in this group
         channel_metadata = {}
@@ -142,7 +123,7 @@ def _create_data_pkl_from_groups(dff, data_columns, group_membership):
                     "unit": "",
                 }
 
-        target_info[display_name] = {
+        signal_info[display_name] = {
             "channels": columns,
             "metadata": channel_metadata,
         }
@@ -153,10 +134,8 @@ def _create_data_pkl_from_groups(dff, data_columns, group_membership):
         )
 
     return DataPkl(
-        sensor_data=sensor_data,
-        sensor_info=sensor_info,
-        derived_data=derived_data,
-        derived_info=derived_info,
+        signal_data=signal_data,
+        signal_info=signal_info,
     )
 
 
@@ -172,21 +151,21 @@ def create_data_pkl_from_dataframe(dff, group_membership=None):
         group_membership: Dict mapping each label to its group info {label: {group, group_label, group_metadata}}
 
     Returns:
-        DataPkl: data_pkl structure with sensor_data, sensor_info, derived_data, and derived_info
+        DataPkl: data_pkl structure with signal_data and signal_info
     """
     # Skip 'datetime' and 'timestamp' columns
     data_columns = [col for col in dff.columns if col not in ["datetime", "timestamp"]]
 
     if not data_columns:
-        return DataPkl(sensor_data={}, sensor_info={}, derived_data={}, derived_info={})
+        return DataPkl(signal_data={}, signal_info={})
 
     # If group_membership is provided, use it to organize columns
     if group_membership:
         return _create_data_pkl_from_groups(dff, data_columns, group_membership)
 
-    # Define sensor signals (go in sensor_data)
+    # Define signal patterns
     # TODO: Pull from Notion
-    sensor_patterns = {
+    signal_patterns = {
         "light": {"pattern": "light", "unit": "lux", "display_name": "Light"},
         "temperature": {
             "pattern": "temperature",
@@ -211,24 +190,17 @@ def create_data_pkl_from_dataframe(dff, group_membership=None):
             "display_name": "Magnetometer",
         },
         "odba": {"pattern": "odba", "unit": "g", "display_name": "ODBA"},
-    }
-
-    # Define derived signals (go in derived_data)
-    # Note: depth and prh (pitch/roll/heading) are derived
-    derived_patterns = {
         "depth": {"pattern": "depth", "unit": "m", "display_name": "Corrected Depth"},
         "pressure": {"pattern": "pressure", "unit": "m", "display_name": "Pressure"},
     }
 
-    sensor_data = {}
-    sensor_info = {}
-    derived_data = {}
-    derived_info = {}
+    signal_data = {}
+    signal_info = {}
 
     # Track which columns have been assigned
     assigned_columns = set()
 
-    # First pass: Handle prh (pitch, roll, heading) - these go together in derived_data
+    # First pass: Handle prh (pitch, roll, heading) - these go together
     prh_cols = []
     for col in data_columns:
         if col.lower() in ["pitch", "roll", "heading"] and col not in assigned_columns:
@@ -238,7 +210,7 @@ def create_data_pkl_from_dataframe(dff, group_membership=None):
     if prh_cols:
         # Create prh DataFrame
         prh_df = dff[["datetime"] + prh_cols].copy()
-        derived_data["prh"] = prh_df
+        signal_data["prh"] = prh_df
 
         # Create metadata for prh channels
         prh_metadata = {}
@@ -255,13 +227,13 @@ def create_data_pkl_from_dataframe(dff, group_membership=None):
                 "unit": "°",
             }
 
-        derived_info["prh"] = {
+        signal_info["prh"] = {
             "channels": prh_cols,
             "metadata": prh_metadata,
         }
 
-    # Second pass: Handle depth/pressure (go in derived_data)
-    for signal_name, signal_config in derived_patterns.items():
+    # Second pass: Handle all other signal patterns
+    for signal_name, signal_config in signal_patterns.items():
         pattern = signal_config["pattern"]
         matching_cols = [
             col
@@ -272,7 +244,7 @@ def create_data_pkl_from_dataframe(dff, group_membership=None):
         if matching_cols:
             # Create DataFrame for this signal type
             signal_df = dff[["datetime"] + matching_cols].copy()
-            derived_data[signal_name] = signal_df
+            signal_data[signal_name] = signal_df
 
             # Create metadata for channels
             channel_metadata = {}
@@ -289,51 +261,14 @@ def create_data_pkl_from_dataframe(dff, group_membership=None):
                     "unit": signal_config["unit"],
                 }
 
-            derived_info[signal_name] = {
+            signal_info[signal_name] = {
                 "channels": matching_cols,
                 "metadata": channel_metadata,
             }
 
             assigned_columns.update(matching_cols)
 
-    # Third pass: Handle sensor signals (go in sensor_data)
-    for signal_name, signal_config in sensor_patterns.items():
-        pattern = signal_config["pattern"]
-        matching_cols = [
-            col
-            for col in data_columns
-            if pattern.lower() in col.lower() and col not in assigned_columns
-        ]
-
-        if matching_cols:
-            # Create DataFrame for this signal type
-            signal_df = dff[["datetime"] + matching_cols].copy()
-            sensor_data[signal_name] = signal_df
-
-            # Create metadata for channels
-            # Note: metadata key should match the channel name (like in the example)
-            channel_metadata = {}
-            for col in matching_cols:
-                # For single-channel signals, use signal name as metadata key if channel doesn't match
-                # For multi-channel signals, use channel name as metadata key
-                if len(matching_cols) == 1 and col.lower() != signal_name.lower():
-                    metadata_key = signal_name
-                else:
-                    metadata_key = col
-
-                channel_metadata[metadata_key] = {
-                    "original_name": signal_config["display_name"],
-                    "unit": signal_config["unit"],
-                }
-
-            sensor_info[signal_name] = {
-                "channels": matching_cols,
-                "metadata": channel_metadata,
-            }
-
-            assigned_columns.update(matching_cols)
-
-    # Fourth pass: assign remaining columns to sensor_data by their base name
+    # Third pass: assign remaining columns by their base name
     remaining_cols = [col for col in data_columns if col not in assigned_columns]
 
     if remaining_cols:
@@ -346,10 +281,10 @@ def create_data_pkl_from_dataframe(dff, group_membership=None):
                 other_groups[base_name] = []
             other_groups[base_name].append(col)
 
-        # Create signal entries for each group in sensor_data
+        # Create signal entries for each group
         for base_name, cols in other_groups.items():
             signal_df = dff[["datetime"] + cols].copy()
-            sensor_data[base_name] = signal_df
+            signal_data[base_name] = signal_df
 
             channel_metadata = {}
             for col in cols:
@@ -359,16 +294,14 @@ def create_data_pkl_from_dataframe(dff, group_membership=None):
                     "unit": "",  # No unit for unknown signals
                 }
 
-            sensor_info[base_name] = {
+            signal_info[base_name] = {
                 "channels": cols,
                 "metadata": channel_metadata,
             }
 
     return DataPkl(
-        sensor_data=sensor_data,
-        sensor_info=sensor_info,
-        derived_data=derived_data,
-        derived_info=derived_info,
+        signal_data=signal_data,
+        signal_info=signal_info,
     )
 
 
@@ -603,7 +536,7 @@ def generate_graph_from_channels(
 
     # Determine zoom_range_selector_channel (use depth if available)
     zoom_range_selector_channel = None
-    if "depth" in data_pkl["sensor_data"] or "depth" in data_pkl["derived_data"]:
+    if "depth" in data_pkl["signal_data"]:
         zoom_range_selector_channel = "depth"
 
     # Step 5: Create figure using plot_tag_data_interactive
@@ -613,9 +546,7 @@ def generate_graph_from_channels(
         zoom_range_selector_channel=zoom_range_selector_channel,
     )
 
-    logger.info(
-        f"Created figure with {len(data_pkl['sensor_data'])} sensor groups and {len(data_pkl['derived_data'])} derived groups"
-    )
+    logger.info(f"Created figure with {len(data_pkl['signal_data'])} signal groups")
 
     # Extract timestamps for playback
     timestamps = dff["timestamp"].tolist() if "timestamp" in dff.columns else []
