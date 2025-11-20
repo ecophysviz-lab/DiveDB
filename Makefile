@@ -1,4 +1,4 @@
-.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash dash build-dash
+.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash dash build-dash clean-cache
 
 COMPOSE_CMD = docker compose -f docker-compose.development.yaml
 
@@ -58,3 +58,8 @@ logging-off:
 	export DASH_LOG_CALLBACKS=WARNING && \
 	export DASH_LOG_SELECTION=WARNING && \
 	export DASH_LOG_LAYOUT=WARNING
+
+clean-cache:
+	@echo "Cleaning DuckPond cache files older than 1 day..."
+	@python -c "from DiveDB.services.utils.cache_utils import cleanup_old_cache_files; cleanup_old_cache_files('.cache/duckpond', 86400)"
+	@echo "✓ Cache cleanup complete"

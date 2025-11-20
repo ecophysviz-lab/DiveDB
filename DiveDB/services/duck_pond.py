@@ -18,6 +18,11 @@ from DiveDB.services.connection.catalog_manager import CatalogManager
 from DiveDB.services.connection.duckdb_connection import DuckDBConnection
 from DiveDB.services.connection.notion_integration import NotionIntegration
 from DiveDB.services.connection.dataset_manager import DatasetManager
+from DiveDB.services.utils.cache_utils import (
+    generate_cache_key,
+    load_from_cache,
+    save_to_cache,
+)
 
 
 class DuckPond:
@@ -1032,6 +1037,7 @@ class DuckPond:
         pivoted: bool = False,
         apply_timezone_offset: Optional[int] = None,
         add_timestamp_column: bool = False,
+        use_cache: bool = False,
     ):
         """
         Get data from a specific dataset using direct Parquet access (bypassing Iceberg layer).
@@ -1053,6 +1059,7 @@ class DuckPond:
             pivoted: If True, returns data with labels as columns grouped by datetime
             apply_timezone_offset: Optional timezone offset in hours to add to datetime column
             add_timestamp_column: If True, adds a 'timestamp' column (seconds since epoch)
+            use_cache: If True, caches DataFrame results to disk (1-day TTL). Only applies when returning DataFrame.
 
         Returns:
         - If frequency or max_frequency is not None, returns a pd.DataFrame (resampled).
@@ -1080,6 +1087,46 @@ class DuckPond:
         ) = self._normalize_list_to_list(
             labels, animal_ids, deployment_ids, recording_ids, groups, classes
         )
+
+        # Check if we should use cache (only for DataFrame returns)
+        will_return_dataframe = (
+            pivoted or frequency is not None or max_frequency is not None
+        )
+        cache_key = None
+        if use_cache and will_return_dataframe:
+            # Generate cache key from parameters
+            params_dict = {
+                "dataset": dataset,
+                "labels": labels,
+                "animal_ids": animal_ids,
+                "deployment_ids": deployment_ids,
+                "recording_ids": recording_ids,
+                "groups": groups,
+                "classes": classes,
+                "date_range": date_range,
+                "frequency": frequency,
+                "max_frequency": max_frequency,
+                "limit": limit,
+                "pivoted": pivoted,
+                "apply_timezone_offset": apply_timezone_offset,
+            }
+            cache_key = generate_cache_key(params_dict)
+
+            # Try to load from cache
+            cached_df = load_from_cache(cache_key, ttl_seconds=86400)
+            if cached_df is not None:
+                # Cache hit - cached DataFrame already has date handling applied
+                # Only need to handle add_timestamp_column if it differs from cached state
+                # (timezone offset is already in cache key, so it's already applied)
+                if add_timestamp_column and "timestamp" not in cached_df.columns:
+                    # Add timestamp column if requested but not present
+                    cached_df = self._apply_date_handling(
+                        cached_df, "datetime", None, add_timestamp_column
+                    )
+                elif not add_timestamp_column and "timestamp" in cached_df.columns:
+                    # Remove timestamp column if not requested but present
+                    cached_df = cached_df.drop(columns=["timestamp"])
+                return cached_df
 
         # Build base query using the dataset-specific Data view
         view_name = f'"{dataset}_Data"'
@@ -1130,6 +1177,9 @@ class DuckPond:
             df = self._apply_date_handling(
                 df, "datetime", apply_timezone_offset, add_timestamp_column
             )
+            # Save to cache if enabled
+            if cache_key is not None:
+                save_to_cache(cache_key, df)
             return df
         elif frequency or max_frequency:
             # For resampled data, return DataFrame directly
@@ -1137,6 +1187,9 @@ class DuckPond:
             df = self._apply_date_handling(
                 df, "datetime", apply_timezone_offset, add_timestamp_column
             )
+            # Save to cache if enabled
+            if cache_key is not None:
+                save_to_cache(cache_key, df)
             return df
         else:
             # For non-resampled data without pivoting, return DiveData object

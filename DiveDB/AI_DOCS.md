@@ -69,7 +69,7 @@ DataUploader → DuckPond → Iceberg Tables → DuckDB Views → DiveData
 
 **Key Methods**:
 - `from_environment(**kwargs)` → DuckPond - Factory method from env vars
-- `get_data(dataset, labels, animal_ids, deployment_ids, recording_ids, groups, classes, date_range, frequency, limit, pivoted, apply_timezone_offset, add_timestamp_column)` → pd.DataFrame | DiveData - Query data with optional resampling
+- `get_data(dataset, labels, animal_ids, deployment_ids, recording_ids, groups, classes, date_range, frequency, limit, pivoted, apply_timezone_offset, add_timestamp_column, use_cache)` → pd.DataFrame | DiveData - Query data with optional resampling and caching
 - `get_events(dataset, animal_ids, deployment_ids, recording_ids, event_keys, date_range, limit, apply_timezone_offset, add_timestamp_columns)` → pd.DataFrame - Query events
 - `get_available_channels(dataset, include_metadata, pack_groups, load_metadata)` → List[Dict] - Discover channels with metadata
 - `get_channels_metadata(dataset, channel_ids)` → Dict[str, Dict] - Lazy metadata loading
