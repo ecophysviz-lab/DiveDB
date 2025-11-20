@@ -384,7 +384,7 @@ DiveDB includes an integration with [Immich](https://immich.app/), an open-sourc
 ### Quick Start
 
 ```python
-from immich_integration import ImmichService
+from DiveDB.services import ImmichService
 
 # Initialize service (uses environment variables)
 immich = ImmichService()

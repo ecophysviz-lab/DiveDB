@@ -30,7 +30,7 @@ from logging_config import get_logger
 # Add DiveDB root to path for Immich integration
 sys.path.append(str(Path(__file__).parent.parent))
 
-from immich_integration import ImmichService  # noqa: E402
+from DiveDB.services import ImmichService  # noqa: E402
 
 load_dotenv()
 
