@@ -132,6 +132,8 @@ def create_saved_indicator(
                 target=saved_id,
                 className="tooltip-saved",
                 placement="top",
+                delay={"show": 100, "hide": 0},
+                autohide=True,
             ),
         ],
         className="saved_indicator",
@@ -158,16 +160,7 @@ def create_video_indicator(
     full_class = f"{base_class} {status_class}"
 
     # Add visual styling hints for out-of-view videos
-    button_style = {
-        "cursor": "pointer",
-        "background": "transparent",
-        "border": "none",
-        "width": "100%",
-        "height": "100%",
-        "position": "absolute",
-        "top": "0",
-        "left": "0",
-    }
+    button_style = {}
 
     # Add visual indicators for out-of-view videos
     if status in ["before", "after"]:
@@ -185,6 +178,8 @@ def create_video_indicator(
                 tooltip_content,
                 target=video_id,
                 placement="top",
+                delay={"show": 100, "hide": 0},
+                autohide=True,
             ),
         ],
         className=full_class,
@@ -239,6 +234,8 @@ def create_event_indicator(
                 target=event_id,
                 className="tooltip-saved",
                 placement="top",
+                delay={"show": 100, "hide": 0},
+                autohide=True,
             ),
         ],
         className="saved_indicator",
