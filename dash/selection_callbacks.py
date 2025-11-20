@@ -7,12 +7,14 @@ from dash import Output, Input, State, html, callback_context, no_update, ALL
 import pandas as pd
 import time
 from logging_config import get_logger
+from dash_extensions.enrich import Serverside
 from layout import (
     create_dataset_accordion_item,
     create_timeline_section,
     create_deployment_info_display,
 )
 from graph_utils import plot_tag_data_interactive
+from plotly_resampler import FigureResampler
 
 logger = get_logger(__name__)
 
@@ -523,64 +525,16 @@ def generate_graph_from_channels(
                             }
                         )
 
-    # Step 2: Adaptive frequency adjustment based on data volume
-    MAX_TARGET_ROWS = 100_000  # Configurable target
-    time_span_seconds = (
-        pd.to_datetime(date_range["end"]) - pd.to_datetime(date_range["start"])
-    ).total_seconds()
+    # Step 2: Set maximum frequency cap
+    # Each label will be downsampled only if it exceeds this frequency
+    # Lower-frequency labels (e.g., depth at 1 Hz) stay at native resolution
+    MAX_FREQUENCY_HZ = 20  # Configurable: downsample high-freq signals to this cap
 
-    # Validate inputs before calculation
-    if time_span_seconds <= 0:
-        time_span_seconds = 1  # Prevent division by zero
+    logger.debug(
+        f"Using max_frequency={MAX_FREQUENCY_HZ} Hz (per-label adaptive downsampling)"
+    )
 
-    # Quick metadata-based estimate
-    sample_count = selected_deployment.get("sample_count", 0)
-    rough_estimate = sample_count * len(labels_to_load)
-
-    # Get precise count if rough estimate is high
-    if rough_estimate > MAX_TARGET_ROWS * 5:  # 5x threshold for detailed check
-        logger.debug(
-            f"High data volume detected (rough: {rough_estimate:,}), getting precise estimate..."
-        )
-        t0 = time.time()
-        estimated_rows = duck_pond.estimate_data_size(
-            dataset=dataset,
-            labels=labels_to_load,
-            deployment_ids=deployment_id,
-            animal_ids=animal_id,
-            date_range=(date_range["start"], date_range["end"]),
-        )
-        t1 = time.time()
-        logger.debug(f"Estimate time: {t1 - t0:.2f}s, rows: {estimated_rows:,}")
-    else:
-        estimated_rows = rough_estimate
-        logger.debug(f"Estimated rows (from metadata): {estimated_rows:,}")
-
-    # Calculate adjusted frequency if needed
-    if estimated_rows == 0:
-        adjusted_frequency = 0.1
-    elif estimated_rows > MAX_TARGET_ROWS:
-        native_sample_rate = (
-            estimated_rows / (len(labels_to_load) * time_span_seconds)
-            if time_span_seconds > 0 and len(labels_to_load) > 0
-            else 1.0
-        )
-        adjusted_frequency = (
-            MAX_TARGET_ROWS / (len(labels_to_load) * time_span_seconds)
-            if time_span_seconds > 0 and len(labels_to_load) > 0
-            else 0.1
-        )
-        downsample_factor = (
-            native_sample_rate / adjusted_frequency if adjusted_frequency > 0 else 1.0
-        )
-        logger.info(
-            f"Downsampling: {native_sample_rate:.2f} Hz → {adjusted_frequency:.4f} Hz ({downsample_factor:.1f}x)"
-        )
-    else:
-        adjusted_frequency = 0.1
-        logger.debug(f"Using default frequency: {adjusted_frequency} Hz")
-
-    # Step 3: Load data at adjusted frequency
+    # Step 3: Load data with max frequency cap
     if not labels_to_load:
         # No labels to load - return empty figure
         fig = go.Figure()
@@ -608,14 +562,16 @@ def generate_graph_from_channels(
         deployment_ids=deployment_id,
         animal_ids=animal_id,
         date_range=(date_range["start"], date_range["end"]),
-        frequency=adjusted_frequency,
+        max_frequency=MAX_FREQUENCY_HZ,  # Use new optimized parameter
         labels=labels_to_load,
         add_timestamp_column=True,
         apply_timezone_offset=timezone_offset,
         pivoted=True,
     )
     t1 = time.time()
-    logger.debug(f"Data load time: {t1 - t0:.2f}s")
+    logger.info(
+        f"Data load time: {t1 - t0:.2f}s (using max_frequency={MAX_FREQUENCY_HZ} Hz)"
+    )
     logger.debug(f"Data shape: {dff.shape if not dff.empty else 'EMPTY'}")
 
     if dff.empty:
@@ -734,6 +690,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         Output("selected-deployment", "data"),
         Output("selected-dataset", "data"),
         Output("graph-content", "figure"),
+        Output("figure-store", "data"),
         Output("is-loading-data", "data"),
         Output("timeline-container", "children"),
         Output("deployment-info-display", "children"),
@@ -778,6 +735,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 no_update,
                 no_update,
                 no_update,
+                no_update,
                 [],
                 empty_data_json,
                 True,
@@ -788,8 +746,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 True,
                 True,
-                [],  # available-channels
-                [],  # selected-channels
+                [],
+                [],
             )
 
         if not n_clicks_list or not any(n_clicks_list):
@@ -799,6 +757,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 no_update,
                 no_update,
                 no_update,
+                no_update,  # figure-store
                 no_update,
                 no_update,
                 no_update,
@@ -831,6 +790,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 no_update,
                 no_update,
                 no_update,
+                no_update,
                 [],
                 empty_data_json,
                 True,
@@ -841,8 +801,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 True,
                 True,
-                [],  # available-channels
-                [],  # selected-channels
+                [],
+                [],
             )
 
         # Extract dataset and index from triggered_id
@@ -867,6 +827,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     no_update,
                     no_update,
                     no_update,
+                    no_update,
                     [],
                     empty_data_json,
                     True,
@@ -877,8 +838,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     True,
                     True,
                     True,
-                    [],  # available-channels
-                    [],  # selected-channels
+                    [],
+                    [],
                 )
 
             selected_deployment = deployments_data[idx]
@@ -1056,6 +1017,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 selected_deployment,
                 dataset,
                 fig,
+                Serverside(fig),  # Cache FigureResampler for plotly-resampler
                 False,
                 timeline_html,
                 deployment_info_html,
@@ -1103,6 +1065,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 no_update,
                 no_update,
                 fig,
+                None,
                 False,
                 error_timeline,
                 error_info,
@@ -1117,12 +1080,15 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 True,
                 True,
-                [],  # available-channels
-                [],  # selected-channels
+                [],
+                [],
             )
 
     @app.callback(
         Output("graph-content", "figure", allow_duplicate=True),
+        Output(
+            "figure-store", "data", allow_duplicate=True
+        ),  # NEW: Cache FigureResampler
         Output("playback-timestamps", "data", allow_duplicate=True),
         Output("graph-channels", "is_open"),
         Input("update-graph-btn", "n_clicks"),
@@ -1188,7 +1154,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         )
 
         logger.info(f"Graph updated successfully with {len(channel_values)} channels")
-        return fig, timestamps, False
+        return fig, Serverside(fig), timestamps, False
 
     @app.callback(
         Output("graph-channel-list", "children", allow_duplicate=True),
@@ -1407,163 +1373,31 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         }
         return style
 
-    @app.callback(
-        Output("current-zoom-range", "data"),
-        Output("high-res-btn-container", "style"),
-        Input("graph-content", "relayoutData"),
-        State("selected-deployment", "data"),
-        State("current-zoom-range", "data"),
-        prevent_initial_call=True,
-    )
-    def detect_zoom_and_show_button(relayout_data, deployment_data, current_zoom):
-        """Detect when user zooms and show the Load Higher Resolution button."""
-        if not relayout_data or not deployment_data:
-            return no_update, no_update
-
-        # Check if this is a zoom event (xaxis.range changed)
-        if "xaxis.range[0]" in relayout_data and "xaxis.range[1]" in relayout_data:
-            zoom_start = relayout_data["xaxis.range[0]"]
-            zoom_end = relayout_data["xaxis.range[1]"]
-
-            # Store the zoom range
-            zoom_range = {
-                "start": zoom_start,
-                "end": zoom_end,
-            }
-
-            # Check if this is different from the current zoom (to avoid showing button on same zoom)
-            if (
-                current_zoom
-                and current_zoom.get("start") == zoom_start
-                and current_zoom.get("end") == zoom_end
-            ):
-                return no_update, no_update
-
-            # Show the button
-            button_style = {"display": "block"}
-
-            logger.info(f"Zoom detected: {zoom_start} to {zoom_end}")
-            return zoom_range, button_style
-
-        # Check if user clicked "reset axes" or "autoscale"
-        elif "xaxis.autorange" in relayout_data:
-            # Hide button on reset
-            button_style = {"display": "none"}
-            return None, button_style
-
-        return no_update, no_update
-
+    # Handle zoom/pan events with plotly-resampler
     @app.callback(
         Output("graph-content", "figure", allow_duplicate=True),
-        Output("playback-timestamps", "data", allow_duplicate=True),
-        Output("high-res-btn-container", "style", allow_duplicate=True),
-        Output("high-res-loading-state", "children", allow_duplicate=True),
-        Input("load-high-res-btn", "n_clicks"),
-        State("current-zoom-range", "data"),
-        State("selected-dataset", "data"),
-        State("selected-deployment", "data"),
-        State({"type": "channel-select", "index": ALL}, "value"),
-        State("available-channels", "data"),
-        State("all-datasets-deployments", "data"),
+        Input("graph-content", "relayoutData"),
+        State("figure-store", "data"),  # The cached FigureResampler object
         prevent_initial_call=True,
+        memoize=True,
     )
-    def load_high_resolution_data(
-        n_clicks,
-        zoom_range,
-        dataset,
-        deployment_data,
-        channel_values,
-        available_channels,
-        datasets_with_deployments,
-    ):
-        """Load higher resolution data for the zoomed time range."""
-        if not n_clicks or not zoom_range or not dataset or not deployment_data:
-            raise dash.exceptions.PreventUpdate
+    def update_graph_on_zoom(relayoutdata: dict, fig: FigureResampler):
+        """
+        Handle zoom/pan events with plotly-resampler.
 
-        logger.info(f"Loading high resolution data for zoom range: {zoom_range}")
+        When a user zooms or pans on the graph, this callback is triggered.
+        The FigureResampler object cached in figure-store will automatically
+        load the appropriate resolution of data for the new view range.
+        """
+        if fig is None:
+            logger.debug("No FigureResampler in cache, skipping zoom update")
+            return no_update
 
-        # Get deployment details
-        deployment_id = deployment_data["deployment"]
-        animal_id = deployment_data["animal"]
+        if not relayoutdata:
+            logger.debug("No relayout data, skipping zoom update")
+            return no_update
 
-        # Find full deployment data for sample_count
-        deployments_list = datasets_with_deployments.get(dataset, [])
-        selected_deployment = None
-        for dep in deployments_list:
-            if dep["deployment"] == deployment_id and dep["animal"] == animal_id:
-                selected_deployment = dep
-                break
+        logger.debug(f"Zoom/pan event detected: {relayoutdata.keys()}")
 
-        if not selected_deployment:
-            logger.error(f"Could not find deployment {deployment_id} in datasets")
-            raise dash.exceptions.PreventUpdate
-
-        # Get timezone offset
-        timezone_offset = duck_pond.get_deployment_timezone_offset(deployment_id)
-
-        # Convert zoom range strings to proper ISO format datetime strings
-        # IMPORTANT: The zoom range from Plotly is in the display timezone (already offset)
-        # We need to reverse the offset to get back to UTC for querying
-        zoom_start_dt = pd.to_datetime(zoom_range["start"])
-        zoom_end_dt = pd.to_datetime(zoom_range["end"])
-
-        # Reverse the timezone offset to get back to UTC
-        # The display time has already been offset, so we subtract it to get original UTC
-        zoom_start_utc = zoom_start_dt - pd.Timedelta(hours=timezone_offset)
-        zoom_end_utc = zoom_end_dt - pd.Timedelta(hours=timezone_offset)
-
-        date_range = {
-            "start": zoom_start_utc.isoformat(),
-            "end": zoom_end_utc.isoformat(),
-        }
-
-        logger.info(
-            f"Loading data for zoomed range (UTC): {date_range['start']} to {date_range['end']}"
-        )
-        logger.info(
-            f"Original zoom range (display timezone): {zoom_range['start']} to {zoom_range['end']}"
-        )
-
-        # Use channel_values from the channel-select components
-        # channel_values is a list from the pattern-matching callback
-        selected_channels = channel_values if channel_values else []
-
-        logger.debug(f"Selected channels for high-res load: {selected_channels}")
-        logger.debug(
-            f"Available channels passed: {len(available_channels) if available_channels else 0} channels"
-        )
-
-        # Debug: Log available groups to verify channel names
-        if available_channels:
-            available_groups = [
-                ch.get("group")
-                for ch in available_channels
-                if ch.get("kind") == "group"
-            ]
-            logger.debug(f"Available groups in high-res callback: {available_groups}")
-
-        # Generate graph with selected channels and zoomed date range
-        # The existing adaptive frequency logic will provide higher resolution for smaller windows
-        fig, dff, timestamps = generate_graph_from_channels(
-            duck_pond=duck_pond,
-            dataset=dataset,
-            deployment_id=deployment_id,
-            animal_id=animal_id,
-            date_range=date_range,
-            timezone_offset=timezone_offset,
-            selected_channels=selected_channels,
-            selected_deployment=selected_deployment,
-            available_channels=available_channels,
-        )
-
-        # Hide the button after loading
-        button_style = {"display": "none"}
-
-        logger.info(
-            f"High resolution data loaded successfully with {len(timestamps)} timestamps"
-        )
-
-        # Update loading state to trigger the loading indicator to hide
-        loading_state = str(time.time())
-
-        return fig, timestamps, button_style, loading_state
+        # construct_update_data_patch handles the resampling based on zoom level
+        return fig.construct_update_data_patch(relayoutdata)
