@@ -6,9 +6,10 @@
 
 - **Project**: Dash-based biologging data visualization dashboard for DiveDB
 - **Entry Point**: `data_visualization.py` (line 186: `if __name__ == "__main__"`)
-- **Tech Stack**: Dash, Plotly, DuckDB, Apache Iceberg, Notion API, Immich
+- **Tech Stack**: Dash, Plotly, DuckDB, Apache Iceberg, Notion API, Immich, plotly-resampler, dash-extensions
 - **Port**: 8054 (development)
 - **Key Dependencies**: `DuckPond`, `NotionORMManager`, `ImmichService`
+- **Performance**: Uses `plotly-resampler` for dynamic data resampling on zoom/pan
 
 ## Architecture Overview
 
@@ -21,8 +22,9 @@ User Action → Callback → Store Update → UI Update → Next Callback
 ### State Management
 
 - Uses `dcc.Store` components for persistent state
-- Key stores: `selected-dataset`, `selected-deployment`, `playhead-time`, `is-playing`, `playback-timestamps`, `current-video-options`, `available-channels`, `selected-channels`
+- Key stores: `selected-dataset`, `selected-deployment`, `playhead-time`, `is-playing`, `playback-timestamps`, `current-video-options`, `available-channels`, `selected-channels`, `figure-store`
 - Stores defined in `create_app_stores()` (data_visualization.py:67-103)
+- `figure-store` caches `FigureResampler` objects server-side via `dash-extensions.Serverside`
 
 ### Callback Registration Order
 
@@ -62,6 +64,7 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - `immich_service`: ImmichService() (line 62)
 
 **App Configuration**:
+- Uses `DashProxy` from `dash-extensions` with `ServersideOutputTransform` for server-side caching
 - External stylesheets: Bootstrap + custom SASS CSS (lines 54-56)
 - Initial layout: Empty state with empty figure/dataframe (lines 152-170)
 
@@ -107,23 +110,23 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - `populate_dataset_accordion()`: `all-datasets-deployments.data` → `dataset-accordion.children`
 - `select_deployment_and_load_visualization()`: `deployment-button.n_clicks` → Multiple outputs:
   - `selected-deployment.data`, `selected-dataset.data`
-  - `graph-content.figure`, `is-loading-data.data`
+  - `graph-content.figure`, `figure-store.data` (caches FigureResampler)
+  - `is-loading-data.data`
   - `timeline-container.children`, `deployment-info-display.children`
   - `playback-timestamps.data`, `current-video-options.data`
   - `three-d-model.data`
   - Playback control button states
   - `available-channels.data`, `selected-channels.data`
-- `update_graph_from_channels()`: `update-graph-btn.n_clicks` → `graph-content.figure`, `playback-timestamps.data`, `graph-channels.is_open`
+- `update_graph_from_channels()`: `update-graph-btn.n_clicks` → `graph-content.figure`, `figure-store.data`, `playback-timestamps.data`, `graph-channels.is_open`
 - `populate_channel_list_from_selection()`: `selected-channels.data` → `graph-channel-list.children`
 - `show_loading_overlay()`: `deployment-button.n_clicks` → `loading-overlay.style`, `is-loading-data.data`
-- `detect_zoom_and_show_button()`: `graph-content.relayoutData` → `current-zoom-range.data`, `high-res-btn-container.style`
-- `load_high_resolution_data()`: `load-high-res-btn.n_clicks` → `graph-content.figure`, `playback-timestamps.data`, `high-res-btn-container.style`
+- `update_graph_on_zoom()`: `graph-content.relayoutData` + `figure-store.data` → `graph-content.figure` (plotly-resampler dynamic resampling)
 
 **Data Flow**:
 1. Page load → Load datasets/deployments from DuckPond
-2. User clicks deployment → Fetch data, generate graph, load videos from Immich
-3. User selects channels → Update graph with selected channels
-4. User zooms → Show high-res button → Load higher resolution data
+2. User clicks deployment → Fetch data, generate FigureResampler graph, cache it, load videos from Immich
+3. User selects channels → Update graph with selected channels, recache FigureResampler
+4. User zooms/pans → plotly-resampler automatically loads appropriate resolution from cached data
 
 ### clientside_callbacks.py
 
@@ -149,8 +152,8 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - `plot_tag_data_interactive(data_pkl, sensors=None, derived_data_signals=None, channels=None, time_range=None, note_annotations=None, state_annotations=None, zoom_start_time=None, zoom_end_time=None, plot_event_values=None, zoom_range_selector_channel=None)` → FigureResampler - Main plotting function
 
 **Features**:
-- Uses `plotly_resampler` for performance with large datasets
-  - May not be implemented correctly in the current version
+- Creates `FigureResampler` objects for performance with large datasets
+- Dynamic resampling handled by `update_graph_on_zoom()` callback in `selection_callbacks.py`
 - Supports sensor_data and derived_data
 - Handles note annotations (point events) and state annotations (rectangles)
 - Color mapping from `color_mapping.json`
@@ -330,6 +333,7 @@ User Action → Callback → Store Update → UI Update → Next Callback
 | `channel-order` | List[dict] | Channel display order | `[{"id": "channel-1", "index": 0, "value": "depth"}, ...]` |
 | `is-loading-data` | bool | Data loading state | `False` |
 | `selected-timezone` | float | Timezone offset in hours | `-10.0` |
+| `figure-store` | FigureResampler | Server-side cached FigureResampler object | (cached via `Serverside()`) |
 
 ### data_pkl Structure
 
@@ -514,6 +518,22 @@ video_preview.VideoPreview(
 4. Graph regenerated via `update_graph_from_channels()` callback
 5. Channel order tracked in `channel-order` store
 
+### Plotly-Resampler Pattern
+
+**Overview**: Uses `plotly-resampler` with `dash-extensions` for automatic data resampling on zoom/pan
+
+**Implementation**:
+1. `graph_utils.py` creates `FigureResampler` objects (not standard `go.Figure`)
+2. Callbacks that generate graphs cache the `FigureResampler` via `Serverside(fig)`
+3. `update_graph_on_zoom()` callback listens to `relayoutData` and calls `fig.construct_update_data_patch()`
+4. All high-resolution data loaded once; resampler dynamically adjusts resolution based on zoom level
+
+**Key Points**:
+- App uses `DashProxy` instead of `dash.Dash` (required for `Serverside` caching)
+- `figure-store` holds cached `FigureResampler` per session
+- No manual high-res button needed - automatic on zoom/pan
+- `memoize=True` on zoom callback prevents redundant updates
+
 ### Adding a New Layout Section
 
 1. Create component function in appropriate `layout/` module
@@ -534,11 +554,13 @@ video_preview.VideoPreview(
    - Adjust frequency if needed (downsampling)
    - Load data from DuckPond
    - Create data_pkl structure
-   - Generate Plotly figure
-6. Load videos → `immich_service.find_media_by_deployment_id()`
-7. Load events → `duck_pond.get_events()`
-8. Generate timeline → `create_timeline_section()`
-9. Hide loading overlay → `hide_loading_overlay()`
+   - Generate FigureResampler object (contains all high-res data in memory)
+6. Cache FigureResampler → Store via `Serverside(fig)` in `figure-store`
+7. Load videos → `immich_service.find_media_by_deployment_id()`
+8. Load events → `duck_pond.get_events()`
+9. Generate timeline → `create_timeline_section()`
+10. Hide loading overlay → `hide_loading_overlay()`
+11. User zooms/pans → `update_graph_on_zoom()` automatically resamples from cached data
 
 ### Styling Updates
 

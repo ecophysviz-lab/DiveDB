@@ -1,4 +1,3 @@
-import dash
 import os
 import sys
 
@@ -7,6 +6,7 @@ import dash_bootstrap_components as dbc
 from pathlib import Path
 from dash import dcc, html
 import pandas as pd
+from dash_extensions.enrich import DashProxy, ServersideOutputTransform
 
 from DiveDB.services.duck_pond import DuckPond
 from DiveDB.services.notion_orm import NotionORMManager
@@ -49,12 +49,13 @@ notion_manager = NotionORMManager(
     },
 )
 
-app = dash.Dash(
+app = DashProxy(
     __name__,
     external_stylesheets=[
         dbc.themes.BOOTSTRAP,
         "/assets/styles.css",  # Custom SASS-compiled CSS
     ],
+    transforms=[ServersideOutputTransform()],
 )
 
 # Initialize services (will be passed to callbacks)
@@ -100,6 +101,8 @@ def create_app_stores(dff):
         # Stores for channel management
         dcc.Store(id="available-channels", data=[]),  # Channel options from DuckPond
         dcc.Store(id="selected-channels", data=[]),  # User-selected channels to display
+        # Store for FigureResampler object (server-side cached)
+        dcc.Store(id="figure-store", data=None),
     ]
 
 

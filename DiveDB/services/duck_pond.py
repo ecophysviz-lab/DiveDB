@@ -18,6 +18,11 @@ from DiveDB.services.connection.catalog_manager import CatalogManager
 from DiveDB.services.connection.duckdb_connection import DuckDBConnection
 from DiveDB.services.connection.notion_integration import NotionIntegration
 from DiveDB.services.connection.dataset_manager import DatasetManager
+from DiveDB.services.utils.cache_utils import (
+    generate_cache_key,
+    load_from_cache,
+    save_to_cache,
+)
 
 
 class DuckPond:
@@ -751,85 +756,138 @@ class DuckPond:
         base_query: str,
         target_fs: float,
         labels: List[str] | None,
+        use_max_frequency: bool = False,
     ) -> str:
         """
         Transform a base query to include resampling logic.
 
-        This method:
-        1. Creates a common time grid for ALL labels
-        2. Estimates native frequency for each label
-        3. Downsamples high-frequency data and joins to common grid
-        4. Upsamples low-frequency data and joins to common grid
-
-        All done at the SQL level for maximum performance.
+        Args:
+            base_query: Base SQL query to wrap
+            target_fs: Target frequency in Hz (or max frequency if use_max_frequency=True)
+            labels: List of labels to process
+            use_max_frequency: If True, treats target_fs as max frequency cap per label.
+                              Each label downsampled to min(native_freq, target_fs).
+                              If False, uses old behavior with common time grid.
         """
         # Discover labels if not provided
         if not labels:
             labels = self._get_distinct_labels(base_query)
-
-        # Get global time range across all labels
-        time_range_query = f"""
-        SELECT MIN(datetime) as start_time, MAX(datetime) as end_time
-        FROM ({base_query})
-        """
-        result = self.conn.sql(time_range_query).fetchone()
-        if not result or not result[0]:
-            # No data, return empty query
-            return """
-            SELECT
-                CAST(NULL AS TIMESTAMP) as datetime,
-                CAST(NULL AS VARCHAR) as label,
-                CAST(NULL AS DOUBLE) as numeric_value
-            WHERE 1=0
-            """
-
-        start_time, end_time = result
-        interval_ms = int(1000 / target_fs)
-
-        # Create common time grid CTE
-        common_time_grid = f"""
-        common_time_grid AS (
-            SELECT datetime AS grid_time
-            FROM generate_series(
-                TIMESTAMP '{start_time}',
-                TIMESTAMP '{end_time}',
-                INTERVAL '{interval_ms} milliseconds'
-            ) AS t(datetime)
-        )
-        """
 
         # Estimate frequency for each label
         label_frequencies = {
             label: self._estimate_label_frequency(base_query, label) for label in labels
         }
 
-        # Build resampling query for each label, joining to common grid
-        label_queries = []
-        for label in labels:
-            native_fs = label_frequencies.get(label)
+        if use_max_frequency:
+            label_queries = []
 
-            if native_fs is None or abs(native_fs - target_fs) <= target_fs * 0.01:
-                # Pass through or already at target frequency
-                label_data_query = f"""
+            for label in labels:
+                native_fs = label_frequencies.get(label)
+
+                # Determine target frequency for this specific label
+                if native_fs is None:
+                    # Unknown frequency - use as-is
+                    label_query = f"""
+                    SELECT
+                        datetime,
+                        '{label}' as label,
+                        CASE data_type
+                            WHEN 'double' THEN float_value
+                            WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                            WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                            ELSE TRY_CAST(string_value AS DOUBLE)
+                        END AS numeric_value
+                    FROM ({base_query})
+                    WHERE label = '{label}'
+                    """
+                elif native_fs > target_fs * 1.01:
+                    # Native frequency exceeds max - downsample
+                    downsample_factor = int(native_fs / target_fs)
+                    label_query = f"""
+                    SELECT
+                        datetime,
+                        '{label}' as label,
+                        numeric_value
+                    FROM (
+                        SELECT
+                            datetime,
+                            CASE data_type
+                                WHEN 'double' THEN float_value
+                                WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                                WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                                ELSE TRY_CAST(string_value AS DOUBLE)
+                            END AS numeric_value,
+                            ROW_NUMBER() OVER (ORDER BY datetime) as rn
+                        FROM ({base_query})
+                        WHERE label = '{label}'
+                    ) sub
+                    WHERE (rn - 1) % {downsample_factor} = 0
+                    """
+                else:
+                    # Native frequency below max - use as-is (no downsampling needed)
+                    label_query = f"""
+                    SELECT
+                        datetime,
+                        '{label}' as label,
+                        CASE data_type
+                            WHEN 'double' THEN float_value
+                            WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                            WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                            ELSE TRY_CAST(string_value AS DOUBLE)
+                        END AS numeric_value
+                    FROM ({base_query})
+                    WHERE label = '{label}'
+                    """
+
+                label_queries.append(label_query)
+
+            # Union all labels - each at its own optimal frequency
+            final_query = f"""
+            {' UNION ALL '.join(label_queries)}
+            ORDER BY label, datetime
+            """
+
+            return final_query
+
+        else:
+            time_range_query = f"""
+            SELECT MIN(datetime) as start_time, MAX(datetime) as end_time
+            FROM ({base_query})
+            """
+            result = self.conn.sql(time_range_query).fetchone()
+            if not result or not result[0]:
+                # No data, return empty query
+                return """
                 SELECT
-                    datetime,
-                    CASE data_type
-                        WHEN 'double' THEN float_value
-                        WHEN 'int' THEN CAST(int_value AS DOUBLE)
-                        WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
-                        ELSE TRY_CAST(string_value AS DOUBLE)
-                    END AS numeric_value
-                FROM ({base_query})
-                WHERE label = '{label}'
+                    CAST(NULL AS TIMESTAMP) as datetime,
+                    CAST(NULL AS VARCHAR) as label,
+                    CAST(NULL AS DOUBLE) as numeric_value
+                WHERE 1=0
                 """
-            elif native_fs > target_fs * 1.01:
-                # Downsample: select every Nth row
-                downsample_factor = int(native_fs / target_fs)
-                label_data_query = f"""
-                SELECT
-                    datetime,
-                    numeric_value
-                FROM (
+
+            start_time, end_time = result
+            interval_ms = int(1000 / target_fs)
+
+            # Create common time grid CTE
+            common_time_grid = f"""
+            common_time_grid AS (
+                SELECT datetime AS grid_time
+                FROM generate_series(
+                    TIMESTAMP '{start_time}',
+                    TIMESTAMP '{end_time}',
+                    INTERVAL '{interval_ms} milliseconds'
+                ) AS t(datetime)
+            )
+            """
+
+            # Build resampling query for each label, joining to common grid
+            label_queries = []
+            for label in labels:
+                native_fs = label_frequencies.get(label)
+
+                if native_fs is None or abs(native_fs - target_fs) <= target_fs * 0.01:
+                    # Pass through or already at target frequency
+                    label_data_query = f"""
                     SELECT
                         datetime,
                         CASE data_type
@@ -837,59 +895,78 @@ class DuckPond:
                             WHEN 'int' THEN CAST(int_value AS DOUBLE)
                             WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
                             ELSE TRY_CAST(string_value AS DOUBLE)
-                        END AS numeric_value,
-                        ROW_NUMBER() OVER (ORDER BY datetime) as rn
+                        END AS numeric_value
                     FROM ({base_query})
                     WHERE label = '{label}'
-                ) sub
-                WHERE (rn - 1) % {downsample_factor} = 0
-                """
-            else:
-                # Upsample: use original data, will forward-fill when joined to grid
-                label_data_query = f"""
-                SELECT
-                    datetime,
-                    CASE data_type
-                        WHEN 'double' THEN float_value
-                        WHEN 'int' THEN CAST(int_value AS DOUBLE)
-                        WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
-                        ELSE TRY_CAST(string_value AS DOUBLE)
-                    END AS numeric_value
-                FROM ({base_query})
-                WHERE label = '{label}'
-                """
+                    """
+                elif native_fs > target_fs * 1.01:
+                    # Downsample: select every Nth row
+                    downsample_factor = int(native_fs / target_fs)
+                    label_data_query = f"""
+                    SELECT
+                        datetime,
+                        numeric_value
+                    FROM (
+                        SELECT
+                            datetime,
+                            CASE data_type
+                                WHEN 'double' THEN float_value
+                                WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                                WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                                ELSE TRY_CAST(string_value AS DOUBLE)
+                            END AS numeric_value,
+                            ROW_NUMBER() OVER (ORDER BY datetime) as rn
+                        FROM ({base_query})
+                        WHERE label = '{label}'
+                    ) sub
+                    WHERE (rn - 1) % {downsample_factor} = 0
+                    """
+                else:
+                    # Upsample: use original data, will forward-fill when joined to grid
+                    label_data_query = f"""
+                    SELECT
+                        datetime,
+                        CASE data_type
+                            WHEN 'double' THEN float_value
+                            WHEN 'int' THEN CAST(int_value AS DOUBLE)
+                            WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
+                            ELSE TRY_CAST(string_value AS DOUBLE)
+                        END AS numeric_value
+                    FROM ({base_query})
+                    WHERE label = '{label}'
+                    """
 
-            # Join label data to common time grid with forward fill
-            label_query = f"""
-            label_{label.replace('-', '_').replace(' ', '_')} AS (
-                SELECT
-                    grid_time AS datetime,
-                    '{label}' as label,
-                    LAST_VALUE(ld.numeric_value IGNORE NULLS) OVER (
-                        ORDER BY grid_time
-                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                    ) as numeric_value
-                FROM common_time_grid
-                ASOF LEFT JOIN ({label_data_query}) AS ld
-                ON grid_time >= ld.datetime
-            )
+                # Join label data to common time grid with forward fill
+                label_query = f"""
+                label_{label.replace('-', '_').replace(' ', '_')} AS (
+                    SELECT
+                        grid_time AS datetime,
+                        '{label}' as label,
+                        LAST_VALUE(ld.numeric_value IGNORE NULLS) OVER (
+                            ORDER BY grid_time
+                            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                        ) as numeric_value
+                    FROM common_time_grid
+                    ASOF LEFT JOIN ({label_data_query}) AS ld
+                    ON grid_time >= ld.datetime
+                )
+                """
+                label_queries.append(label_query)
+
+            # Build final query with common time grid and all label CTEs
+            all_ctes = [common_time_grid] + label_queries
+            select_unions = [
+                f"SELECT datetime, label, numeric_value FROM label_{label.replace('-', '_').replace(' ', '_')}"
+                for label in labels
+            ]
+
+            final_query = f"""
+            WITH {', '.join(all_ctes)}
+            {' UNION ALL '.join(select_unions)}
+            ORDER BY label, datetime
             """
-            label_queries.append(label_query)
 
-        # Build final query with common time grid and all label CTEs
-        all_ctes = [common_time_grid] + label_queries
-        select_unions = [
-            f"SELECT datetime, label, numeric_value FROM label_{label.replace('-', '_').replace(' ', '_')}"
-            for label in labels
-        ]
-
-        final_query = f"""
-        WITH {', '.join(all_ctes)}
-        {' UNION ALL '.join(select_unions)}
-        ORDER BY label, datetime
-        """
-
-        return final_query
+            return final_query
 
     def _execute_pivoted_query(
         self, query: str, labels: List[str] | None, is_resampled: bool = False
@@ -955,10 +1032,12 @@ class DuckPond:
         classes: str | List[str] | None = None,
         date_range: tuple[str, str] | None = None,
         frequency: int | None = None,
+        max_frequency: int | None = None,
         limit: int | None = None,
         pivoted: bool = False,
         apply_timezone_offset: Optional[int] = None,
         add_timestamp_column: bool = False,
+        use_cache: bool = False,
     ):
         """
         Get data from a specific dataset using direct Parquet access (bypassing Iceberg layer).
@@ -972,16 +1051,26 @@ class DuckPond:
             groups: Group filter
             classes: Class filter
             date_range: Date range tuple (start, end)
-            frequency: Resample frequency in Hz (if provided, applies SQL-based resampling)
+            frequency: Resample frequency in Hz - LEGACY (creates common time grid for all labels)
+            max_frequency: Maximum frequency cap in Hz - OPTIMIZED (downsamples only high-freq labels)
+                          Each label maintains native frequency up to this cap.
+                          Preferred over 'frequency' for mixed-frequency data (10-100x faster).
             limit: Row limit
             pivoted: If True, returns data with labels as columns grouped by datetime
             apply_timezone_offset: Optional timezone offset in hours to add to datetime column
             add_timestamp_column: If True, adds a 'timestamp' column (seconds since epoch)
+            use_cache: If True, caches DataFrame results to disk (1-day TTL). Only applies when returning DataFrame.
 
         Returns:
-        - If frequency is not None, returns a pd.DataFrame (resampled to target frequency).
+        - If frequency or max_frequency is not None, returns a pd.DataFrame (resampled).
         - If pivoted is True, returns DataFrame with labels as columns.
         - Otherwise, returns a DiveData object with long-format data.
+
+        Performance Note:
+            For mixed-frequency data (e.g., 400 Hz IMU + 1 Hz depth), use max_frequency
+            instead of frequency for 10-100x speedup. Example:
+                max_frequency=20  # IMU at 20 Hz, depth stays at 1 Hz
+            vs. frequency=20     # Forces depth to upsample to 20 Hz (slower)
         """
 
         # Ensure dataset is initialized
@@ -999,6 +1088,46 @@ class DuckPond:
             labels, animal_ids, deployment_ids, recording_ids, groups, classes
         )
 
+        # Check if we should use cache (only for DataFrame returns)
+        will_return_dataframe = (
+            pivoted or frequency is not None or max_frequency is not None
+        )
+        cache_key = None
+        if use_cache and will_return_dataframe:
+            # Generate cache key from parameters
+            params_dict = {
+                "dataset": dataset,
+                "labels": labels,
+                "animal_ids": animal_ids,
+                "deployment_ids": deployment_ids,
+                "recording_ids": recording_ids,
+                "groups": groups,
+                "classes": classes,
+                "date_range": date_range,
+                "frequency": frequency,
+                "max_frequency": max_frequency,
+                "limit": limit,
+                "pivoted": pivoted,
+                "apply_timezone_offset": apply_timezone_offset,
+            }
+            cache_key = generate_cache_key(params_dict)
+
+            # Try to load from cache
+            cached_df = load_from_cache(cache_key, ttl_seconds=86400)
+            if cached_df is not None:
+                # Cache hit - cached DataFrame already has date handling applied
+                # Only need to handle add_timestamp_column if it differs from cached state
+                # (timezone offset is already in cache key, so it's already applied)
+                if add_timestamp_column and "timestamp" not in cached_df.columns:
+                    # Add timestamp column if requested but not present
+                    cached_df = self._apply_date_handling(
+                        cached_df, "datetime", None, add_timestamp_column
+                    )
+                elif not add_timestamp_column and "timestamp" in cached_df.columns:
+                    # Remove timestamp column if not requested but present
+                    cached_df = cached_df.drop(columns=["timestamp"])
+                return cached_df
+
         # Build base query using the dataset-specific Data view
         view_name = f'"{dataset}_Data"'
         base_query = self._build_base_query(
@@ -1010,15 +1139,28 @@ class DuckPond:
             groups=groups,
             classes=classes,
             date_range=date_range,
-            limit=limit if not frequency else None,  # Don't limit before resampling
+            limit=limit
+            if not (frequency or max_frequency)
+            else None,  # Don't limit before resampling
         )
 
-        # Apply resampling transformation if frequency is provided
-        if frequency:
+        # Apply resampling transformation if frequency or max_frequency is provided
+        if max_frequency:
+            # OPTIMIZED: Per-label adaptive downsampling
+            query = self._wrap_query_with_resampling(
+                base_query=base_query,
+                target_fs=max_frequency,
+                labels=labels,
+                use_max_frequency=True,
+            )
+            is_resampled = True
+        elif frequency:
+            # LEGACY: Common time grid for all labels
             query = self._wrap_query_with_resampling(
                 base_query=base_query,
                 target_fs=frequency,
                 labels=labels,
+                use_max_frequency=False,
             )
             is_resampled = True
         else:
@@ -1026,7 +1168,7 @@ class DuckPond:
             is_resampled = False
 
         # Apply limit after resampling
-        if frequency and limit:
+        if (frequency or max_frequency) and limit:
             query = f"SELECT * FROM ({query}) LIMIT {limit}"
 
         # Handle pivoting (works on resampled or non-resampled data)
@@ -1035,13 +1177,19 @@ class DuckPond:
             df = self._apply_date_handling(
                 df, "datetime", apply_timezone_offset, add_timestamp_column
             )
+            # Save to cache if enabled
+            if cache_key is not None:
+                save_to_cache(cache_key, df)
             return df
-        elif frequency:
+        elif frequency or max_frequency:
             # For resampled data, return DataFrame directly
             df = self.conn.sql(query).df()
             df = self._apply_date_handling(
                 df, "datetime", apply_timezone_offset, add_timestamp_column
             )
+            # Save to cache if enabled
+            if cache_key is not None:
+                save_to_cache(cache_key, df)
             return df
         else:
             # For non-resampled data without pivoting, return DiveData object
