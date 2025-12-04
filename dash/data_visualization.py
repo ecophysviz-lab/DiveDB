@@ -103,6 +103,15 @@ def create_app_stores(dff):
         dcc.Store(id="selected-channels", data=[]),  # User-selected channels to display
         # Store for FigureResampler object (server-side cached)
         dcc.Store(id="figure-store", data=None),
+        # Stores for event management
+        dcc.Store(
+            id="available-events", data=[]
+        ),  # List of unique event types for deployment
+        dcc.Store(
+            id="selected-events", data=[]
+        ),  # List of dicts: [{event_key, signal, enabled}, ...]
+        # Store for channel order from DOM (updated by clientside callback on Update Graph click)
+        dcc.Store(id="channel-order-from-dom", data=[]),
     ]
 
 

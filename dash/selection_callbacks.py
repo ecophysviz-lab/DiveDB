@@ -14,6 +14,7 @@ from layout import (
     create_timeline_section,
     create_deployment_info_display,
 )
+from layout.indicators import assign_event_colors
 from graph_utils import plot_tag_data_interactive
 from plotly_resampler import FigureResampler
 
@@ -23,9 +24,10 @@ logger = get_logger(__name__)
 class DataPkl:
     """Simple class to support both attribute and dict access for data_pkl structure."""
 
-    def __init__(self, signal_data, signal_info):
+    def __init__(self, signal_data, signal_info, event_data=None):
         self.signal_data = signal_data
         self.signal_info = signal_info
+        self.event_data = event_data
 
     def __getitem__(self, key):
         """Support dict-style access."""
@@ -33,12 +35,44 @@ class DataPkl:
             return self.signal_data
         elif key == "signal_info":
             return self.signal_info
+        elif key == "event_data":
+            return self.event_data
         else:
             raise KeyError(key)
 
     def __contains__(self, key):
         """Support 'in' operator."""
-        return key in ["signal_data", "signal_info"]
+        return key in ["signal_data", "signal_info", "event_data"]
+
+
+def transform_events_for_graph(events_df):
+    """
+    Transform events DataFrame from DuckPond format to graph annotation format.
+
+    DuckPond format: event_key, datetime_start, datetime_end
+    Graph format: key, datetime, duration
+
+    Returns:
+        pd.DataFrame with columns: key, datetime, duration (in seconds)
+    """
+    if events_df is None or events_df.empty:
+        return None
+
+    transformed = pd.DataFrame()
+    transformed["key"] = events_df["event_key"]
+    transformed["datetime"] = events_df["datetime_start"]
+
+    # Calculate duration in seconds
+    start_times = pd.to_datetime(events_df["datetime_start"])
+    end_times = pd.to_datetime(events_df["datetime_end"])
+    transformed["duration"] = (end_times - start_times).dt.total_seconds()
+
+    # Keep original columns for reference
+    transformed["datetime_end"] = events_df["datetime_end"]
+    if "short_description" in events_df.columns:
+        transformed["short_description"] = events_df["short_description"]
+
+    return transformed
 
 
 def _create_data_pkl_from_groups(dff, data_columns, group_membership):
@@ -316,6 +350,8 @@ def generate_graph_from_channels(
     selected_channels,
     selected_deployment,
     available_channels=None,
+    events_df=None,
+    selected_events=None,
 ):
     """
     Fetch data and generate graph for selected channels.
@@ -330,6 +366,8 @@ def generate_graph_from_channels(
         selected_channels: List of channel identifiers (can be group names or individual labels)
         selected_deployment: Deployment metadata dict (for sample_count)
         available_channels: List of channel metadata from DuckPond (optional)
+        events_df: DataFrame with events from DuckPond (optional)
+        selected_events: List of event selection dicts [{event_key, signal, enabled}, ...] (optional)
 
     Returns:
         Tuple of (fig, dff, timestamps)
@@ -535,16 +573,73 @@ def generate_graph_from_channels(
     logger.debug("Creating data_pkl structure...")
     data_pkl = create_data_pkl_from_dataframe(dff, group_membership=group_membership)
 
+    # Step 4b: Add event data if available
+    transformed_events = None
+    if events_df is not None and not events_df.empty:
+        transformed_events = transform_events_for_graph(events_df)
+        # Update data_pkl with event_data
+        data_pkl.event_data = transformed_events
+        logger.debug(f"Added {len(transformed_events)} events to data_pkl")
+
     # Determine zoom_range_selector_channel (use depth if available)
     zoom_range_selector_channel = None
     if "depth" in data_pkl["signal_data"]:
         zoom_range_selector_channel = "depth"
 
-    # Step 5: Create figure using plot_tag_data_interactive
+    # Step 5: Build annotation dicts from selected_events
+    note_annotations = {}
+    state_annotations = {}
+
+    if selected_events and transformed_events is not None:
+        # Get event colors for consistent styling
+        event_colors = assign_event_colors(events_df) if events_df is not None else {}
+
+        for event_selection in selected_events:
+            if not event_selection.get("enabled", False):
+                continue
+
+            event_key = event_selection.get("event_key")
+            target_signal = event_selection.get("signal")
+
+            if not event_key or not target_signal:
+                continue
+
+            # Check if this is a point event or state event
+            event_rows = transformed_events[transformed_events["key"] == event_key]
+            if event_rows.empty:
+                continue
+
+            # Point event: duration is 0 (datetime_start == datetime_end)
+            is_point_event = (event_rows["duration"] == 0).all()
+            event_color = event_colors.get(event_key, "#95a5a6")
+
+            if is_point_event:
+                # Add to note_annotations (point events as markers)
+                note_annotations[event_key] = {
+                    "signal": target_signal,
+                    "symbol": "circle",
+                    "color": event_color,
+                }
+                logger.debug(
+                    f"Added point annotation for '{event_key}' on signal '{target_signal}'"
+                )
+            else:
+                # Add to state_annotations (state events as rectangles)
+                state_annotations[event_key] = {
+                    "signal": target_signal,
+                    "color": f"rgba({int(event_color[1:3], 16)}, {int(event_color[3:5], 16)}, {int(event_color[5:7], 16)}, 0.3)",
+                }
+                logger.debug(
+                    f"Added state annotation for '{event_key}' on signal '{target_signal}'"
+                )
+
+    # Step 6: Create figure using plot_tag_data_interactive
     logger.debug("Creating figure...")
     fig = plot_tag_data_interactive(
         data_pkl=data_pkl,
         zoom_range_selector_channel=zoom_range_selector_channel,
+        note_annotations=note_annotations if note_annotations else None,
+        state_annotations=state_annotations if state_annotations else None,
     )
 
     logger.info(f"Created figure with {len(data_pkl['signal_data'])} signal groups")
@@ -666,6 +761,9 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         # Channel management outputs
         Output("available-channels", "data"),
         Output("selected-channels", "data"),
+        # Event management outputs
+        Output("available-events", "data"),
+        Output("selected-events", "data"),
         Input(
             {
                 "type": "deployment-button",
@@ -703,8 +801,10 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 True,
                 True,
-                [],
-                [],
+                [],  # available-channels
+                [],  # selected-channels
+                [],  # available-events
+                [],  # selected-events
             )
 
         if not n_clicks_list or not any(n_clicks_list):
@@ -731,6 +831,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 [],  # available-channels
                 [],  # selected-channels
+                [],  # available-events
+                [],  # selected-events
             )
 
         # Find which button was clicked
@@ -758,8 +860,10 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 True,
                 True,
-                [],
-                [],
+                [],  # available-channels
+                [],  # selected-channels
+                [],  # available-events
+                [],  # selected-events
             )
 
         # Extract dataset and index from triggered_id
@@ -795,8 +899,10 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     True,
                     True,
                     True,
-                    [],
-                    [],
+                    [],  # available-channels
+                    [],  # selected-channels
+                    [],  # available-events
+                    [],  # selected-events
                 )
 
             selected_deployment = deployments_data[idx]
@@ -976,6 +1082,45 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 model_data_json = empty_df.to_json(orient="split")
                 logger.debug("3D model data prepared WITHOUT orientation (empty)")
 
+            # Extract available event types from events_df
+            available_events = []
+            selected_events = []
+            if events_df is not None and not events_df.empty:
+                # Get unique event types and assign colors
+                event_colors = assign_event_colors(events_df)
+                unique_event_keys = events_df["event_key"].unique().tolist()
+
+                # Determine default signal (first selected channel)
+                default_signal = selected_channels[0] if selected_channels else "depth"
+
+                for event_key in unique_event_keys:
+                    # Determine if this is a point or state event
+                    event_rows = events_df[events_df["event_key"] == event_key]
+                    is_point_event = (
+                        event_rows["datetime_start"] == event_rows["datetime_end"]
+                    ).all()
+
+                    available_events.append(
+                        {
+                            "event_key": event_key,
+                            "color": event_colors.get(event_key, "#95a5a6"),
+                            "is_point_event": is_point_event,
+                            "count": len(event_rows),
+                        }
+                    )
+                    # Initialize selected_events with all events unchecked
+                    selected_events.append(
+                        {
+                            "event_key": event_key,
+                            "signal": default_signal,
+                            "enabled": False,
+                        }
+                    )
+
+                logger.debug(
+                    f"Found {len(available_events)} unique event types: {unique_event_keys}"
+                )
+
             return (
                 selected_deployment,
                 dataset,
@@ -997,6 +1142,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 False,  # fullscreen-button enabled
                 available_channels,  # available-channels from DuckPond
                 selected_channels,  # selected-channels (default selection)
+                available_events,  # available-events (event types for this deployment)
+                selected_events,  # selected-events (all unchecked by default)
             )
 
         except Exception as e:
@@ -1043,8 +1190,10 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 True,
                 True,
                 True,
-                [],
-                [],
+                [],  # available-channels
+                [],  # selected-channels
+                [],  # available-events
+                [],  # selected-events
             )
 
     @app.callback(
@@ -1054,8 +1203,11 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         ),  # NEW: Cache FigureResampler
         Output("playback-timestamps", "data", allow_duplicate=True),
         Output("graph-channels", "is_open"),
-        Input("update-graph-btn", "n_clicks"),
-        State({"type": "channel-select", "index": ALL}, "value"),
+        Input("channel-order-from-dom", "data"),  # Triggered by clientside callback
+        State({"type": "event-checkbox", "key": ALL}, "value"),
+        State({"type": "event-checkbox", "key": ALL}, "id"),
+        State({"type": "event-signal", "key": ALL}, "value"),
+        State({"type": "event-signal", "key": ALL}, "id"),
         State("selected-dataset", "data"),
         State("selected-deployment", "data"),
         State("available-channels", "data"),
@@ -1063,15 +1215,22 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         prevent_initial_call=True,
     )
     def update_graph_from_channels(
-        n_clicks,
-        channel_values,
+        channel_values,  # Now comes from DOM order store
+        event_checkbox_values,
+        event_checkbox_ids,
+        event_signal_values,
+        event_signal_ids,
         dataset,
         deployment_data,
         available_channels,
         datasets_with_deployments,
     ):
-        """Update graph when user clicks Update Graph button."""
-        if not n_clicks or not channel_values or not dataset or not deployment_data:
+        """Update graph when user clicks Update Graph button.
+
+        Channel values come from channel-order-from-dom store which is populated
+        by a clientside callback reading the visual DOM order (supports drag-drop reorder).
+        """
+        if not channel_values or not dataset or not deployment_data:
             raise dash.exceptions.PreventUpdate
 
         logger.info(f"Updating graph with selected channels: {channel_values}")
@@ -1103,7 +1262,54 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             "end": max_dt.isoformat(),
         }
 
-        # Generate graph with selected channels
+        # Build selected_events from UI inputs
+        selected_events = []
+        if event_checkbox_ids and event_signal_ids:
+            # Build lookup for signal values by event_key
+            signal_lookup = {}
+            for sig_id, sig_value in zip(event_signal_ids, event_signal_values):
+                if isinstance(sig_id, dict):
+                    signal_lookup[sig_id.get("key")] = sig_value
+
+            # Build selected_events list
+            for checkbox_id, checkbox_value in zip(
+                event_checkbox_ids, event_checkbox_values
+            ):
+                if isinstance(checkbox_id, dict):
+                    event_key = checkbox_id.get("key")
+                    selected_events.append(
+                        {
+                            "event_key": event_key,
+                            "signal": signal_lookup.get(
+                                event_key, channel_values[0] if channel_values else ""
+                            ),
+                            "enabled": bool(checkbox_value),
+                        }
+                    )
+
+        # Check if any events are enabled
+        enabled_events = [ev for ev in selected_events if ev.get("enabled")]
+        logger.debug(f"Enabled events: {[ev['event_key'] for ev in enabled_events]}")
+
+        # Fetch events if any are enabled
+        events_df = None
+        if enabled_events:
+            try:
+                events_df = duck_pond.get_events(
+                    dataset=dataset,
+                    animal_ids=animal_id,
+                    date_range=(date_range["start"], date_range["end"]),
+                    apply_timezone_offset=timezone_offset,
+                    add_timestamp_columns=True,
+                )
+                logger.debug(
+                    f"Loaded {len(events_df) if events_df is not None and not events_df.empty else 0} events for graph"
+                )
+            except Exception as e:
+                logger.error(f"Error fetching events for graph update: {e}")
+                events_df = None
+
+        # Generate graph with selected channels and events
         fig, dff, timestamps = generate_graph_from_channels(
             duck_pond=duck_pond,
             dataset=dataset,
@@ -1114,6 +1320,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             selected_channels=channel_values,
             selected_deployment=selected_deployment,
             available_channels=available_channels,
+            events_df=events_df,
+            selected_events=selected_events,
         )
 
         logger.info(f"Graph updated successfully with {len(channel_values)} channels")
@@ -1123,10 +1331,14 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         Output("graph-channel-list", "children", allow_duplicate=True),
         Input("selected-channels", "data"),
         State("available-channels", "data"),
+        State("available-events", "data"),
+        State("selected-events", "data"),
         prevent_initial_call=True,
     )
-    def populate_channel_list_from_selection(selected_channels, available_channels):
-        """Populate the channel list UI based on selected channels."""
+    def populate_channel_list_from_selection(
+        selected_channels, available_channels, available_events, selected_events
+    ):
+        """Populate the channel list UI based on selected channels and events."""
         import dash_bootstrap_components as dbc
 
         logger.debug(
@@ -1166,6 +1378,42 @@ def register_selection_callbacks(app, duck_pond, immich_service):
 
         logger.debug(
             f"Dropdown options available: {[opt['value'] for opt in dropdown_options]}"
+        )
+
+        # CHANNELS header with "+ Add" link
+        channels_header = dbc.ListGroupItem(
+            dbc.Row(
+                [
+                    dbc.Col(
+                        html.Span(
+                            "CHANNELS",
+                            className="fw-bold",
+                            style={
+                                "textTransform": "uppercase",
+                                "letterSpacing": "0.05em",
+                                "fontSize": "11px",
+                                "color": "white",
+                            },
+                        ),
+                    ),
+                    dbc.Col(
+                        html.Button(
+                            "+ Add",
+                            id="add-graph-btn",
+                            n_clicks=0,
+                            className="btn-link",
+                            style={
+                                "fontSize": "11px",
+                                "textDecoration": "none",
+                            },
+                        ),
+                        width="auto",
+                    ),
+                ],
+                align="center",
+                className="g-2",
+            ),
+            className="py-2",
         )
 
         # Build channel rows
@@ -1212,6 +1460,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                                 ),
                                 className="btn btn-icon-only btn-sm",
                                 id={"type": "channel-remove", "index": idx},
+                                n_clicks=0,
                             ),
                             width="auto",
                         ),
@@ -1222,35 +1471,202 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             )
             channel_rows.append(channel_row)
 
-        # Add buttons side-by-side in one row
-        buttons_row = dbc.ListGroupItem(
+        # Build events section
+        events_section = []
+        if available_events:
+            # Create signal dropdown options from currently selected channels
+            # Use shorter display labels for the dropdown
+            signal_options = []
+            for ch in selected_channels:
+                # Create shorter label by removing common prefixes
+                short_label = ch.replace("signal_data_", "").replace(
+                    "derived_data_", ""
+                )
+                signal_options.append({"label": short_label, "value": ch})
+
+            # Build a lookup for selected events state
+            selected_events_lookup = {}
+            if selected_events:
+                for ev in selected_events:
+                    selected_events_lookup[ev["event_key"]] = ev
+
+            # Events section header with helper text
+            events_header = dbc.ListGroupItem(
+                html.Div(
+                    [
+                        html.Span(
+                            "EVENTS",
+                            className="fw-bold",
+                            style={
+                                "textTransform": "uppercase",
+                                "letterSpacing": "0.05em",
+                                "fontSize": "11px",
+                                "color": "white",
+                            },
+                        )
+                    ]
+                ),
+                className="py-2 border-top mt-2",
+            )
+            events_section.append(events_header)
+
+            # Create row for each event type
+            for event_info in available_events:
+                event_key = event_info["event_key"]
+                event_color = event_info.get("color", "#95a5a6")
+                event_count = event_info.get("count", 0)
+                is_point = event_info.get("is_point_event", True)
+                event_type_label = "point" if is_point else "state"
+
+                # Get current selection state for this event
+                event_selection = selected_events_lookup.get(
+                    event_key,
+                    {
+                        "enabled": False,
+                        "signal": selected_channels[0] if selected_channels else "",
+                    },
+                )
+
+                # Truncate long event names
+                display_name = (
+                    event_key[:20] + "..." if len(event_key) > 20 else event_key
+                )
+
+                event_row = dbc.ListGroupItem(
+                    [
+                        # First row: checkbox + event name
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    dbc.Checkbox(
+                                        id={"type": "event-checkbox", "key": event_key},
+                                        value=event_selection.get("enabled", False),
+                                    ),
+                                    width="auto",
+                                    className="pe-0",
+                                ),
+                                dbc.Col(
+                                    html.Div(
+                                        [
+                                            html.Span(
+                                                "●",
+                                                style={
+                                                    "color": event_color,
+                                                    "marginRight": "6px",
+                                                },
+                                            ),
+                                            html.Span(
+                                                display_name,
+                                                title=f"{event_key} ({event_count} {event_type_label} events)",
+                                                style={
+                                                    "fontWeight": "500",
+                                                    "color": "white",
+                                                },
+                                            ),
+                                            html.Span(
+                                                f" ({event_count})",
+                                                className="text-muted",
+                                                style={
+                                                    "fontSize": "11px",
+                                                    "paddingLeft": "4px",
+                                                },
+                                            ),
+                                        ],
+                                        style={
+                                            "display": "flex",
+                                            "alignItems": "center",
+                                        },
+                                    ),
+                                    className="ps-1",
+                                ),
+                            ],
+                            align="center",
+                            className="g-0",
+                        ),
+                        # Second row: signal selector (only show if enabled)
+                        html.Div(
+                            dbc.Row(
+                                [
+                                    dbc.Col(
+                                        html.Span(
+                                            "Show on:",
+                                            className="text-muted",
+                                            style={"fontSize": "11px"},
+                                        ),
+                                        width="auto",
+                                        className="pe-2",
+                                    ),
+                                    dbc.Col(
+                                        dbc.Select(
+                                            id={
+                                                "type": "event-signal",
+                                                "key": event_key,
+                                            },
+                                            options=signal_options,
+                                            value=event_selection.get(
+                                                "signal",
+                                                selected_channels[0]
+                                                if selected_channels
+                                                else "",
+                                            ),
+                                            size="sm",
+                                        ),
+                                    ),
+                                ],
+                                align="center",
+                                className="g-0 mt-1 ps-4",
+                            ),
+                        ),
+                    ],
+                    className="py-2",
+                )
+                events_section.append(event_row)
+        else:
+            # No events available message
+            events_section.append(
+                dbc.ListGroupItem(
+                    html.Div(
+                        [
+                            html.Span(
+                                "EVENTS",
+                                className="fw-bold d-block mb-1",
+                                style={
+                                    "textTransform": "uppercase",
+                                    "letterSpacing": "0.05em",
+                                    "fontSize": "11px",
+                                },
+                            ),
+                            html.Span(
+                                "No events available for this deployment",
+                                className="text-muted fst-italic",
+                                style={"fontSize": "12px"},
+                            ),
+                        ]
+                    ),
+                    className="py-2 border-top mt-2",
+                )
+            )
+
+        # Update Graph button at the bottom (applies to both channels and events)
+        update_button_row = dbc.ListGroupItem(
             dbc.Row(
                 [
                     dbc.Col(
                         dbc.Button(
-                            "Add Graph",
-                            color="primary",
-                            className="btn-xs btn-stroke my-1 w-100",
-                            id="add-graph-btn",
-                        ),
-                        width=3,
-                    ),
-                    dbc.Col(
-                        dbc.Button(
                             "Update Graph",
                             color="success",
-                            className="btn-xs my-1 w-100",
+                            className="btn-xs w-100",
                             id="update-graph-btn",
                         ),
-                        width=3,
                     ),
                 ],
                 align="center",
-                className="g-2 justify-content-end",
+                className="g-2",
             ),
+            className="border-top mt-2 pt-3",
         )
 
-        return channel_rows + [buttons_row]
+        return [channels_header] + channel_rows + events_section + [update_button_row]
 
     @app.callback(
         Output("graph-channels-toggle", "disabled"),

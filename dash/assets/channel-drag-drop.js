@@ -7,6 +7,10 @@ let draggedElement = null;
 let draggedIndex = null;
 let placeholder = null;
 let isInitialized = false;
+let lastPlacementInfo = null;  // Track last placement to prevent stuttering
+
+// Dead zone threshold - mouse must be this many pixels past center to trigger swap
+const DRAG_THRESHOLD = 15;
 
 function initializeDragDrop() {
     const channelList = document.getElementById('graph-channel-list');
@@ -98,6 +102,7 @@ function handleDragStart(e) {
     
     draggedElement = e.target.closest('.list-group-item');
     draggedIndex = parseInt(draggedElement.getAttribute('data-index'));
+    lastPlacementInfo = null;  // Reset placement tracking
     
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', draggedElement.outerHTML);
@@ -119,11 +124,39 @@ function handleDragOver(e) {
         return;
     }
     
-    // Skip the "Add Graph" button
+    // Skip the header (contains Add button) and non-channel items
     const hasAddButton = targetItem.querySelector('#add-graph-btn');
-    if (hasAddButton) {
+    const hasChannelSelect = targetItem.querySelector('select');
+    if (hasAddButton || !hasChannelSelect) {
         return;
     }
+    
+    const rect = targetItem.getBoundingClientRect();
+    const mouseY = e.clientY;
+    const targetCenterY = rect.top + rect.height / 2;
+    const distanceFromCenter = mouseY - targetCenterY;
+    
+    // Determine placement position with dead zone threshold
+    // Only place above if mouse is significantly above center
+    // Only place below if mouse is significantly below center
+    let placeBefore;
+    if (distanceFromCenter < -DRAG_THRESHOLD) {
+        placeBefore = true;  // Place above target
+    } else if (distanceFromCenter > DRAG_THRESHOLD) {
+        placeBefore = false;  // Place below target
+    } else {
+        // Within dead zone - keep current placement or don't move
+        return;
+    }
+    
+    // Check if this would be the same placement as before (prevent redundant DOM updates)
+    const targetIndex = targetItem.getAttribute('data-index');
+    const newPlacementInfo = `${targetIndex}-${placeBefore ? 'before' : 'after'}`;
+    
+    if (lastPlacementInfo === newPlacementInfo) {
+        return;  // No change needed
+    }
+    lastPlacementInfo = newPlacementInfo;
     
     // Remove existing placeholder
     if (placeholder) {
@@ -134,14 +167,9 @@ function handleDragOver(e) {
     // Create placeholder
     placeholder = document.createElement('div');
     placeholder.className = 'drag-placeholder list-group-item';
-    // placeholder.style.height = draggedElement.offsetHeight + 'px';
     placeholder.innerHTML = '<div></div>';
     
-    const rect = targetItem.getBoundingClientRect();
-    const mouseY = e.clientY;
-    const targetY = rect.top + rect.height / 2;
-    
-    if (mouseY < targetY) {
+    if (placeBefore) {
         targetItem.parentNode.insertBefore(placeholder, targetItem);
     } else {
         targetItem.parentNode.insertBefore(placeholder, targetItem.nextSibling);
@@ -163,17 +191,21 @@ function handleDrop(e) {
     // Reset opacity
     draggedElement.style.opacity = '1';
     
-    // Trigger a custom event to notify Dash about the reorder
+    // Log the new order for debugging
+    // The actual order will be read from DOM when "Update Graph" is clicked
     const channelList = document.getElementById('graph-channel-list');
-    const reorderEvent = new CustomEvent('channelReorder', {
-        detail: {
-            originalIndex: draggedIndex,
-            newIndex: Array.from(channelList.children).indexOf(draggedElement)
+    const channelOrder = [];
+    
+    const listItems = channelList.querySelectorAll('.list-group-item');
+    listItems.forEach((item) => {
+        const select = item.querySelector('select');
+        if (select && select.id && select.id.includes('channel-select')) {
+            channelOrder.push(select.value);
         }
     });
-    channelList.dispatchEvent(reorderEvent);
     
-    console.log('Drop completed, reorder event dispatched');
+    console.log('Drag reorder completed. New visual order:', channelOrder);
+    console.log('Click "Update Graph" to apply this order to the graph.');
 }
 
 function handleDragEnd(e) {
@@ -194,6 +226,7 @@ function handleDragEnd(e) {
     
     draggedElement = null;
     draggedIndex = null;
+    lastPlacementInfo = null;  // Reset placement tracking
 }
 
 // Initialize when DOM is loaded

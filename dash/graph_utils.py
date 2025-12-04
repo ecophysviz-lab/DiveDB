@@ -112,6 +112,9 @@ def plot_tag_data_interactive(
 
     # Iterate through signals and plot
     for signal in signals_sorted:
+        # Store the row for this signal's data BEFORE any blank plot adjustments
+        signal_row = row_counter
+
         if signal in data_pkl["signal_data"]:
             signal_data = data_pkl["signal_data"][signal]
             signal_info = data_pkl["signal_info"][signal]
@@ -134,13 +137,23 @@ def plot_tag_data_interactive(
                 row_counter += 1  # Skip to the next row after the blank plot
 
         # Plot note annotations if available
-        if note_annotations:
-            plotted_annotations = set()
+        # Use signal_row (not row_counter) to ensure annotations go on the signal's subplot
+        if (
+            note_annotations
+            and "event_data" in data_pkl
+            and data_pkl["event_data"] is not None
+        ):
             y_offsets = {}
 
             for note_type, note_params in note_annotations.items():
                 # Check if the annotation applies to the current signal
-                if signal != note_params.get("signal"):
+                # Handle signal name with or without "signal_data_" prefix
+                target_signal = note_params.get("signal", "")
+                target_signal_stripped = target_signal.replace(
+                    "signal_data_", ""
+                ).replace("derived_data_", "")
+
+                if signal != target_signal and signal != target_signal_stripped:
                     continue  # Skip annotations not tied to this signal
 
                 # Get signal data
@@ -172,14 +185,30 @@ def plot_tag_data_interactive(
                     if not filtered_notes.empty:
                         symbol = note_params.get("symbol", "circle")
                         color = note_params.get("color", "rgba(128, 128, 128, 0.5)")
-                        y_fixed = (2 / 3) * signal_data[first_channel].max()
+
+                        # Position markers at max value (matching pyologger behavior)
+                        # For inverted axes (depth), this places markers at the deepest point
+                        # For normal axes, this places markers at the top of the data
+                        y_fixed = (
+                            signal_data[first_channel].max()
+                            if not signal_data[first_channel].empty
+                            else 1
+                        )
+
+                        # Calculate y_range for offset stacking of overlapping markers
+                        y_range = abs(
+                            signal_data[first_channel].max()
+                            - signal_data[first_channel].min()
+                        )
+                        offset_step = 0.05 * y_range if y_range > 0 else 1
 
                         scatter_x, scatter_y = [], []
                         for dt in filtered_notes["datetime"]:
                             y_current = y_offsets.get(dt, y_fixed)
                             scatter_x.append(dt)
                             scatter_y.append(y_current)
-                            y_offsets[dt] = y_current + 0.15 * y_fixed
+                            # Stack overlapping markers (subtract to go "up" for inverted depth)
+                            y_offsets[dt] = y_current - offset_step
 
                         fig.add_trace(
                             go.Scatter(
@@ -189,21 +218,30 @@ def plot_tag_data_interactive(
                                 marker=dict(symbol=symbol, color=color, size=10),
                                 name=note_type,
                                 opacity=0.5,
-                                showlegend=(note_type not in plotted_annotations),
+                                showlegend=False,  # Hide events from legend (already shown on timeline)
                             ),
-                            row=row_counter,
+                            row=signal_row,  # Use signal_row to plot on the correct subplot
                             col=1,
                         )
-                        plotted_annotations.add(note_type)
 
         # Plot State Events (Rectangles for Continuous Events)
-        if state_annotations:
-            for event_type, event_params in state_annotations.items():
-                if signal != event_params.get("signal"):
-                    continue
+        # Use signal_row (not row_counter) to ensure shapes go on the signal's subplot
+        if (
+            state_annotations
+            and "event_data" in data_pkl
+            and data_pkl["event_data"] is not None
+        ):
+            import pandas as pd
 
-                # Find the row index corresponding to the signal
-                signal_row = signals_sorted.index(signal)
+            for event_type, event_params in state_annotations.items():
+                # Handle signal name with or without "signal_data_" prefix
+                target_signal = event_params.get("signal", "")
+                target_signal_stripped = target_signal.replace(
+                    "signal_data_", ""
+                ).replace("derived_data_", "")
+
+                if signal != target_signal and signal != target_signal_stripped:
+                    continue
 
                 # Get signal data
                 if signal not in data_pkl["signal_data"]:
@@ -211,49 +249,42 @@ def plot_tag_data_interactive(
                 signal_data = data_pkl["signal_data"][signal]
 
                 # Get state events for this type
-                if "event_data" in data_pkl and data_pkl["event_data"] is not None:
-                    import pandas as pd
+                state_events = data_pkl["event_data"][
+                    (data_pkl["event_data"]["key"] == event_type)
+                ]
 
-                    state_events = data_pkl["event_data"][
-                        (data_pkl["event_data"]["key"] == event_type)
+                # Filter by time range if provided
+                if time_range:
+                    state_events = state_events[
+                        (state_events["datetime"] >= time_range[0])
+                        & (state_events["datetime"] <= time_range[1])
                     ]
 
-                    # Filter by time range if provided
-                    if time_range:
-                        state_events = state_events[
-                            (state_events["datetime"] >= time_range[0])
-                            & (state_events["datetime"] <= time_range[1])
-                        ]
+                for _, event in state_events.iterrows():
+                    start_time = event["datetime"]
+                    end_time = start_time + pd.to_timedelta(event["duration"], unit="s")
 
-                    for _, event in state_events.iterrows():
-                        start_time = event["datetime"]
-                        end_time = start_time + pd.to_timedelta(
-                            event["duration"], unit="s"
-                        )
+                    # Ensure the y-range is valid for the given signal
+                    y_min = (
+                        signal_data.iloc[:, 1:].min().min()
+                    )  # Min value across all channels
+                    y_max = (
+                        signal_data.iloc[:, 1:].max().max()
+                    )  # Max value across all channels
 
-                        # Ensure the y-range is valid for the given signal
-                        y_min = (
-                            signal_data.iloc[:, 1:].min().min()
-                        )  # Min value across all channels
-                        y_max = (
-                            signal_data.iloc[:, 1:].max().max()
-                        )  # Max value across all channels
-
-                        # Draw a shaded rectangle on the specified signal
-                        fig.add_shape(
-                            type="rect",
-                            x0=start_time,
-                            x1=end_time,
-                            y0=y_min,
-                            y1=y_max,
-                            fillcolor=event_params.get(
-                                "color", "rgba(150, 150, 150, 0.3)"
-                            ),
-                            line=dict(width=0),
-                            row=signal_row + 2,  # +2 to account for blank plot
-                            col=1,
-                            layer="below",
-                        )
+                    # Draw a shaded rectangle on the specified signal
+                    fig.add_shape(
+                        type="rect",
+                        x0=start_time,
+                        x1=end_time,
+                        y0=y_min,
+                        y1=y_max,
+                        fillcolor=event_params.get("color", "rgba(150, 150, 150, 0.3)"),
+                        line=dict(width=0),
+                        row=signal_row,  # Use signal_row for correct subplot
+                        col=1,
+                        layer="below",
+                    )
 
         # Update y-axis label for each subplot
         if row_counter == 2:

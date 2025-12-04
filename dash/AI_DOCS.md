@@ -22,8 +22,8 @@ User Action → Callback → Store Update → UI Update → Next Callback
 ### State Management
 
 - Uses `dcc.Store` components for persistent state
-- Key stores: `selected-dataset`, `selected-deployment`, `playhead-time`, `is-playing`, `playback-timestamps`, `current-video-options`, `available-channels`, `selected-channels`, `figure-store`
-- Stores defined in `create_app_stores()` (data_visualization.py:67-103)
+- Key stores: `selected-dataset`, `selected-deployment`, `playhead-time`, `is-playing`, `playback-timestamps`, `current-video-options`, `available-channels`, `selected-channels`, `figure-store`, `available-events`, `selected-events`, `channel-order-from-dom`
+- Stores defined in `create_app_stores()` (data_visualization.py:67-115)
 - `figure-store` caches `FigureResampler` objects server-side via `dash-extensions.Serverside`
 
 ### Callback Registration Order
@@ -36,17 +36,18 @@ User Action → Callback → Store Update → UI Update → Next Callback
 
 | File | Purpose | Key Exports | Lines |
 |------|---------|-------------|-------|
-| `data_visualization.py` | App entry point, service initialization | `app`, `server` | 188 |
-| `callbacks.py` | Server-side callbacks (playback, video) | `register_callbacks()` | 665 |
-| `selection_callbacks.py` | Dataset/deployment selection logic | `register_selection_callbacks()`, `DataPkl`, `generate_graph_from_channels()` | 1570 |
+| `data_visualization.py` | App entry point, service initialization | `app`, `server` | ~198 |
+| `callbacks.py` | Server-side callbacks (playback, video, channel management) | `register_callbacks()` | ~855 |
+| `selection_callbacks.py` | Dataset/deployment selection, events | `register_selection_callbacks()`, `DataPkl`, `generate_graph_from_channels()`, `transform_events_for_graph()` | ~1775 |
 | `clientside_callbacks.py` | Client-side callbacks (fullscreen, slider sync) | `register_clientside_callbacks()` | 186 |
-| `graph_utils.py` | Plotly visualization utilities | `plot_tag_data_interactive()` | 378 |
-| `layout/core.py` | Main layout assembly | `create_header()`, `create_main_content()`, `create_layout()` | 379 |
-| `layout/sidebar.py` | Left/right sidebars | `create_left_sidebar()`, `create_right_sidebar()`, `create_dataset_accordion_item()` | 276 |
+| `graph_utils.py` | Plotly visualization utilities | `plot_tag_data_interactive()` | ~361 |
+| `layout/core.py` | Main layout assembly | `create_header()`, `create_main_content()`, `create_layout()` | ~283 |
+| `layout/sidebar.py` | Left/right sidebars | `create_left_sidebar()`, `create_right_sidebar()`, `create_dataset_accordion_item()` | 284 |
 | `layout/timeline.py` | Footer timeline components | `create_footer()`, `create_timeline_section()` | 827 |
 | `layout/indicators.py` | Event/video indicators | `create_event_indicator()`, `create_video_indicator()` | 460 |
 | `layout/modals.py` | Modal dialogs | `create_bookmark_modal()` | 50 |
 | `logging_config.py` | Centralized logging | `get_logger()` | 96 |
+| `assets/channel-drag-drop.js` | Channel drag-and-drop reordering | `initializeDragDrop()` | ~237 |
 
 ## Module Reference
 
@@ -86,24 +87,27 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - `update_video_player()`: `selected-video.data` → `video-trimmer.videoSrc`, `video-trimmer.videoMetadata`, `video-trimmer.datasetStartTime`
 - `add_new_channel()`: `add-graph-btn.n_clicks` → `graph-channel-list.children`
 - `remove_channel()`: `channel-remove.n_clicks` → `graph-channel-list.children`
-- `update_channel_order()`: `graph-channel-list.children` → `channel-order.data`
+- Clientside callback: `update-graph-btn.n_clicks` → `channel-order-from-dom.data` (reads DOM order)
 
 **Channel Management**:
 - Channels stored as pattern-matching IDs: `{"type": "channel-select", "index": N}`
-- Drag-and-drop handled client-side (clientside callback at line 605)
+- Drag-and-drop handled by `assets/channel-drag-drop.js` (visual reordering)
+- Channel order read from DOM when "Update Graph" clicked via clientside callback
+- Uses `get_props()` helper to handle both dict and component objects in callbacks
 
 ### selection_callbacks.py
 
-**Purpose**: Dataset/deployment selection, data loading, graph generation
+**Purpose**: Dataset/deployment selection, data loading, graph generation, event management
 
 **Key Classes**:
-- `DataPkl`: Wrapper for sensor_data, sensor_info, derived_data, derived_info (lines 20-44)
+- `DataPkl`: Wrapper for signal_data, signal_info, event_data (lines 23-70)
 
 **Key Functions**:
 - `register_selection_callbacks(app, duck_pond, immich_service)` - Registers selection callbacks
+- `transform_events_for_graph(events_df)` → pd.DataFrame - Transforms DuckPond events to graph annotation format (key, datetime, duration)
 - `create_data_pkl_from_dataframe(dff, group_membership)` → DataPkl - Transforms DataFrame to data_pkl structure
 - `_create_data_pkl_from_groups(dff, data_columns, group_membership)` → DataPkl - Groups columns by parent group
-- `generate_graph_from_channels(duck_pond, dataset, deployment_id, animal_id, date_range, timezone_offset, selected_channels, selected_deployment, available_channels)` → Tuple[fig, dff, timestamps] - Main graph generation function
+- `generate_graph_from_channels(duck_pond, dataset, ..., events_df, selected_events)` → Tuple[fig, dff, timestamps] - Main graph generation function with optional event annotations
 
 **Key Callbacks**:
 - `load_datasets_on_page_load()`: `url.pathname` → `all-datasets-deployments.data`
@@ -117,10 +121,16 @@ User Action → Callback → Store Update → UI Update → Next Callback
   - `three-d-model.data`
   - Playback control button states
   - `available-channels.data`, `selected-channels.data`
-- `update_graph_from_channels()`: `update-graph-btn.n_clicks` → `graph-content.figure`, `figure-store.data`, `playback-timestamps.data`, `graph-channels.is_open`
-- `populate_channel_list_from_selection()`: `selected-channels.data` → `graph-channel-list.children`
+  - `available-events.data`, `selected-events.data` (event types with colors)
+- `update_graph_from_channels()`: `channel-order-from-dom.data` (triggered by clientside) + event selections → `graph-content.figure`, `figure-store.data`, `playback-timestamps.data`, `graph-channels.is_open`
+- `populate_channel_list_from_selection()`: `selected-channels.data` + `available-events.data` → `graph-channel-list.children` (includes Events section)
 - `show_loading_overlay()`: `deployment-button.n_clicks` → `loading-overlay.style`, `is-loading-data.data`
 - `update_graph_on_zoom()`: `graph-content.relayoutData` + `figure-store.data` → `graph-content.figure` (plotly-resampler dynamic resampling)
+
+**Event Management**:
+- Events displayed via "EVENTS" section in Manage Channels popover
+- Pattern-matching IDs: `{"type": "event-checkbox", "key": event_key}`, `{"type": "event-signal", "key": event_key}`
+- Point events (duration=0) → note_annotations (markers); State events → state_annotations (rectangles)
 
 **Data Flow**:
 1. Page load → Load datasets/deployments from DuckPond
@@ -155,9 +165,14 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - Creates `FigureResampler` objects for performance with large datasets
 - Dynamic resampling handled by `update_graph_on_zoom()` callback in `selection_callbacks.py`
 - Supports sensor_data and derived_data
-- Handles note annotations (point events) and state annotations (rectangles)
 - Color mapping from `color_mapping.json`
 - Adaptive subplot layout based on signal count
+
+**Event Annotations**:
+- `note_annotations`: Point events rendered as markers at signal's max value (matches pyologger behavior)
+- `state_annotations`: State events rendered as shaded rectangles spanning full y-range
+- Annotations use `signal_row` tracking to handle blank spacer row correctly
+- Event markers hidden from legend (`showlegend=False`) to prevent legend overflow
 
 ### layout/core.py
 
@@ -259,27 +274,32 @@ User Action → Callback → Store Update → UI Update → Next Callback
 1. **Populate Channel List** (`populate_channel_list_from_selection`)
    - Trigger: `selected-channels.data`
    - Output: `graph-channel-list.children`
-   - Action: Create channel selection rows from default selection
+   - Action: Create CHANNELS header, channel rows, EVENTS section, Update button
 
 2. **Add Channel** (`add_new_channel`)
    - Trigger: `add-graph-btn.n_clicks`
    - Output: `graph-channel-list.children`
-   - Action: Add new channel selection row
+   - Action: Add new channel selection row after existing channels
 
 3. **Remove Channel** (`remove_channel`)
    - Trigger: `channel-remove.n_clicks`
    - Output: `graph-channel-list.children`
    - Action: Remove channel row (minimum 1 required)
 
-4. **Update Channel Order** (`update_channel_order`)
-   - Trigger: `graph-channel-list.children`
-   - Output: `channel-order.data`
-   - Action: Track channel order for graph generation
+4. **Drag-Drop Reorder** (`channel-drag-drop.js`)
+   - User drags channel row via drag handle
+   - JavaScript visually reorders DOM elements
+   - 15px dead zone prevents stuttering
 
-5. **Update Graph** (`update_graph_from_channels`)
+5. **Read DOM Order** (clientside callback in `callbacks.py`)
    - Trigger: `update-graph-btn.n_clicks`
+   - Output: `channel-order-from-dom.data`
+   - Action: Read channel values from DOM in visual order
+
+6. **Update Graph** (`update_graph_from_channels`)
+   - Trigger: `channel-order-from-dom.data`
    - Output: `graph-content.figure`, `playback-timestamps.data`
-   - Action: Regenerate graph with selected channels
+   - Action: Regenerate graph with channels in DOM order
 
 ### Playback Flow
 
@@ -330,10 +350,13 @@ User Action → Callback → Store Update → UI Update → Next Callback
 | `current-video-options` | List[dict] | Available videos for current deployment | `[{...}, ...]` |
 | `available-channels` | List[dict] | Channel metadata from DuckPond | `[{"kind": "group", "group": "depth", ...}, ...]` |
 | `selected-channels` | List[str] | User-selected channel groups | `["depth", "prh", "temperature"]` |
-| `channel-order` | List[dict] | Channel display order | `[{"id": "channel-1", "index": 0, "value": "depth"}, ...]` |
+| `channel-order` | List[dict] | Channel display order (from children) | `[{"id": 1, "index": 0, "value": "depth"}, ...]` |
+| `channel-order-from-dom` | List[str] | Channel values in DOM order (for drag-drop) | `["depth", "prh", "temperature"]` |
 | `is-loading-data` | bool | Data loading state | `False` |
 | `selected-timezone` | float | Timezone offset in hours | `-10.0` |
 | `figure-store` | FigureResampler | Server-side cached FigureResampler object | (cached via `Serverside()`) |
+| `available-events` | List[dict] | Event types for current deployment | `[{"event_key": "dive", "color": "#3498db", "is_point_event": False, "count": 50}, ...]` |
+| `selected-events` | List[dict] | User event selections | `[{"event_key": "dive", "signal": "depth", "enabled": True}, ...]` |
 
 ### data_pkl Structure
 
@@ -355,11 +378,14 @@ DataPkl(
             "metadata": {...}
         },
         ...
-    }
+    },
+    event_data=pd.DataFrame(columns=["key", "datetime", "duration", "datetime_end", "short_description"])  # Optional
 )
 ```
 
 **Access**: Supports both attribute (`data_pkl.signal_data`) and dict (`data_pkl["signal_data"]`) access
+
+**Event Data Format**: Transformed from DuckPond format (`event_key`, `datetime_start`, `datetime_end`) via `transform_events_for_graph()`
 
 ### Deployment Metadata Structure
 
@@ -507,10 +533,26 @@ video_preview.VideoPreview(
 ### Adding a New Graph Channel
 
 1. Channel metadata comes from DuckPond (`available-channels` store)
-2. User selects channel via `channel-select` dropdown
-3. Selection stored in `selected-channels` store
-4. Graph regenerated via `update_graph_from_channels()` callback
-5. Channel order tracked in `channel-order` store
+2. User clicks "+ Add" in CHANNELS header → `add_new_channel()` adds row
+3. User selects channel via `channel-select` dropdown
+4. User can drag-drop to reorder (visual only until Update Graph clicked)
+5. User clicks "Update Graph" → clientside reads DOM order → `update_graph_from_channels()` regenerates
+
+**Manage Channels Popover Structure**:
+- CHANNELS header with "+ Add" link
+- Channel rows (drag handle, dropdown, remove button)
+- EVENTS section with checkboxes and signal dropdowns
+- "Update Graph" button at bottom
+
+### Adding Events to Graphs
+
+1. Events loaded from DuckPond during deployment selection → `available-events` store
+2. User enables events via checkboxes in "EVENTS" section of Manage Channels popover
+3. User selects target signal for each event type via dropdown
+4. On "Update Graph", callback collects event selections via pattern-matching IDs
+5. `generate_graph_from_channels()` builds `note_annotations`/`state_annotations` dicts
+6. `plot_tag_data_interactive()` renders events on specified subplots
+7. Point events (duration=0): markers at signal max; State events: shaded rectangles
 
 ### Plotly-Resampler Pattern
 

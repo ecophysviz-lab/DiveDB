@@ -141,84 +141,17 @@ def create_main_content(fig, channel_options=None):
                                                     [
                                                         dbc.ListGroup(
                                                             [
+                                                                # Empty initial state - will be populated by callback
+                                                                # Contains placeholder elements with required IDs
                                                                 dbc.ListGroupItem(
-                                                                    dbc.Row(
-                                                                        [
-                                                                            dbc.Col(
-                                                                                html.Button(
-                                                                                    html.Img(
-                                                                                        src="/assets/images/drag.svg",
-                                                                                        className="drag-icon",
-                                                                                    ),
-                                                                                    className="btn btn-icon-only btn-sm",
-                                                                                    id={
-                                                                                        "type": "channel-drag",
-                                                                                        "index": 1,
-                                                                                    },
-                                                                                ),
-                                                                                width="auto",
-                                                                                className="drag-handle",
-                                                                            ),
-                                                                            dbc.Col(
-                                                                                dbc.Select(
-                                                                                    options=dropdown_options,
-                                                                                    value=dropdown_options[
-                                                                                        0
-                                                                                    ][
-                                                                                        "value"
-                                                                                    ]
-                                                                                    if dropdown_options
-                                                                                    else "depth",
-                                                                                    id={
-                                                                                        "type": "channel-select",
-                                                                                        "index": 1,
-                                                                                    },
-                                                                                ),
-                                                                            ),
-                                                                            dbc.Col(
-                                                                                html.Button(
-                                                                                    html.Img(
-                                                                                        src="/assets/images/remove.svg",
-                                                                                        className="remove-icon",
-                                                                                    ),
-                                                                                    className="btn btn-icon-only btn-sm",
-                                                                                    id={
-                                                                                        "type": "channel-remove",
-                                                                                        "index": 1,
-                                                                                    },
-                                                                                ),
-                                                                                width="auto",
-                                                                            ),
-                                                                        ],
-                                                                        align="center",
-                                                                        className="g-2",
+                                                                    html.Span(
+                                                                        "Select a deployment to manage channels",
+                                                                        className="text-muted",
+                                                                        style={
+                                                                            "fontSize": "12px"
+                                                                        },
                                                                     ),
-                                                                ),
-                                                                dbc.ListGroupItem(
-                                                                    dbc.Row(
-                                                                        [
-                                                                            dbc.Col(
-                                                                                dbc.Button(
-                                                                                    "Add Graph",
-                                                                                    color="primary",
-                                                                                    className="btn-xs btn-stroke my-1",
-                                                                                    id="add-graph-btn",
-                                                                                ),
-                                                                                width=3,
-                                                                            ),
-                                                                            dbc.Col(
-                                                                                dbc.Button(
-                                                                                    "Update Graph",
-                                                                                    color="success",
-                                                                                    className="btn-xs my-1 w-100",
-                                                                                    id="update-graph-btn",
-                                                                                ),
-                                                                                width=3,
-                                                                            ),
-                                                                        ],
-                                                                        align="center",
-                                                                        className="g-2 justify-content-end",
-                                                                    ),
+                                                                    className="py-3",
                                                                 ),
                                                             ],
                                                             id="graph-channel-list",
