@@ -140,22 +140,22 @@ def register_clientside_callbacks(app):
             if (!playhead_time || !existing_fig) {
                 return window.dash_clientside.no_update;
             }
-            
+
             // Convert playhead timestamp (seconds) to milliseconds
             const playhead_ms = playhead_time * 1000;
-            
+
             // Create Date object and convert to ISO string
             const playhead_date = new Date(playhead_ms);
             const playhead_iso = playhead_date.toISOString();
-            
+
             // Clone the existing figure to avoid mutation
             const updated_fig = {...existing_fig};
-            
+
             // Ensure layout exists
             if (!updated_fig.layout) {
                 updated_fig.layout = {};
             }
-            
+
             // Update shapes with vertical line at playhead position
             updated_fig.layout.shapes = [{
                 type: 'line',
@@ -171,10 +171,10 @@ def register_clientside_callbacks(app):
                     dash: 'solid'
                 }
             }];
-            
+
             // Preserve UI state (zoom, pan, etc.)
             updated_fig.layout.uirevision = 'constant';
-            
+
             return updated_fig;
         }
         """,
@@ -195,40 +195,40 @@ def register_clientside_callbacks(app):
             if (!arrowInput || arrowInput === '') {
                 return window.dash_clientside.no_update;
             }
-            
+
             // Parse the input - format is "direction:timestamp" (e.g., "1:1699123456.789")
             const parts = arrowInput.split(':');
             if (parts.length !== 2) {
                 return window.dash_clientside.no_update;
             }
-            
+
             const direction = parseInt(parts[0]);
             const inputTimestamp = parseFloat(parts[1]);
-            
+
             // Verify this is a new input (not a stale one)
             if (isNaN(direction) || isNaN(inputTimestamp)) {
                 return window.dash_clientside.no_update;
             }
-            
+
             // Rate-aware step: at 1x or faster use 1 second, at slower rates use the rate
             // e.g., at 0.1x rate, step is 0.1 seconds; at 5x rate, step is 1 second
             const rate = playback_rate || 1;
             const STEP = rate >= 1 ? 1 : rate;
-            
+
             // Get bounds
             const minTime = slider_min || (timestamps && timestamps.length > 0 ? Math.min(...timestamps) : 0);
             const maxTime = slider_max || (timestamps && timestamps.length > 0 ? Math.max(...timestamps) : Infinity);
-            
+
             // Calculate new time
             let newTime = playhead_time + (direction * STEP);
-            
+
             // Clamp to bounds
             newTime = Math.max(minTime, Math.min(maxTime, newTime));
-            
-            console.log('Arrow key navigation:', direction > 0 ? 'forward' : 'backward', 
+
+            console.log('Arrow key navigation:', direction > 0 ? 'forward' : 'backward',
                         'step=' + STEP + 's',
                         playhead_time.toFixed(3), '->', newTime.toFixed(3));
-            
+
             return newTime;
         }
         """,
@@ -241,5 +241,82 @@ def register_clientside_callbacks(app):
             State("playhead-slider", "max"),
             State("playback-rate", "data"),
         ],
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
+    # Timeline Zoom Sync Callbacks
+    # =========================================================================
+
+    # Update slider bounds when timeline-bounds changes (from graph zoom)
+    app.clientside_callback(
+        """
+        function(bounds) {
+            if (!bounds || bounds.min === null || bounds.max === null) {
+                return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+            }
+            console.log('Updating slider bounds:', bounds.min, '-', bounds.max);
+            return [bounds.min, bounds.max];
+        }
+        """,
+        Output("playhead-slider", "min"),
+        Output("playhead-slider", "max"),
+        Input("timeline-bounds", "data"),
+        prevent_initial_call=True,
+    )
+
+    # Update time labels when timeline-bounds changes
+    app.clientside_callback(
+        """
+        function(bounds) {
+            if (!bounds || bounds.min === null || bounds.max === null) {
+                return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+            }
+
+            // Format timestamps as HH:MM:SS
+            const formatTime = (ts) => {
+                const date = new Date(ts * 1000);
+                const hours = String(date.getUTCHours()).padStart(2, '0');
+                const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+                const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+                return hours + ':' + minutes + ':' + seconds;
+            };
+
+            const startLabel = formatTime(bounds.min);
+            const endLabel = formatTime(bounds.max);
+
+            console.log('Updating time labels:', startLabel, '-', endLabel);
+            return [startLabel, endLabel];
+        }
+        """,
+        Output("timeline-start-label", "children"),
+        Output("timeline-end-label", "children"),
+        Input("timeline-bounds", "data"),
+        prevent_initial_call=True,
+    )
+
+    # Clamp playhead to zoomed range when bounds change
+    # If playhead is outside the new bounds, jump to the start of the zoomed range
+    app.clientside_callback(
+        """
+        function(bounds, playhead_time) {
+            if (!bounds || bounds.min === null || bounds.max === null) {
+                return window.dash_clientside.no_update;
+            }
+
+            // Check if playhead is outside the new bounds
+            if (playhead_time < bounds.min || playhead_time > bounds.max) {
+                console.log('Playhead outside zoomed range, jumping to start:',
+                            playhead_time, '->', bounds.min);
+                return bounds.min;
+            }
+
+            // Playhead is within bounds, no change needed
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("playhead-time", "data", allow_duplicate=True),
+        Input("timeline-bounds", "data"),
+        State("playhead-time", "data"),
         prevent_initial_call=True,
     )

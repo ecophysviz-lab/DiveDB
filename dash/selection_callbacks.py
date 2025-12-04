@@ -764,6 +764,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         # Event management outputs
         Output("available-events", "data"),
         Output("selected-events", "data"),
+        # Timeline bounds output (for zoom sync)
+        Output("timeline-bounds", "data"),
         Input(
             {
                 "type": "deployment-button",
@@ -805,6 +807,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 [],  # selected-channels
                 [],  # available-events
                 [],  # selected-events
+                None,  # timeline-bounds
             )
 
         if not n_clicks_list or not any(n_clicks_list):
@@ -833,6 +836,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 [],  # selected-channels
                 [],  # available-events
                 [],  # selected-events
+                None,  # timeline-bounds
             )
 
         # Find which button was clicked
@@ -864,6 +868,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 [],  # selected-channels
                 [],  # available-events
                 [],  # selected-events
+                None,  # timeline-bounds
             )
 
         # Extract dataset and index from triggered_id
@@ -903,6 +908,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     [],  # selected-channels
                     [],  # available-events
                     [],  # selected-events
+                    None,  # timeline-bounds
                 )
 
             selected_deployment = deployments_data[idx]
@@ -1121,6 +1127,11 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     f"Found {len(available_events)} unique event types: {unique_event_keys}"
                 )
 
+            # Calculate initial timeline bounds from timestamps
+            initial_bounds = (
+                {"min": timestamps[0], "max": timestamps[-1]} if timestamps else None
+            )
+
             return (
                 selected_deployment,
                 dataset,
@@ -1144,6 +1155,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 selected_channels,  # selected-channels (default selection)
                 available_events,  # available-events (event types for this deployment)
                 selected_events,  # selected-events (all unchecked by default)
+                initial_bounds,  # timeline-bounds (initial full range)
             )
 
         except Exception as e:
@@ -1194,6 +1206,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 [],  # selected-channels
                 [],  # available-events
                 [],  # selected-events
+                None,  # timeline-bounds
             )
 
     @app.callback(
@@ -1780,3 +1793,69 @@ def register_selection_callbacks(app, duck_pond, immich_service):
 
         # construct_update_data_patch handles the resampling based on zoom level
         return fig.construct_update_data_patch(relayoutdata)
+
+    # Update timeline bounds when user zooms on graph
+    @app.callback(
+        Output("timeline-bounds", "data", allow_duplicate=True),
+        Input("graph-content", "relayoutData"),
+        State("playback-timestamps", "data"),
+        prevent_initial_call=True,
+    )
+    def update_timeline_bounds_on_zoom(relayoutdata, timestamps):
+        """Update timeline bounds when user zooms on the graph."""
+        from datetime import datetime, timezone
+
+        if not relayoutdata or not timestamps:
+            raise dash.exceptions.PreventUpdate
+
+        # Get original bounds for reset detection
+        min_ts = min(timestamps)
+        max_ts = max(timestamps)
+
+        # Check for zoom reset (autorange or "All" button)
+        if relayoutdata.get("xaxis.autorange") or relayoutdata.get("xaxis.showspikes"):
+            # Reset to original bounds
+            logger.debug("Zoom reset detected, restoring original timeline bounds")
+            return {"min": min_ts, "max": max_ts}
+
+        # Extract zoom range from relayoutData
+        # Plotly sends ISO date strings like "2019-11-08T12:00:00.000" or with "Z" suffix
+        x0 = relayoutdata.get("xaxis.range[0]")
+        x1 = relayoutdata.get("xaxis.range[1]")
+
+        if x0 is None or x1 is None:
+            raise dash.exceptions.PreventUpdate
+
+        # Convert ISO strings to Unix timestamps
+        try:
+            if isinstance(x0, str):
+                # Remove 'Z' suffix if present for consistent parsing
+                x0_clean = x0.replace("Z", "")
+                x1_clean = x1.replace("Z", "")
+
+                # Parse as datetime (may be naive or aware)
+                dt0 = datetime.fromisoformat(x0_clean)
+                dt1 = datetime.fromisoformat(x1_clean)
+
+                # If naive (no timezone), treat as UTC to match Plotly's behavior
+                if dt0.tzinfo is None:
+                    dt0 = dt0.replace(tzinfo=timezone.utc)
+                if dt1.tzinfo is None:
+                    dt1 = dt1.replace(tzinfo=timezone.utc)
+
+                new_min = dt0.timestamp()
+                new_max = dt1.timestamp()
+            else:
+                # Already numeric (shouldn't happen with date axes, but just in case)
+                new_min = float(x0)
+                new_max = float(x1)
+
+            logger.debug(
+                f"Timeline bounds updated: {new_min:.2f} - {new_max:.2f} "
+                f"(range: {(new_max - new_min) / 3600:.2f} hours)"
+            )
+            return {"min": new_min, "max": new_max}
+
+        except Exception as e:
+            logger.warning(f"Failed to parse zoom range: {e}")
+            raise dash.exceptions.PreventUpdate

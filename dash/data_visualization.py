@@ -121,6 +121,8 @@ def create_app_stores(dff):
             value="",
             style={"display": "none"},
         ),
+        # Store for timeline bounds (updated on graph zoom)
+        dcc.Store(id="timeline-bounds", data=None),  # {min: timestamp, max: timestamp}
     ]
 
 
