@@ -242,36 +242,183 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         """Update play button tooltip based on playing state."""
         return "Pause" if is_playing else "Play"
 
+    # Playback rate cycling: Forward increases rate, Rewind decreases rate
+    # Available rates: 1, 5, 10, 100
+    PLAYBACK_RATES = [1, 5, 10, 100]
+
+    @app.callback(
+        Output("playback-rate", "data"),
+        Output("rewind-button-tooltip", "children"),
+        Output("forward-button-tooltip", "children"),
+        Input("forward-button", "n_clicks"),
+        Input("rewind-button", "n_clicks"),
+        State("playback-rate", "data"),
+        prevent_initial_call=True,
+    )
+    def cycle_playback_rate(forward_clicks, rewind_clicks, current_rate):
+        """Cycle playback rate when Forward/Rewind buttons are clicked.
+
+        Forward: Increase rate (1 → 5 → 10 → 100 → 1)
+        Rewind: Decrease rate (100 → 10 → 5 → 1 → 100)
+        """
+        ctx = callback_context
+        if not ctx.triggered:
+            raise dash.exceptions.PreventUpdate
+
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+        # Find current rate index
+        try:
+            current_idx = PLAYBACK_RATES.index(current_rate)
+        except ValueError:
+            current_idx = 0  # Default to 1x if rate not found
+
+        if triggered_id == "forward-button":
+            # Cycle up
+            new_idx = (current_idx + 1) % len(PLAYBACK_RATES)
+        elif triggered_id == "rewind-button":
+            # Cycle down
+            new_idx = (current_idx - 1) % len(PLAYBACK_RATES)
+        else:
+            raise dash.exceptions.PreventUpdate
+
+        new_rate = PLAYBACK_RATES[new_idx]
+        tooltip_text = f"Speed: {new_rate}×"
+
+        logger.debug(f"Playback rate changed: {current_rate}× → {new_rate}×")
+        return new_rate, tooltip_text, tooltip_text
+
+    # Update playback rate display button when rate changes
+    @app.callback(
+        Output("playback-rate-display", "children"),
+        Output("playback-rate-tooltip", "children"),
+        Input("playback-rate", "data"),
+    )
+    def update_playback_rate_display(playback_rate):
+        """Update the playback rate display button text and tooltip."""
+        from dash import html
+
+        rate = playback_rate or 1
+        return [
+            f"{rate}×",
+            html.Img(src="/assets/images/speed.svg"),
+        ], f"Current Speed: {rate}×"
+
+    # Skip navigation: Previous/Next buttons jump by 10x playback rate
+    @app.callback(
+        Output("playhead-time", "data", allow_duplicate=True),
+        Output("previous-button-tooltip", "children"),
+        Output("next-button-tooltip", "children"),
+        Input("previous-button", "n_clicks"),
+        Input("next-button", "n_clicks"),
+        State("playhead-time", "data"),
+        State("playback-timestamps", "data"),
+        State("playback-rate", "data"),
+        prevent_initial_call=True,
+    )
+    def skip_navigation(
+        prev_clicks, next_clicks, current_time, timestamps, playback_rate
+    ):
+        """Skip forward/backward by 10x playback rate seconds.
+
+        At 1x rate: skip 10 seconds
+        At 100x rate: skip 1000 seconds
+        """
+        ctx = callback_context
+        if not ctx.triggered or not timestamps:
+            raise dash.exceptions.PreventUpdate
+
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+        # Ensure playback_rate is valid
+        playback_rate = playback_rate or 1
+
+        # Calculate skip amount: 10x playback rate
+        skip_amount = 10 * playback_rate
+
+        # Get min/max bounds
+        min_time = min(timestamps)
+        max_time = max(timestamps)
+
+        if triggered_id == "next-button":
+            # Skip forward
+            target_time = current_time + skip_amount
+        elif triggered_id == "previous-button":
+            # Skip backward
+            target_time = current_time - skip_amount
+        else:
+            raise dash.exceptions.PreventUpdate
+
+        # Clamp to dataset bounds
+        target_time = max(min_time, min(max_time, target_time))
+
+        # Find nearest timestamp
+        timestamps_series = pd.Series(timestamps)
+        nearest_idx = timestamps_series.sub(target_time).abs().idxmin()
+        new_time = timestamps[nearest_idx]
+
+        # Calculate dynamic tooltip (show actual skip amount)
+        skip_text = (
+            f"{skip_amount}s"
+            if skip_amount < 60
+            else f"{skip_amount // 60}m {skip_amount % 60}s"
+        )
+        prev_tooltip = f"Skip Back ({skip_text})"
+        next_tooltip = f"Skip Forward ({skip_text})"
+
+        logger.debug(
+            f"Skip navigation: {current_time} → {new_time} (skip={skip_amount}s)"
+        )
+        return new_time, prev_tooltip, next_tooltip
+
     @app.callback(
         Output("playhead-time", "data"),
         Input("interval-component", "n_intervals"),
         State("is-playing", "data"),
         State("playback-timestamps", "data"),
         State("playhead-time", "data"),
+        State("playback-rate", "data"),
         prevent_initial_call=True,
     )
     def update_playhead_from_interval(
-        n_intervals, is_playing, timestamps, current_time
+        n_intervals, is_playing, timestamps, current_time, playback_rate
     ):
-        """Update playhead time based on interval timer."""
+        """Update playhead time based on interval timer and playback rate.
+
+        Advances playhead by playback_rate seconds per interval tick.
+        Finds nearest available timestamp after time advance.
+        """
         logger.debug(
-            f"Interval callback fired: n_intervals={n_intervals}, is_playing={is_playing}, timestamps_len={len(timestamps) if timestamps else 0}, current_time={current_time}"
+            f"Interval callback fired: n_intervals={n_intervals}, is_playing={is_playing}, "
+            f"timestamps_len={len(timestamps) if timestamps else 0}, current_time={current_time}, rate={playback_rate}×"
         )
 
         if not is_playing or not timestamps:
             logger.debug("Preventing update: not playing or no timestamps")
             raise dash.exceptions.PreventUpdate
 
-        # Find the current index based on current playhead time
-        timestamps_series = pd.Series(timestamps)
-        current_idx = timestamps_series.sub(current_time).abs().idxmin()
-        next_idx = (
-            current_idx + 1 if current_idx + 1 < len(timestamps) else 0
-        )  # Loop back to start
-        new_time = timestamps[next_idx]
+        # Ensure playback_rate is valid
+        playback_rate = playback_rate or 1
+
+        # Advance by playback_rate seconds
+        target_time = current_time + playback_rate
+
+        # Get min/max bounds
+        min_time = min(timestamps)
+        max_time = max(timestamps)
+
+        # If we've reached the end, loop back to start
+        if target_time > max_time:
+            new_time = min_time
+        else:
+            # Find the nearest timestamp to the target time
+            timestamps_series = pd.Series(timestamps)
+            nearest_idx = timestamps_series.sub(target_time).abs().idxmin()
+            new_time = timestamps[nearest_idx]
 
         logger.debug(
-            f"Playhead advancing: current_idx={current_idx}, next_idx={next_idx}, current_time={current_time}, new_time={new_time}"
+            f"Playhead advancing: current_time={current_time}, target_time={target_time}, "
+            f"new_time={new_time}, rate={playback_rate}×"
         )
         return new_time
 

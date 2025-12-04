@@ -330,7 +330,7 @@ def create_footer_empty():
                                                 [
                                                     html.Button(
                                                         [
-                                                            "Previous Deployment",
+                                                            "Skip Back",
                                                             html.Img(
                                                                 src="/assets/images/skip-prev-bold.svg",
                                                             ),
@@ -341,9 +341,10 @@ def create_footer_empty():
                                                         disabled=True,
                                                     ),
                                                     dbc.Tooltip(
-                                                        "Previous Deployment",
+                                                        "Skip Back (10s)",
                                                         target="previous-button",
                                                         placement="top",
+                                                        id="previous-button-tooltip",
                                                         delay={"show": 100, "hide": 0},
                                                         autohide=True,
                                                     ),
@@ -354,7 +355,7 @@ def create_footer_empty():
                                                 [
                                                     html.Button(
                                                         [
-                                                            "Rewind",
+                                                            "Slower",
                                                             html.Img(
                                                                 src="/assets/images/rewind-bold.svg",
                                                             ),
@@ -365,9 +366,10 @@ def create_footer_empty():
                                                         disabled=True,
                                                     ),
                                                     dbc.Tooltip(
-                                                        "Rewind",
+                                                        "Speed: 1×",
                                                         target="rewind-button",
                                                         placement="top",
+                                                        id="rewind-button-tooltip",
                                                         delay={"show": 100, "hide": 0},
                                                         autohide=True,
                                                     ),
@@ -406,7 +408,7 @@ def create_footer_empty():
                                                 [
                                                     html.Button(
                                                         [
-                                                            "Fast Foward",
+                                                            "Faster",
                                                             html.Img(
                                                                 src="/assets/images/foward-bold.svg",
                                                             ),
@@ -417,9 +419,10 @@ def create_footer_empty():
                                                         disabled=True,
                                                     ),
                                                     dbc.Tooltip(
-                                                        "Fast Foward",
+                                                        "Speed: 1×",
                                                         target="forward-button",
                                                         placement="top",
+                                                        id="forward-button-tooltip",
                                                         delay={"show": 100, "hide": 0},
                                                         autohide=True,
                                                     ),
@@ -430,7 +433,7 @@ def create_footer_empty():
                                                 [
                                                     html.Button(
                                                         [
-                                                            "Next Deployment",
+                                                            "Skip Forward",
                                                             html.Img(
                                                                 src="/assets/images/skip-next-bold.svg",
                                                             ),
@@ -441,9 +444,10 @@ def create_footer_empty():
                                                         disabled=True,
                                                     ),
                                                     dbc.Tooltip(
-                                                        "Next Deployment",
+                                                        "Skip Forward (10s)",
                                                         target="next-button",
                                                         placement="top",
+                                                        id="next-button-tooltip",
                                                         delay={"show": 100, "hide": 0},
                                                         autohide=True,
                                                     ),
@@ -495,53 +499,28 @@ def create_footer_empty():
                                                                 [
                                                                     dbc.Button(
                                                                         [
-                                                                            "Speed",
+                                                                            "1×",
                                                                             html.Img(
                                                                                 src="/assets/images/speed.svg",
                                                                             ),
                                                                         ],
-                                                                        id="playback-rate",
+                                                                        id="playback-rate-display",
                                                                         className="btn btn-icon-only btn-icon-speed",
                                                                         disabled=True,
                                                                     ),
                                                                     dbc.Tooltip(
-                                                                        "Playback Rate",
-                                                                        target="playback-rate",
+                                                                        "Current Speed: 1×",
+                                                                        target="playback-rate-display",
                                                                         placement="top",
+                                                                        id="playback-rate-tooltip",
                                                                         delay={
                                                                             "show": 100,
                                                                             "hide": 0,
                                                                         },
                                                                         autohide=True,
                                                                     ),
-                                                                    dbc.Popover(
-                                                                        [
-                                                                            dbc.PopoverBody(
-                                                                                [
-                                                                                    dcc.Slider(
-                                                                                        id="playback-rate-slider",
-                                                                                        min=0,
-                                                                                        max=4,
-                                                                                        step=None,
-                                                                                        updatemode="drag",
-                                                                                        marks={
-                                                                                            0: "0.25x",
-                                                                                            1: "0.5x",
-                                                                                            2: "1x",
-                                                                                            3: "1.5x",
-                                                                                            4: "2x",
-                                                                                        },
-                                                                                        value=2,
-                                                                                    ),
-                                                                                ]
-                                                                            ),
-                                                                        ],
-                                                                        target="playback-rate",
-                                                                        trigger="click",
-                                                                        placement="top",
-                                                                    ),
                                                                 ],
-                                                                width={"size": "4"},
+                                                                width={"size": "auto"},
                                                             ),
                                                             dbc.Col(
                                                                 [
@@ -631,7 +610,7 @@ def create_footer(dff, video_options=None, events_df=None):
                                                 [
                                                     html.Button(
                                                         [
-                                                            "Previous Deployment",
+                                                            "Skip Back",
                                                             html.Img(
                                                                 src="/assets/images/skip-prev-bold.svg",
                                                             ),
@@ -641,9 +620,10 @@ def create_footer(dff, video_options=None, events_df=None):
                                                         n_clicks=0,
                                                     ),
                                                     dbc.Tooltip(
-                                                        "Previous Deployment",
+                                                        "Skip Back (10s)",
                                                         target="previous-button",
                                                         placement="top",
+                                                        id="previous-button-tooltip",
                                                         delay={"show": 100, "hide": 0},
                                                         autohide=True,
                                                     ),
@@ -654,7 +634,7 @@ def create_footer(dff, video_options=None, events_df=None):
                                                 [
                                                     html.Button(
                                                         [
-                                                            "Rewind",
+                                                            "Slower",
                                                             html.Img(
                                                                 src="/assets/images/rewind-bold.svg",
                                                             ),
@@ -664,9 +644,10 @@ def create_footer(dff, video_options=None, events_df=None):
                                                         n_clicks=0,
                                                     ),
                                                     dbc.Tooltip(
-                                                        "Rewind",
+                                                        "Speed: 1×",
                                                         target="rewind-button",
                                                         placement="top",
+                                                        id="rewind-button-tooltip",
                                                         delay={"show": 100, "hide": 0},
                                                         autohide=True,
                                                     ),
@@ -704,7 +685,7 @@ def create_footer(dff, video_options=None, events_df=None):
                                                 [
                                                     html.Button(
                                                         [
-                                                            "Fast Foward",
+                                                            "Faster",
                                                             html.Img(
                                                                 src="/assets/images/foward-bold.svg",
                                                             ),
@@ -714,9 +695,10 @@ def create_footer(dff, video_options=None, events_df=None):
                                                         n_clicks=0,
                                                     ),
                                                     dbc.Tooltip(
-                                                        "Fast Foward",
+                                                        "Speed: 1×",
                                                         target="forward-button",
                                                         placement="top",
+                                                        id="forward-button-tooltip",
                                                         delay={"show": 100, "hide": 0},
                                                         autohide=True,
                                                     ),
@@ -727,7 +709,7 @@ def create_footer(dff, video_options=None, events_df=None):
                                                 [
                                                     html.Button(
                                                         [
-                                                            "Next Deployment",
+                                                            "Skip Forward",
                                                             html.Img(
                                                                 src="/assets/images/skip-next-bold.svg",
                                                             ),
@@ -737,9 +719,10 @@ def create_footer(dff, video_options=None, events_df=None):
                                                         n_clicks=0,
                                                     ),
                                                     dbc.Tooltip(
-                                                        "Next Deployment",
+                                                        "Skip Forward (10s)",
                                                         target="next-button",
                                                         placement="top",
+                                                        id="next-button-tooltip",
                                                         delay={"show": 100, "hide": 0},
                                                         autohide=True,
                                                     ),
@@ -790,52 +773,27 @@ def create_footer(dff, video_options=None, events_df=None):
                                                                 [
                                                                     dbc.Button(
                                                                         [
-                                                                            "Speed",
+                                                                            "1×",
                                                                             html.Img(
                                                                                 src="/assets/images/speed.svg",
                                                                             ),
                                                                         ],
-                                                                        id="playback-rate",
+                                                                        id="playback-rate-display",
                                                                         className="btn btn-icon-only btn-icon-speed",
                                                                     ),
                                                                     dbc.Tooltip(
-                                                                        "Playback Rate",
-                                                                        target="playback-rate",
+                                                                        "Current Speed: 1×",
+                                                                        target="playback-rate-display",
                                                                         placement="top",
+                                                                        id="playback-rate-tooltip",
                                                                         delay={
                                                                             "show": 100,
                                                                             "hide": 0,
                                                                         },
                                                                         autohide=True,
                                                                     ),
-                                                                    dbc.Popover(
-                                                                        [
-                                                                            dbc.PopoverBody(
-                                                                                [
-                                                                                    dcc.Slider(
-                                                                                        id="playback-rate-slider",
-                                                                                        min=0,
-                                                                                        max=4,
-                                                                                        step=None,
-                                                                                        updatemode="drag",
-                                                                                        marks={
-                                                                                            0: "0.25x",
-                                                                                            1: "0.5x",
-                                                                                            2: "1x",
-                                                                                            3: "1.5x",
-                                                                                            4: "2x",
-                                                                                        },
-                                                                                        value=2,
-                                                                                    ),
-                                                                                ]
-                                                                            ),
-                                                                        ],
-                                                                        target="playback-rate",
-                                                                        trigger="click",
-                                                                        placement="top",
-                                                                    ),
                                                                 ],
-                                                                width={"size": "4"},
+                                                                width={"size": "auto"},
                                                             ),
                                                             dbc.Col(
                                                                 [

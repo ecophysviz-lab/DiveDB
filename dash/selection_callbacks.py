@@ -756,7 +756,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         Output("forward-button", "disabled"),
         Output("next-button", "disabled"),
         Output("save-button", "disabled"),
-        Output("playback-rate", "disabled"),
+        Output("playback-rate-display", "disabled"),
         Output("fullscreen-button", "disabled"),
         # Channel management outputs
         Output("available-channels", "data"),
@@ -1138,7 +1138,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 False,  # forward-button enabled
                 False,  # next-button enabled
                 False,  # save-button enabled
-                False,  # playback-rate enabled
+                False,  # playback-rate-display enabled
                 False,  # fullscreen-button enabled
                 available_channels,  # available-channels from DuckPond
                 selected_channels,  # selected-channels (default selection)

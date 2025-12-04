@@ -5,7 +5,7 @@
 ## Quick Reference
 
 - **Project**: Dash-based biologging data visualization dashboard for DiveDB
-- **Entry Point**: `data_visualization.py` (line 186: `if __name__ == "__main__"`)
+- **Entry Point**: `data_visualization.py` (line 206: `if __name__ == "__main__"`)
 - **Tech Stack**: Dash, Plotly, DuckDB, Apache Iceberg, Notion API, Immich, plotly-resampler, dash-extensions
 - **Port**: 8054 (development)
 - **Key Dependencies**: `DuckPond`, `NotionORMManager`, `ImmichService`
@@ -22,8 +22,8 @@ User Action → Callback → Store Update → UI Update → Next Callback
 ### State Management
 
 - Uses `dcc.Store` components for persistent state
-- Key stores: `selected-dataset`, `selected-deployment`, `playhead-time`, `is-playing`, `playback-timestamps`, `current-video-options`, `available-channels`, `selected-channels`, `figure-store`, `available-events`, `selected-events`, `channel-order-from-dom`
-- Stores defined in `create_app_stores()` (data_visualization.py:67-115)
+- Key stores: `selected-dataset`, `selected-deployment`, `playhead-time`, `is-playing`, `playback-timestamps`, `playback-rate`, `current-video-options`, `available-channels`, `selected-channels`, `figure-store`, `available-events`, `selected-events`, `channel-order-from-dom`, `arrow-key-input`
+- Stores defined in `create_app_stores()` (data_visualization.py:67-120)
 - `figure-store` caches `FigureResampler` objects server-side via `dash-extensions.Serverside`
 
 ### Callback Registration Order
@@ -36,18 +36,20 @@ User Action → Callback → Store Update → UI Update → Next Callback
 
 | File | Purpose | Key Exports | Lines |
 |------|---------|-------------|-------|
-| `data_visualization.py` | App entry point, service initialization | `app`, `server` | ~198 |
-| `callbacks.py` | Server-side callbacks (playback, video, channel management) | `register_callbacks()` | ~855 |
+| `data_visualization.py` | App entry point, service initialization | `app`, `server` | ~209 |
+| `callbacks.py` | Server-side callbacks (playback, video, rate cycling, skip) | `register_callbacks()` | ~1008 |
 | `selection_callbacks.py` | Dataset/deployment selection, events | `register_selection_callbacks()`, `DataPkl`, `generate_graph_from_channels()`, `transform_events_for_graph()` | ~1775 |
-| `clientside_callbacks.py` | Client-side callbacks (fullscreen, slider sync) | `register_clientside_callbacks()` | 186 |
+| `clientside_callbacks.py` | Client-side callbacks (fullscreen, slider sync, arrow keys) | `register_clientside_callbacks()` | ~240 |
 | `graph_utils.py` | Plotly visualization utilities | `plot_tag_data_interactive()` | ~361 |
 | `layout/core.py` | Main layout assembly | `create_header()`, `create_main_content()`, `create_layout()` | ~283 |
 | `layout/sidebar.py` | Left/right sidebars | `create_left_sidebar()`, `create_right_sidebar()`, `create_dataset_accordion_item()` | 284 |
-| `layout/timeline.py` | Footer timeline components | `create_footer()`, `create_timeline_section()` | 827 |
+| `layout/timeline.py` | Footer timeline components | `create_footer()`, `create_timeline_section()` | ~840 |
 | `layout/indicators.py` | Event/video indicators | `create_event_indicator()`, `create_video_indicator()` | 460 |
 | `layout/modals.py` | Modal dialogs | `create_bookmark_modal()` | 50 |
 | `logging_config.py` | Centralized logging | `get_logger()` | 96 |
 | `assets/channel-drag-drop.js` | Channel drag-and-drop reordering | `initializeDragDrop()` | ~237 |
+| `assets/arrow-key-navigation.js` | Global arrow key playhead navigation | - | ~130 |
+| `assets/tooltip.js` | Slider tooltip timestamp formatter | `formatTimestamp()` | ~19 |
 
 ## Module Reference
 
@@ -82,7 +84,10 @@ User Action → Callback → Store Update → UI Update → Next Callback
 
 **Key Callbacks**:
 - `toggle_play_pause()`: `play-button.n_clicks` → `is-playing.data`, `play-button.children`, `play-button.className`
-- `update_playhead_from_interval()`: `interval-component.n_intervals` → `playhead-time.data`
+- `cycle_playback_rate()`: `forward-button.n_clicks` + `rewind-button.n_clicks` → `playback-rate.data`, tooltip updates (cycles 1×→5×→10×→100×)
+- `update_playback_rate_display()`: `playback-rate.data` → `playback-rate-display.children`, `playback-rate-tooltip.children`
+- `skip_navigation()`: `previous-button.n_clicks` + `next-button.n_clicks` → `playhead-time.data` (skips ±10×rate seconds)
+- `update_playhead_from_interval()`: `interval-component.n_intervals` + `playback-rate.data` → `playhead-time.data` (rate-aware)
 - `video_selection_manager()`: `playhead-time.data` + `video-indicator.n_clicks` → `selected-video.data`, `manual-video-override.data`
 - `update_video_player()`: `selected-video.data` → `video-trimmer.videoSrc`, `video-trimmer.videoMetadata`, `video-trimmer.datasetStartTime`
 - `add_new_channel()`: `add-graph-btn.n_clicks` → `graph-channel-list.children`
@@ -151,6 +156,7 @@ User Action → Callback → Store Update → UI Update → Next Callback
   - `playhead-time.data` → `playhead-slider.value`
   - `playhead-slider.value` → `playhead-time.data`
 - Playhead tracking line: `playhead-time.data` → `graph-content.figure` (adds vertical line)
+- Arrow key navigation: `arrow-key-input.value` → `playhead-time.data` (±1s steps, works with `assets/arrow-key-navigation.js`)
 
 **Note**: Uses `allow_duplicate=True` to avoid conflicts with server-side callbacks
 
@@ -209,8 +215,14 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - `create_deployment_info_display(animal_id, deployment_date, icon_url)` → html.Div - Deployment metadata display
 
 **Timeline Components**:
-- Playhead slider: `playhead-slider`
-- Playback controls: `previous-button`, `rewind-button`, `play-button`, `forward-button`, `next-button`
+- Playhead slider: `playhead-slider` (tooltip shows `YYYY-MM-DD HH:MM:SS.mmm` via `assets/tooltip.js`)
+- Playback controls:
+  - `previous-button`: Skip back (10× playback rate seconds)
+  - `rewind-button`: Decrease playback rate (100→10→5→1)
+  - `play-button`: Play/pause
+  - `forward-button`: Increase playback rate (1→5→10→100)
+  - `next-button`: Skip forward (10× playback rate seconds)
+- Speed display: `playback-rate-display` (shows current rate, e.g., "5×")
 - Timeline container: `timeline-container`
 
 ### layout/indicators.py
@@ -308,26 +320,42 @@ User Action → Callback → Store Update → UI Update → Next Callback
    - Output: `is-playing.data`, `play-button.children`, `play-button.className`
    - Action: Toggle play state, update button UI
 
-2. **Enable Interval** (`update_interval_component`)
+2. **Cycle Playback Rate** (`cycle_playback_rate`)
+   - Trigger: `forward-button.n_clicks` or `rewind-button.n_clicks`
+   - Output: `playback-rate.data`, tooltip updates
+   - Action: Forward cycles up (1→5→10→100→1), Rewind cycles down
+
+3. **Skip Navigation** (`skip_navigation`)
+   - Trigger: `previous-button.n_clicks` or `next-button.n_clicks`
+   - Output: `playhead-time.data`, tooltip updates
+   - Action: Jump ±(10 × playback_rate) seconds
+
+4. **Arrow Key Navigation** (clientside + `arrow-key-navigation.js`)
+   - Trigger: Left/Right arrow keys → `arrow-key-input.value`
+   - Output: `playhead-time.data`
+   - Action: Move playhead ±1 second
+
+5. **Enable Interval** (`update_interval_component`)
    - Trigger: `is-playing.data`
    - Output: `interval-component.disabled`
    - Action: Enable/disable interval based on play state
 
-3. **Update Playhead** (`update_playhead_from_interval`)
+6. **Update Playhead** (`update_playhead_from_interval`)
    - Trigger: `interval-component.n_intervals`
+   - State: `playback-rate.data`
    - Output: `playhead-time.data`
-   - Action: Advance playhead to next timestamp
+   - Action: Advance playhead by `playback_rate` seconds per tick
 
-4. **Sync Slider** (clientside)
+7. **Sync Slider** (clientside)
    - Trigger: `playhead-time.data` → `playhead-slider.value`
    - Action: Update slider position
 
-5. **Update Video** (`video_selection_manager`)
+8. **Update Video** (`video_selection_manager`)
    - Trigger: `playhead-time.data`
    - Output: `selected-video.data`
    - Action: Auto-select overlapping video
 
-6. **Update 3D Model** (`update_active_time`)
+9. **Update 3D Model** (`update_active_time`)
    - Trigger: `playhead-time.data`
    - Output: `three-d-model.activeTime`
    - Action: Update 3D model orientation
@@ -343,7 +371,9 @@ User Action → Callback → Store Update → UI Update → Next Callback
 | `all-datasets-deployments` | dict | All datasets with deployments | `{"dataset1": [deployment1, ...], ...}` |
 | `playhead-time` | float | Current playhead timestamp (Unix seconds) | `1573228800.0` |
 | `is-playing` | bool | Playback state | `True` |
+| `playback-rate` | int | Playback speed multiplier (1, 5, 10, or 100) | `1` |
 | `playback-timestamps` | List[float] | All available timestamps | `[1573228800.0, 1573228801.0, ...]` |
+| `arrow-key-input` | str | Hidden input for arrow key events (direction:timestamp) | `"1:1699123456789"` |
 | `selected-video` | dict | Currently selected video | `{"id": "...", "shareUrl": "...", ...}` |
 | `manual-video-override` | dict | Manual video selection override | `{"id": "...", ...}` |
 | `video-time-offset` | float | Video time offset in seconds | `0.0` |

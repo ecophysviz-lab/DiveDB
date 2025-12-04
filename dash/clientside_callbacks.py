@@ -183,3 +183,57 @@ def register_clientside_callbacks(app):
         [State("graph-content", "figure")],
         prevent_initial_call=True,
     )
+
+    # Arrow key navigation (0.1s steps)
+    # The arrow-key-navigation.js file updates the hidden arrow-key-input with direction
+    # This callback responds to that input and updates playhead-time accordingly
+    app.clientside_callback(
+        """
+        function(arrowInput, playhead_time, timestamps, slider_min, slider_max) {
+            // Check if this is a valid arrow key input
+            if (!arrowInput || arrowInput === '') {
+                return window.dash_clientside.no_update;
+            }
+            
+            // Parse the input - format is "direction:timestamp" (e.g., "1:1699123456.789")
+            const parts = arrowInput.split(':');
+            if (parts.length !== 2) {
+                return window.dash_clientside.no_update;
+            }
+            
+            const direction = parseInt(parts[0]);
+            const inputTimestamp = parseFloat(parts[1]);
+            
+            // Verify this is a new input (not a stale one)
+            if (isNaN(direction) || isNaN(inputTimestamp)) {
+                return window.dash_clientside.no_update;
+            }
+            
+            const STEP = 1;  // 1 second step
+            
+            // Get bounds
+            const minTime = slider_min || (timestamps && timestamps.length > 0 ? Math.min(...timestamps) : 0);
+            const maxTime = slider_max || (timestamps && timestamps.length > 0 ? Math.max(...timestamps) : Infinity);
+            
+            // Calculate new time
+            let newTime = playhead_time + (direction * STEP);
+            
+            // Clamp to bounds
+            newTime = Math.max(minTime, Math.min(maxTime, newTime));
+            
+            console.log('Arrow key navigation:', direction > 0 ? 'forward' : 'backward', 
+                        playhead_time.toFixed(3), '->', newTime.toFixed(3));
+            
+            return newTime;
+        }
+        """,
+        Output("playhead-time", "data", allow_duplicate=True),
+        [Input("arrow-key-input", "value")],
+        [
+            State("playhead-time", "data"),
+            State("playback-timestamps", "data"),
+            State("playhead-slider", "min"),
+            State("playhead-slider", "max"),
+        ],
+        prevent_initial_call=True,
+    )

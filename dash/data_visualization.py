@@ -112,6 +112,15 @@ def create_app_stores(dff):
         ),  # List of dicts: [{event_key, signal, enabled}, ...]
         # Store for channel order from DOM (updated by clientside callback on Update Graph click)
         dcc.Store(id="channel-order-from-dom", data=[]),
+        # Store for playback rate (1x, 5x, 10x, or 100x)
+        dcc.Store(id="playback-rate", data=1),
+        # Hidden input for arrow key navigation (updated by JS, triggers callback)
+        dcc.Input(
+            id="arrow-key-input",
+            type="hidden",
+            value="",
+            style={"display": "none"},
+        ),
     ]
 
 
