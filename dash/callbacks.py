@@ -121,15 +121,69 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
     """Register all server-side callbacks with the given app instance."""
 
     @app.callback(
-        Output("modal", "is_open"),
-        [Input("save-button", "n_clicks"), Input("close", "n_clicks")],
-        [State("modal", "is_open")],
+        Output("event-popover", "is_open"),
+        Output("event-timestamp-display", "children"),
+        [Input("save-button", "n_clicks"), Input("cancel-event-button", "n_clicks")],
+        [State("event-popover", "is_open"), State("playhead-time", "data")],
     )
-    def toggle_modal(n1, n2, is_open):
-        """Toggle the bookmark modal open/closed state."""
-        if n1 or n2:
-            return not is_open
-        return is_open
+    def toggle_event_popover(save_clicks, cancel_clicks, is_open, playhead_time):
+        """Toggle the event creation popover open/closed state and update timestamp display."""
+        # Format the timestamp for display
+        timestamp_display = "--"
+        if playhead_time:
+            try:
+                dt = datetime.fromtimestamp(playhead_time)
+                # Format as YYYY-MM-DD HH:MM:SS.mmm
+                timestamp_display = (
+                    dt.strftime("%Y-%m-%d %H:%M:%S")
+                    + f".{int(dt.microsecond / 1000):03d}"
+                )
+            except (ValueError, TypeError, OSError):
+                timestamp_display = str(playhead_time)
+
+        if save_clicks or cancel_clicks:
+            return not is_open, timestamp_display
+        return is_open, timestamp_display
+
+    @app.callback(
+        Output("new-event-type-container", "style"),
+        Input("event-type-select", "value"),
+    )
+    def toggle_new_event_input(selected_value):
+        """Show/hide the new event type input based on dropdown selection."""
+        if selected_value == "__create_new__":
+            return {"display": "block"}
+        return {"display": "none"}
+
+    @app.callback(
+        Output("event-type-select", "options"),
+        Input("available-events", "data"),
+    )
+    def populate_event_type_dropdown(available_events):
+        """Populate event type dropdown from available events store."""
+        options = [{"label": "Select event type...", "value": "", "disabled": True}]
+
+        if available_events:
+            # Add existing event types from the store
+            for event in available_events:
+                event_key = event.get("event_key", "")
+                if event_key:
+                    options.append(
+                        {
+                            "label": event_key,
+                            "value": event_key,
+                        }
+                    )
+
+        # Always add "Create new..." as the last option
+        options.append(
+            {
+                "label": "+ Create new...",
+                "value": "__create_new__",
+            }
+        )
+
+        return options
 
     @app.callback(
         Output("main-layout", "className"),
@@ -931,16 +985,16 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
             if (!n_clicks) {
                 return window.dash_clientside.no_update;
             }
-            
+
             // Read channel values in their current DOM order
             const channelList = document.getElementById('graph-channel-list');
             if (!channelList) {
                 return [];
             }
-            
+
             const channelOrder = [];
             const listItems = channelList.querySelectorAll('.list-group-item');
-            
+
             listItems.forEach((item) => {
                 // Find select element (channel dropdown)
                 const select = item.querySelector('select');
@@ -948,7 +1002,7 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
                     channelOrder.push(select.value);
                 }
             });
-            
+
             console.log('Read channel order from DOM:', channelOrder);
             return channelOrder;
         }

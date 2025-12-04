@@ -17,7 +17,7 @@ from layout import (
     create_right_sidebar,
     create_footer,
     create_footer_empty,
-    create_bookmark_modal,
+    create_event_popover,
     create_empty_figure,
     create_empty_dataframe,
     create_loading_overlay,
@@ -161,7 +161,7 @@ def create_layout(
                 ],
                 className="grid",
             ),
-            create_bookmark_modal(),
+            create_event_popover(),
             create_loading_overlay(),  # Add loading overlay
             *create_app_stores(dff),
         ],
