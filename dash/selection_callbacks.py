@@ -6,6 +6,7 @@ import dash
 from dash import Output, Input, State, html, callback_context, no_update, ALL
 import pandas as pd
 import time
+from concurrent.futures import ThreadPoolExecutor
 from logging_config import get_logger
 from dash_extensions.enrich import Serverside
 from layout import (
@@ -554,6 +555,30 @@ def generate_graph_from_channels(
     return fig, dff, timestamps
 
 
+def _fetch_videos_async(immich_service, deployment_id: str) -> list:
+    """
+    Fetch videos from Immich in a background thread.
+
+    This function is designed to run in a ThreadPoolExecutor while
+    DuckDB operations proceed on the main thread.
+    """
+    try:
+        deployment_id_for_immich = "DepID_" + deployment_id
+        logger.debug(f"[Thread] Fetching videos for: {deployment_id_for_immich}")
+
+        media_result = immich_service.find_media_by_deployment_id(
+            deployment_id_for_immich, media_type="VIDEO", shared=True
+        )
+        video_result = immich_service.prepare_video_options_for_react(media_result)
+
+        video_options = video_result.get("video_options", [])
+        logger.debug(f"[Thread] Loaded {len(video_options)} videos")
+        return video_options
+    except Exception as e:
+        logger.error(f"[Thread] Error fetching videos: {e}")
+        return []
+
+
 def register_selection_callbacks(app, duck_pond, immich_service):
     """Register all selection-related callbacks with the given app instance."""
     logger.debug("Registering selection callbacks...")
@@ -785,123 +810,127 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             deployment_id = selected_deployment["deployment"]
             animal_id = selected_deployment["animal"]
 
-            # Get timezone offset from Notion via DuckDB
-            timezone_offset = duck_pond.get_deployment_timezone_offset(deployment_id)
-            logger.info(f"Deployment timezone offset: UTC{timezone_offset:+.1f}")
+            # Start video fetch immediately in background thread
+            # This runs in parallel with DuckDB operations below
+            with ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="immich"
+            ) as executor:
+                video_future = executor.submit(
+                    _fetch_videos_async,
+                    immich_service,
+                    selected_deployment["deployment"],
+                )
 
-            # Use deployment's min and max dates directly
-            min_dt = pd.to_datetime(selected_deployment["min_date"])
-            max_dt = pd.to_datetime(selected_deployment["max_date"])
-            date_range = {
-                "start": min_dt.isoformat(),
-                "end": max_dt.isoformat(),
-            }
+                # Continue with DuckDB operations (sequential, share connection)
+                # Get timezone offset from Notion via DuckDB
+                timezone_offset = duck_pond.get_deployment_timezone_offset(
+                    deployment_id
+                )
+                logger.info(f"Deployment timezone offset: UTC{timezone_offset:+.1f}")
 
-            logger.info(f"Loading visualization for deployment: {deployment_id}")
-            logger.debug(f"Date range: {date_range['start']} to {date_range['end']}")
+                # Use deployment's min and max dates directly
+                min_dt = pd.to_datetime(selected_deployment["min_date"])
+                max_dt = pd.to_datetime(selected_deployment["max_date"])
+                date_range = {
+                    "start": min_dt.isoformat(),
+                    "end": max_dt.isoformat(),
+                }
 
-            # Fetch available channels from DuckPond (without metadata for speed)
-            logger.debug("Fetching available channels...")
-            available_channels = duck_pond.get_available_channels(
-                dataset=dataset,
-                include_metadata=True,
-                pack_groups=True,
-                load_metadata=False,
-            )
-            logger.debug(f"Found {len(available_channels)} channel options")
+                logger.info(f"Loading visualization for deployment: {deployment_id}")
+                logger.debug(
+                    f"Date range: {date_range['start']} to {date_range['end']}"
+                )
 
-            # Debug: Log all available group names
-            available_groups = [
-                ch.get("group")
-                for ch in available_channels
-                if ch.get("kind") == "group"
-            ]
-            logger.debug(f"Available groups: {available_groups}")
-
-            # Select default channels - prioritize groups like depth, prh, pressure, temperature, light
-            # Note: We only show groups in the UI, so only select groups by default
-            default_priority = ["depth", "prh", "pressure", "temperature", "light"]
-            selected_channels = []
-
-            for priority_name in default_priority:
-                for channel in available_channels:
-                    # Only use groups
-                    if channel.get("kind") == "group":
-                        group_name = channel.get("group", "")
-                        # Match if priority name is in group name (handles prefixes like derived_data_depth)
-                        if priority_name.lower() in group_name.lower():
-                            selected_channels.append(group_name)
-                            logger.debug(
-                                f"Matched priority '{priority_name}' to group '{group_name}'"
-                            )
-                            break
-                # Limit to first 5 channels
-                if len(selected_channels) >= 5:
-                    break
-
-            # If no matches, use first 3 available groups
-            if not selected_channels:
-                logger.debug("No priority matches found, selecting first 3 groups")
-                for channel in available_channels:
-                    # Only use groups
-                    if channel.get("kind") == "group":
-                        group_name = channel.get("group")
-                        selected_channels.append(group_name)
-                        logger.debug(f"Added fallback group: {group_name}")
-                        if len(selected_channels) >= 3:
-                            break
-
-            logger.debug(f"Default selected channels: {selected_channels}")
-
-            # Generate graph using the new helper function
-            fig, dff, timestamps = generate_graph_from_channels(
-                duck_pond=duck_pond,
-                dataset=dataset,
-                deployment_id=deployment_id,
-                animal_id=animal_id,
-                date_range=date_range,
-                timezone_offset=timezone_offset,
-                selected_channels=selected_channels,
-                selected_deployment=selected_deployment,
-                available_channels=available_channels,
-            )
-
-            # Fetch events for this deployment
-            logger.debug("Fetching events...")
-            try:
-                events_df = duck_pond.get_events(
+                # Fetch available channels from DuckPond (without metadata for speed)
+                logger.debug("Fetching available channels...")
+                available_channels = duck_pond.get_available_channels(
                     dataset=dataset,
-                    animal_ids=animal_id,
-                    date_range=(date_range["start"], date_range["end"]),
-                    apply_timezone_offset=timezone_offset,
-                    add_timestamp_columns=True,
+                    include_metadata=True,
+                    pack_groups=True,
+                    load_metadata=False,
                 )
-                logger.debug(
-                    f"Loaded {len(events_df) if not events_df.empty else 0} events"
-                )
-            except Exception as e:
-                logger.error(f"Error fetching events: {e}")
-                events_df = None
+                logger.debug(f"Found {len(available_channels)} channel options")
 
-            # Fetch videos from Immich
-            logger.debug("Fetching videos from Immich...")
-            video_options = []
-            try:
-                deployment_id_for_immich = "DepID_" + selected_deployment["deployment"]
-                logger.debug(
-                    f"Fetching videos from Immich for deployment: {deployment_id_for_immich}"
+                # Debug: Log all available group names
+                available_groups = [
+                    ch.get("group")
+                    for ch in available_channels
+                    if ch.get("kind") == "group"
+                ]
+                logger.debug(f"Available groups: {available_groups}")
+
+                # Select default channels - prioritize groups like depth, prh, pressure, temperature, light
+                # Note: We only show groups in the UI, so only select groups by default
+                default_priority = ["depth", "prh", "pressure", "temperature", "light"]
+                selected_channels = []
+
+                for priority_name in default_priority:
+                    for channel in available_channels:
+                        # Only use groups
+                        if channel.get("kind") == "group":
+                            group_name = channel.get("group", "")
+                            # Match if priority name is in group name (handles prefixes like derived_data_depth)
+                            if priority_name.lower() in group_name.lower():
+                                selected_channels.append(group_name)
+                                logger.debug(
+                                    f"Matched priority '{priority_name}' to group '{group_name}'"
+                                )
+                                break
+                    # Limit to first 5 channels
+                    if len(selected_channels) >= 5:
+                        break
+
+                # If no matches, use first 3 available groups
+                if not selected_channels:
+                    logger.debug("No priority matches found, selecting first 3 groups")
+                    for channel in available_channels:
+                        # Only use groups
+                        if channel.get("kind") == "group":
+                            group_name = channel.get("group")
+                            selected_channels.append(group_name)
+                            logger.debug(f"Added fallback group: {group_name}")
+                            if len(selected_channels) >= 3:
+                                break
+
+                logger.debug(f"Default selected channels: {selected_channels}")
+
+                # Generate graph using the new helper function
+                fig, dff, timestamps = generate_graph_from_channels(
+                    duck_pond=duck_pond,
+                    dataset=dataset,
+                    deployment_id=deployment_id,
+                    animal_id=animal_id,
+                    date_range=date_range,
+                    timezone_offset=timezone_offset,
+                    selected_channels=selected_channels,
+                    selected_deployment=selected_deployment,
+                    available_channels=available_channels,
                 )
-                media_result = immich_service.find_media_by_deployment_id(
-                    deployment_id_for_immich, media_type="VIDEO", shared=True
-                )
-                video_result = immich_service.prepare_video_options_for_react(
-                    media_result
-                )
-                video_options = video_result.get("video_options", [])
-                logger.debug(f"Loaded {len(video_options)} videos")
-            except Exception as e:
-                logger.error(f"Error fetching videos: {e}")
-                video_options = []
+
+                # Fetch events for this deployment
+                logger.debug("Fetching events...")
+                try:
+                    events_df = duck_pond.get_events(
+                        dataset=dataset,
+                        animal_ids=animal_id,
+                        date_range=(date_range["start"], date_range["end"]),
+                        apply_timezone_offset=timezone_offset,
+                        add_timestamp_columns=True,
+                    )
+                    logger.debug(
+                        f"Loaded {len(events_df) if not events_df.empty else 0} events"
+                    )
+                except Exception as e:
+                    logger.error(f"Error fetching events: {e}")
+                    events_df = None
+
+                # Join video results at the end (blocks only if still running)
+                logger.debug("Waiting for video fetch to complete...")
+                try:
+                    video_options = video_future.result(timeout=30)
+                except Exception as e:
+                    logger.error(f"Video fetch failed or timed out: {e}")
+                    video_options = []
 
             # Generate timeline HTML
             timeline_html = create_timeline_section(
