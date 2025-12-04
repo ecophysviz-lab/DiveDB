@@ -84,11 +84,12 @@ User Action → Callback → Store Update → UI Update → Next Callback
 
 **Key Callbacks**:
 - `toggle_play_pause()`: `play-button.n_clicks` → `is-playing.data`, `play-button.children`, `play-button.className`
-- `cycle_playback_rate()`: `forward-button.n_clicks` + `rewind-button.n_clicks` → `playback-rate.data`, tooltip updates (cycles 1×→5×→10×→100×)
+- `cycle_playback_rate()`: `forward-button.n_clicks` + `rewind-button.n_clicks` → `playback-rate.data`, tooltip updates (cycles 0.1×→0.5×→1×→5×→10×→100×)
 - `update_playback_rate_display()`: `playback-rate.data` → `playback-rate-display.children`, `playback-rate-tooltip.children`
 - `skip_navigation()`: `previous-button.n_clicks` + `next-button.n_clicks` → `playhead-time.data` (skips ±10×rate seconds)
 - `update_playhead_from_interval()`: `interval-component.n_intervals` + `playback-rate.data` → `playhead-time.data` (rate-aware)
 - `video_selection_manager()`: `playhead-time.data` + `video-indicator.n_clicks` → `selected-video.data`, `manual-video-override.data`
+- `update_video_preview()`: `playhead-time.data` + `is-playing.data` + `playback-rate.data` → `video-trimmer.playheadTime`, `video-trimmer.isPlaying`, `video-trimmer.playbackRate`
 - `update_video_player()`: `selected-video.data` → `video-trimmer.videoSrc`, `video-trimmer.videoMetadata`, `video-trimmer.datasetStartTime`
 - `add_new_channel()`: `add-graph-btn.n_clicks` → `graph-channel-list.children`
 - `remove_channel()`: `channel-remove.n_clicks` → `graph-channel-list.children`
@@ -156,7 +157,7 @@ User Action → Callback → Store Update → UI Update → Next Callback
   - `playhead-time.data` → `playhead-slider.value`
   - `playhead-slider.value` → `playhead-time.data`
 - Playhead tracking line: `playhead-time.data` → `graph-content.figure` (adds vertical line)
-- Arrow key navigation: `arrow-key-input.value` → `playhead-time.data` (±1s steps, works with `assets/arrow-key-navigation.js`)
+- Arrow key navigation: `arrow-key-input.value` → `playhead-time.data` (rate-aware steps: ±1s at 1×+, ±rate at sub-1× rates, works with `assets/arrow-key-navigation.js`)
 
 **Note**: Uses `allow_duplicate=True` to avoid conflicts with server-side callbacks
 
@@ -215,14 +216,14 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - `create_deployment_info_display(animal_id, deployment_date, icon_url)` → html.Div - Deployment metadata display
 
 **Timeline Components**:
-- Playhead slider: `playhead-slider` (tooltip shows `YYYY-MM-DD HH:MM:SS.mmm` via `assets/tooltip.js`)
+- Playhead slider: `playhead-slider` (step=0.001 for millisecond resolution, tooltip shows `YYYY-MM-DD HH:MM:SS.mmm` via `assets/tooltip.js`)
 - Playback controls:
   - `previous-button`: Skip back (10× playback rate seconds)
-  - `rewind-button`: Decrease playback rate (100→10→5→1)
+  - `rewind-button`: Decrease playback rate (100→10→5→1→0.5→0.1)
   - `play-button`: Play/pause
-  - `forward-button`: Increase playback rate (1→5→10→100)
+  - `forward-button`: Increase playback rate (0.1→0.5→1→5→10→100)
   - `next-button`: Skip forward (10× playback rate seconds)
-- Speed display: `playback-rate-display` (shows current rate, e.g., "5×")
+- Speed display: `playback-rate-display` (shows current rate, e.g., "0.5×" or "5×")
 - Timeline container: `timeline-container`
 
 ### layout/indicators.py
@@ -371,7 +372,7 @@ User Action → Callback → Store Update → UI Update → Next Callback
 | `all-datasets-deployments` | dict | All datasets with deployments | `{"dataset1": [deployment1, ...], ...}` |
 | `playhead-time` | float | Current playhead timestamp (Unix seconds) | `1573228800.0` |
 | `is-playing` | bool | Playback state | `True` |
-| `playback-rate` | int | Playback speed multiplier (1, 5, 10, or 100) | `1` |
+| `playback-rate` | float | Playback speed multiplier (0.1, 0.5, 1, 5, 10, or 100) | `1` |
 | `playback-timestamps` | List[float] | All available timestamps | `[1573228800.0, 1573228801.0, ...]` |
 | `arrow-key-input` | str | Hidden input for arrow key events (direction:timestamp) | `"1:1699123456789"` |
 | `selected-video` | dict | Currently selected video | `{"id": "...", "shareUrl": "...", ...}` |

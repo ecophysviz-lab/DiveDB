@@ -184,12 +184,13 @@ def register_clientside_callbacks(app):
         prevent_initial_call=True,
     )
 
-    # Arrow key navigation (0.1s steps)
+    # Arrow key navigation (rate-aware steps)
     # The arrow-key-navigation.js file updates the hidden arrow-key-input with direction
     # This callback responds to that input and updates playhead-time accordingly
+    # Step size scales with playback rate for sub-second precision at slow rates
     app.clientside_callback(
         """
-        function(arrowInput, playhead_time, timestamps, slider_min, slider_max) {
+        function(arrowInput, playhead_time, timestamps, slider_min, slider_max, playback_rate) {
             // Check if this is a valid arrow key input
             if (!arrowInput || arrowInput === '') {
                 return window.dash_clientside.no_update;
@@ -209,7 +210,10 @@ def register_clientside_callbacks(app):
                 return window.dash_clientside.no_update;
             }
             
-            const STEP = 1;  // 1 second step
+            // Rate-aware step: at 1x or faster use 1 second, at slower rates use the rate
+            // e.g., at 0.1x rate, step is 0.1 seconds; at 5x rate, step is 1 second
+            const rate = playback_rate || 1;
+            const STEP = rate >= 1 ? 1 : rate;
             
             // Get bounds
             const minTime = slider_min || (timestamps && timestamps.length > 0 ? Math.min(...timestamps) : 0);
@@ -222,6 +226,7 @@ def register_clientside_callbacks(app):
             newTime = Math.max(minTime, Math.min(maxTime, newTime));
             
             console.log('Arrow key navigation:', direction > 0 ? 'forward' : 'backward', 
+                        'step=' + STEP + 's',
                         playhead_time.toFixed(3), '->', newTime.toFixed(3));
             
             return newTime;
@@ -234,6 +239,7 @@ def register_clientside_callbacks(app):
             State("playback-timestamps", "data"),
             State("playhead-slider", "min"),
             State("playhead-slider", "max"),
+            State("playback-rate", "data"),
         ],
         prevent_initial_call=True,
     )

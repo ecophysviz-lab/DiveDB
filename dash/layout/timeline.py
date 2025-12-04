@@ -120,7 +120,7 @@ def create_timeline_section(dff, video_options=None, events_df=None):
                                 min=timestamp_min,
                                 max=timestamp_max,
                                 value=timestamp_min,
-                                step=1,
+                                step=0.001,  # Millisecond resolution for sub-second playback
                                 marks=None,
                                 tooltip={
                                     "placement": "top",

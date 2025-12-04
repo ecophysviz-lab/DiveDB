@@ -188,12 +188,14 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
     @app.callback(
         Output("video-trimmer", "playheadTime"),
         Output("video-trimmer", "isPlaying"),
+        Output("video-trimmer", "playbackRate"),
         Input("playhead-time", "data"),
         Input("is-playing", "data"),
+        Input("playback-rate", "data"),
     )
-    def update_video_preview(playhead_time, is_playing):
-        """Update the video preview component with current playhead time and playing state."""
-        return playhead_time, is_playing
+    def update_video_preview(playhead_time, is_playing, playback_rate):
+        """Update the video preview component with current playhead time, playing state, and rate."""
+        return playhead_time, is_playing, playback_rate or 1
 
     @app.callback(
         Output("three-d-model", "activeTime"),
@@ -243,8 +245,8 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         return "Pause" if is_playing else "Play"
 
     # Playback rate cycling: Forward increases rate, Rewind decreases rate
-    # Available rates: 1, 5, 10, 100
-    PLAYBACK_RATES = [1, 5, 10, 100]
+    # Available rates: 0.1, 0.5, 1, 5, 10, 100 (supports sub-second playback)
+    PLAYBACK_RATES = [0.1, 0.5, 1, 5, 10, 100]
 
     @app.callback(
         Output("playback-rate", "data"),
@@ -283,7 +285,9 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
             raise dash.exceptions.PreventUpdate
 
         new_rate = PLAYBACK_RATES[new_idx]
-        tooltip_text = f"Speed: {new_rate}×"
+        # Format rate display: show decimal for fractional rates, integer for whole numbers
+        rate_str = f"{new_rate}×" if new_rate < 1 else f"{int(new_rate)}×"
+        tooltip_text = f"Speed: {rate_str}"
 
         logger.debug(f"Playback rate changed: {current_rate}× → {new_rate}×")
         return new_rate, tooltip_text, tooltip_text
@@ -299,10 +303,12 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         from dash import html
 
         rate = playback_rate or 1
+        # Format rate display: show decimal for fractional rates, integer for whole numbers
+        rate_str = f"{rate}×" if rate < 1 else f"{int(rate)}×"
         return [
-            f"{rate}×",
+            rate_str,
             html.Img(src="/assets/images/speed.svg"),
-        ], f"Current Speed: {rate}×"
+        ], f"Current Speed: {rate_str}"
 
     # Skip navigation: Previous/Next buttons jump by 10x playback rate
     @app.callback(
@@ -358,11 +364,17 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         new_time = timestamps[nearest_idx]
 
         # Calculate dynamic tooltip (show actual skip amount)
-        skip_text = (
-            f"{skip_amount}s"
-            if skip_amount < 60
-            else f"{skip_amount // 60}m {skip_amount % 60}s"
-        )
+        if skip_amount < 1:
+            # Sub-second: show milliseconds
+            skip_text = f"{int(skip_amount * 1000)}ms"
+        elif skip_amount < 60:
+            # Less than a minute: show seconds (handle fractional)
+            skip_text = f"{skip_amount}s" if skip_amount % 1 else f"{int(skip_amount)}s"
+        else:
+            # Minutes and seconds
+            minutes = int(skip_amount // 60)
+            seconds = skip_amount % 60
+            skip_text = f"{minutes}m {int(seconds)}s" if seconds else f"{minutes}m"
         prev_tooltip = f"Skip Back ({skip_text})"
         next_tooltip = f"Skip Forward ({skip_text})"
 
