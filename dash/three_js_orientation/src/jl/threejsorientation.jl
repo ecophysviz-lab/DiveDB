@@ -11,12 +11,12 @@ Keyword arguments:
 - `id` (String; optional)
 - `activeTime` (Real; required)
 - `data` (String; required)
-- `objFile` (String; required)
+- `modelFile` (String; optional)
 - `style` (Dict; optional)
 - `textureFile` (String; optional)
 """
 function threejsorientation(; kwargs...)
-        available_props = Symbol[:id, :activeTime, :data, :objFile, :style, :textureFile]
+        available_props = Symbol[:id, :activeTime, :data, :modelFile, :style, :textureFile]
         wild_props = Symbol[]
         return Component("threejsorientation", "ThreeJsOrientation", "three_js_orientation", available_props, wild_props; kwargs...)
 end

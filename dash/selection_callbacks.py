@@ -352,6 +352,7 @@ def generate_graph_from_channels(
     available_channels=None,
     events_df=None,
     selected_events=None,
+    zoom_range=None,
 ):
     """
     Fetch data and generate graph for selected channels.
@@ -368,6 +369,7 @@ def generate_graph_from_channels(
         available_channels: List of channel metadata from DuckPond (optional)
         events_df: DataFrame with events from DuckPond (optional)
         selected_events: List of event selection dicts [{event_key, signal, enabled}, ...] (optional)
+        zoom_range: Dict with 'min' and 'max' timestamps (Unix seconds) for preserving zoom state (optional)
 
     Returns:
         Tuple of (fig, dff, timestamps)
@@ -635,14 +637,86 @@ def generate_graph_from_channels(
 
     # Step 6: Create figure using plot_tag_data_interactive
     logger.debug("Creating figure...")
+
+    # Convert zoom_range timestamps to datetime for Plotly
+    zoom_start_time = None
+    zoom_end_time = None
+    if zoom_range and zoom_range.get("min") and zoom_range.get("max"):
+        zoom_start_time = pd.to_datetime(zoom_range["min"], unit="s")
+        zoom_end_time = pd.to_datetime(zoom_range["max"], unit="s")
+        logger.debug(f"Preserving zoom range: {zoom_start_time} to {zoom_end_time}")
+
     fig = plot_tag_data_interactive(
         data_pkl=data_pkl,
         zoom_range_selector_channel=zoom_range_selector_channel,
         note_annotations=note_annotations if note_annotations else None,
         state_annotations=state_annotations if state_annotations else None,
+        zoom_start_time=zoom_start_time,
+        zoom_end_time=zoom_end_time,
     )
 
     logger.info(f"Created figure with {len(data_pkl['signal_data'])} signal groups")
+
+    # If we have a zoom range, resample the data server-side for correct resolution
+    # This is necessary because FigureResampler initially samples for full data range
+    if zoom_start_time is not None and zoom_end_time is not None:
+        logger.debug("Applying server-side resampling for zoom range...")
+        try:
+            # Create synthetic relayout data matching what Plotly sends on zoom
+            # With subplots, each has its own xaxis (xaxis, xaxis2, xaxis3, etc.)
+            # We need to include all of them to trigger resampling for all traces
+            zoom_start_iso = zoom_start_time.isoformat()
+            zoom_end_iso = zoom_end_time.isoformat()
+
+            # Find all x-axes that actually exist in the figure layout
+            relayout_data = {}
+            layout_keys = (
+                list(fig.layout.to_plotly_json().keys())
+                if hasattr(fig.layout, "to_plotly_json")
+                else []
+            )
+
+            for key in layout_keys:
+                if key.startswith("xaxis"):
+                    relayout_data[f"{key}.range[0]"] = zoom_start_iso
+                    relayout_data[f"{key}.range[1]"] = zoom_end_iso
+
+            # Fallback if no axes found
+            if not relayout_data:
+                relayout_data = {
+                    "xaxis.range[0]": zoom_start_iso,
+                    "xaxis.range[1]": zoom_end_iso,
+                }
+
+            logger.debug(
+                f"Calling _construct_update_data with range: {zoom_start_iso} to {zoom_end_iso} ({len(relayout_data) // 2} axes)"
+            )
+
+            # Get resampled trace data for the zoom range
+            # Note: _construct_update_data is the internal method (construct_update_data_patch is for Dash patches)
+            trace_updates = fig._construct_update_data(relayout_data)
+
+            logger.debug(
+                f"_construct_update_data returned {len(trace_updates) if trace_updates else 0} updates"
+            )
+
+            # Apply the trace updates to the figure
+            if trace_updates:
+                for update in trace_updates:
+                    trace_idx = update.get("index")
+                    if trace_idx is not None and trace_idx < len(fig.data):
+                        # Update the trace's x and y data
+                        if "x" in update:
+                            fig.data[trace_idx].x = update["x"]
+                        if "y" in update:
+                            fig.data[trace_idx].y = update["y"]
+                logger.debug(
+                    f"Applied {len(trace_updates)} trace updates for zoom resampling"
+                )
+            else:
+                logger.warning("construct_update_data returned no updates")
+        except Exception as e:
+            logger.warning(f"Server-side resampling failed: {e}", exc_info=True)
 
     # Extract timestamps for playback
     timestamps = dff["timestamp"].tolist() if "timestamp" in dff.columns else []
@@ -650,7 +724,9 @@ def generate_graph_from_channels(
     return fig, dff, timestamps
 
 
-def _fetch_videos_async(immich_service, deployment_id: str) -> list:
+def _fetch_videos_async(
+    immich_service, deployment_id: str, use_cache: bool = False
+) -> list:
     """
     Fetch videos from Immich in a background thread.
 
@@ -662,7 +738,10 @@ def _fetch_videos_async(immich_service, deployment_id: str) -> list:
         logger.debug(f"[Thread] Fetching videos for: {deployment_id_for_immich}")
 
         media_result = immich_service.find_media_by_deployment_id(
-            deployment_id_for_immich, media_type="VIDEO", shared=True
+            deployment_id_for_immich,
+            media_type="VIDEO",
+            shared=True,
+            use_cache=use_cache,
         )
         video_result = immich_service.prepare_video_options_for_react(media_result)
 
@@ -674,9 +753,16 @@ def _fetch_videos_async(immich_service, deployment_id: str) -> list:
         return []
 
 
-def register_selection_callbacks(app, duck_pond, immich_service):
-    """Register all selection-related callbacks with the given app instance."""
-    logger.debug("Registering selection callbacks...")
+def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False):
+    """Register all selection-related callbacks with the given app instance.
+
+    Args:
+        app: Dash app instance
+        duck_pond: DuckPond service instance
+        immich_service: ImmichService instance
+        use_cache: If True, enable caching for service calls (default: False)
+    """
+    logger.debug(f"Registering selection callbacks (use_cache={use_cache})...")
 
     @app.callback(
         Output("all-datasets-deployments", "data"),
@@ -749,6 +835,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         Output("playback-timestamps", "data"),
         Output("current-video-options", "data"),
         Output("three-d-model", "data"),
+        Output("three-d-model", "modelFile"),  # Dynamic 3D model from Notion
+        Output("three-d-model", "textureFile"),  # Dynamic texture from Notion
         # Playback control buttons
         Output("previous-button", "disabled"),
         Output("rewind-button", "disabled"),
@@ -766,6 +854,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         Output("selected-events", "data"),
         # Timeline bounds output (for zoom sync)
         Output("timeline-bounds", "data"),
+        # Original bounds output (for reset zoom)
+        Output("original-bounds", "data"),
         Input(
             {
                 "type": "deployment-button",
@@ -781,6 +871,9 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         n_clicks_list, datasets_with_deployments
     ):
         """Handle deployment selection and automatically load visualization."""
+        default_model_file = ""  # Empty = no model initially
+        default_texture_file = ""  # Empty = no texture initially
+
         if not callback_context.triggered or not datasets_with_deployments:
             # Create minimal empty data JSON for 3D model
             empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
@@ -795,6 +888,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 no_update,
                 [],
                 empty_data_json,
+                no_update,  # modelFile - don't update
+                no_update,  # textureFile - don't update
                 True,
                 True,
                 True,
@@ -808,6 +903,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 [],  # available-events
                 [],  # selected-events
                 None,  # timeline-bounds
+                None,  # original-bounds
             )
 
         if not n_clicks_list or not any(n_clicks_list):
@@ -824,6 +920,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 no_update,
                 [],
                 empty_data_json,
+                no_update,  # modelFile - don't update
+                no_update,  # textureFile - don't update
                 True,
                 True,
                 True,
@@ -837,6 +935,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 [],  # available-events
                 [],  # selected-events
                 None,  # timeline-bounds
+                None,  # original-bounds
             )
 
         # Find which button was clicked
@@ -856,6 +955,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 no_update,
                 [],
                 empty_data_json,
+                no_update,  # modelFile - don't update
+                no_update,  # textureFile - don't update
                 True,
                 True,
                 True,
@@ -869,6 +970,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 [],  # available-events
                 [],  # selected-events
                 None,  # timeline-bounds
+                None,  # original-bounds
             )
 
         # Extract dataset and index from triggered_id
@@ -896,6 +998,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     no_update,
                     [],
                     empty_data_json,
+                    no_update,  # modelFile - don't update
+                    no_update,  # textureFile - don't update
                     True,
                     True,
                     True,
@@ -909,6 +1013,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     [],  # available-events
                     [],  # selected-events
                     None,  # timeline-bounds
+                    None,  # original-bounds
                 )
 
             selected_deployment = deployments_data[idx]
@@ -931,6 +1036,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                     _fetch_videos_async,
                     immich_service,
                     selected_deployment["deployment"],
+                    use_cache,
                 )
 
                 # Continue with DuckDB operations (sequential, share connection)
@@ -1088,6 +1194,23 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 model_data_json = empty_df.to_json(orient="split")
                 logger.debug("3D model data prepared WITHOUT orientation (empty)")
 
+            # Get 3D model file URL from Notion (Animal→Asset→Best-3D-model)
+            model_info = duck_pond.get_3d_model_for_animal(animal_id)
+            model_file_url = (
+                model_info.get("model_url") or ""
+            )  # Empty string = no model
+            texture_file_url = (
+                model_info.get("texture_url") or ""
+            )  # Empty string = no texture
+            logger.info(
+                f"3D model for animal '{animal_id}': {model_info.get('model_filename', 'none')} ({model_info.get('filetype', 'none')})"
+                + (
+                    f" with texture {model_info.get('texture_filename')}"
+                    if model_info.get("texture_url")
+                    else ""
+                )
+            )
+
             # Extract available event types from events_df
             available_events = []
             selected_events = []
@@ -1143,6 +1266,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 timestamps,  # playback timestamps from generate_graph_from_channels
                 video_options,  # current video options
                 model_data_json,  # three-d-model data
+                model_file_url,  # three-d-model modelFile (from Notion)
+                texture_file_url,  # three-d-model textureFile (from Notion)
                 False,  # previous-button enabled
                 False,  # rewind-button enabled
                 False,  # play-button enabled
@@ -1156,6 +1281,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 available_events,  # available-events (event types for this deployment)
                 selected_events,  # selected-events (all unchecked by default)
                 initial_bounds,  # timeline-bounds (initial full range)
+                initial_bounds,  # original-bounds (persists for reset zoom)
             )
 
         except Exception as e:
@@ -1194,6 +1320,8 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 [],
                 [],
                 empty_data_json,
+                default_model_file,  # modelFile - use default on error
+                default_texture_file,  # textureFile - use default on error
                 True,
                 True,
                 True,
@@ -1207,6 +1335,7 @@ def register_selection_callbacks(app, duck_pond, immich_service):
                 [],  # available-events
                 [],  # selected-events
                 None,  # timeline-bounds
+                None,  # original-bounds
             )
 
     @app.callback(
@@ -1216,7 +1345,10 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         ),  # NEW: Cache FigureResampler
         Output("playback-timestamps", "data", allow_duplicate=True),
         Output("graph-channels", "is_open"),
+        Output("update-graph-btn", "disabled", allow_duplicate=True),
+        Output("update-graph-btn", "children", allow_duplicate=True),
         Input("channel-order-from-dom", "data"),  # Triggered by clientside callback
+        Input("event-refresh-trigger", "data"),  # Triggered after event creation
         State({"type": "event-checkbox", "key": ALL}, "value"),
         State({"type": "event-checkbox", "key": ALL}, "id"),
         State({"type": "event-signal", "key": ALL}, "value"),
@@ -1225,10 +1357,13 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         State("selected-deployment", "data"),
         State("available-channels", "data"),
         State("all-datasets-deployments", "data"),
+        State("timeline-bounds", "data"),
+        State("selected-channels", "data"),  # For event refresh: use current channels
         prevent_initial_call=True,
     )
     def update_graph_from_channels(
-        channel_values,  # Now comes from DOM order store
+        channel_values_from_dom,  # From DOM order store (Update Graph button)
+        event_refresh_trigger,  # Counter incremented after event creation
         event_checkbox_values,
         event_checkbox_ids,
         event_signal_values,
@@ -1237,12 +1372,30 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         deployment_data,
         available_channels,
         datasets_with_deployments,
+        timeline_bounds,
+        selected_channels_state,  # Current selected channels (for event refresh)
     ):
-        """Update graph when user clicks Update Graph button.
+        """Update graph when user clicks Update Graph button or after event creation.
 
         Channel values come from channel-order-from-dom store which is populated
         by a clientside callback reading the visual DOM order (supports drag-drop reorder).
+        When triggered by event-refresh-trigger, uses selected-channels state instead.
         """
+        # Determine what triggered this callback
+        ctx = dash.callback_context
+        triggered_id = (
+            ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
+        )
+
+        # Choose channel values based on trigger source
+        if triggered_id == "event-refresh-trigger":
+            # Event refresh: use current selected channels from state
+            channel_values = selected_channels_state
+            logger.info("Graph refresh triggered by event creation")
+        else:
+            # Update Graph button: use DOM order
+            channel_values = channel_values_from_dom
+
         if not channel_values or not dataset or not deployment_data:
             raise dash.exceptions.PreventUpdate
 
@@ -1335,10 +1488,12 @@ def register_selection_callbacks(app, duck_pond, immich_service):
             available_channels=available_channels,
             events_df=events_df,
             selected_events=selected_events,
+            zoom_range=timeline_bounds,
         )
 
         logger.info(f"Graph updated successfully with {len(channel_values)} channels")
-        return fig, Serverside(fig), timestamps, False
+        # Return: fig, cached fig, timestamps, close popover, enable button, restore button text
+        return fig, Serverside(fig), timestamps, False, False, "Update Graph"
 
     @app.callback(
         Output("graph-channel-list", "children", allow_duplicate=True),
@@ -1859,3 +2014,253 @@ def register_selection_callbacks(app, duck_pond, immich_service):
         except Exception as e:
             logger.warning(f"Failed to parse zoom range: {e}")
             raise dash.exceptions.PreventUpdate
+
+    # =========================================================================
+    # Reset Zoom Callback (Home button)
+    # =========================================================================
+
+    @app.callback(
+        Output("timeline-bounds", "data", allow_duplicate=True),
+        Output("graph-content", "figure", allow_duplicate=True),
+        Output("figure-store", "data", allow_duplicate=True),
+        Output("playback-timestamps", "data", allow_duplicate=True),
+        Input("reset-zoom-button", "n_clicks"),
+        State("selected-channels", "data"),
+        State("selected-dataset", "data"),
+        State("selected-deployment", "data"),
+        State("available-channels", "data"),
+        State("all-datasets-deployments", "data"),
+        prevent_initial_call=True,
+    )
+    def reset_zoom_to_original(
+        n_clicks,
+        selected_channels,
+        dataset,
+        deployment_data,
+        available_channels,
+        datasets_with_deployments,
+    ):
+        """Reset graph zoom by regenerating the graph with full dataset bounds from DuckPond."""
+        if not n_clicks:
+            raise dash.exceptions.PreventUpdate
+
+        if not selected_channels or not dataset or not deployment_data:
+            logger.warning("Cannot reset zoom: missing channel/dataset/deployment data")
+            raise dash.exceptions.PreventUpdate
+
+        try:
+            # Get deployment details
+            deployment_id = deployment_data["deployment"]
+            animal_id = deployment_data["animal"]
+
+            # Find full deployment data for sample_count and date range
+            deployments_list = datasets_with_deployments.get(dataset, [])
+            selected_deployment = None
+            for dep in deployments_list:
+                if dep["deployment"] == deployment_id and dep["animal"] == animal_id:
+                    selected_deployment = dep
+                    break
+
+            if not selected_deployment:
+                logger.error(f"Could not find deployment {deployment_id} in datasets")
+                raise dash.exceptions.PreventUpdate
+
+            # Get timezone offset from DuckPond
+            timezone_offset = duck_pond.get_deployment_timezone_offset(deployment_id)
+
+            # Build date range from deployment metadata (from DuckPond)
+            min_dt = pd.to_datetime(selected_deployment["min_date"])
+            max_dt = pd.to_datetime(selected_deployment["max_date"])
+            date_range = {
+                "start": min_dt.isoformat(),
+                "end": max_dt.isoformat(),
+            }
+
+            logger.info(
+                f"Regenerating graph with full dataset bounds: {date_range['start']} to {date_range['end']}"
+            )
+
+            # Regenerate the graph with NO zoom range (full dataset)
+            fig, dff, timestamps = generate_graph_from_channels(
+                duck_pond=duck_pond,
+                dataset=dataset,
+                deployment_id=deployment_id,
+                animal_id=animal_id,
+                date_range=date_range,
+                timezone_offset=timezone_offset,
+                selected_channels=selected_channels,
+                selected_deployment=selected_deployment,
+                available_channels=available_channels,
+                events_df=None,  # Skip events for simple reset
+                selected_events=[],  # No event overlays
+                zoom_range=None,  # No zoom - show full range
+            )
+
+            # Calculate original bounds from timestamps
+            original_bounds = (
+                {"min": timestamps[0], "max": timestamps[-1]} if timestamps else None
+            )
+
+            logger.info("Graph regenerated successfully with full dataset bounds")
+
+            return (
+                original_bounds,  # Reset timeline-bounds to full range
+                fig,  # New figure
+                Serverside(fig),  # Cache the new FigureResampler
+                timestamps,  # Updated timestamps
+            )
+
+        except Exception as e:
+            logger.error(f"Error regenerating graph: {e}", exc_info=True)
+            raise dash.exceptions.PreventUpdate
+
+    # =========================================================================
+    # Event Save Callback (B-key bookmark feature)
+    # =========================================================================
+
+    @app.callback(
+        Output("event-modal", "is_open", allow_duplicate=True),
+        Output("last-event-type", "data"),
+        Output("available-events", "data", allow_duplicate=True),
+        Output("event-refresh-trigger", "data"),  # Trigger graph refresh
+        Output("event-toast", "is_open"),  # Show success toast
+        Output("event-toast", "children"),  # Toast message
+        Input("save-event-btn", "n_clicks"),
+        State("event-type-select", "value"),
+        State("new-event-type-input", "value"),
+        State("pending-event-time", "data"),
+        State("event-end-time", "value"),
+        State("event-short-description", "value"),
+        State("event-long-description", "value"),
+        State("selected-dataset", "data"),
+        State("selected-deployment", "data"),
+        State("available-events", "data"),
+        State("event-refresh-trigger", "data"),  # Current trigger value
+        prevent_initial_call=True,
+    )
+    def save_event(
+        n_clicks,
+        event_type_value,
+        new_event_type,
+        pending_time,
+        end_time_str,
+        short_description,
+        long_description,
+        selected_dataset,
+        selected_deployment,
+        available_events,
+        current_refresh_trigger,
+    ):
+        """Save an event to the Iceberg events table."""
+        if not n_clicks:
+            raise dash.exceptions.PreventUpdate
+
+        # Validate required data
+        if not selected_dataset or not selected_deployment:
+            logger.warning("Cannot save event: no dataset or deployment selected")
+            raise dash.exceptions.PreventUpdate
+
+        if not pending_time:
+            logger.warning("Cannot save event: no pending time")
+            raise dash.exceptions.PreventUpdate
+
+        # Determine the event key
+        if event_type_value == "__create_new__":
+            if not new_event_type or not new_event_type.strip():
+                logger.warning("Cannot save event: new event type name is empty")
+                raise dash.exceptions.PreventUpdate
+            event_key = new_event_type.strip()
+        else:
+            if not event_type_value:
+                logger.warning("Cannot save event: no event type selected")
+                raise dash.exceptions.PreventUpdate
+            event_key = event_type_value
+
+        # Parse start time
+        # Use utcfromtimestamp because the timestamp was created from a datetime
+        # that already had the timezone offset applied (for display purposes).
+        # Using fromtimestamp would incorrectly apply the server's local timezone.
+        try:
+            datetime_start = pd.Timestamp.utcfromtimestamp(pending_time)
+        except Exception as e:
+            logger.error(f"Failed to parse start time: {e}")
+            raise dash.exceptions.PreventUpdate
+
+        # Parse end time (if provided)
+        datetime_end = None
+        if end_time_str and end_time_str.strip():
+            try:
+                # Try parsing as a datetime string
+                datetime_end = pd.to_datetime(end_time_str.strip())
+            except Exception as e:
+                logger.warning(f"Failed to parse end time '{end_time_str}': {e}")
+                # Continue with point event
+
+        # Get deployment and animal info
+        deployment_id = selected_deployment.get("deployment", "")
+        animal_id = selected_deployment.get("animal", "")
+
+        if not deployment_id or not animal_id:
+            logger.error("Missing deployment or animal ID")
+            raise dash.exceptions.PreventUpdate
+
+        # Get timezone offset to convert from local display time back to UTC
+        # The playhead-time is in local time (after timezone offset was applied for display)
+        # We need to subtract the offset to get back to UTC for storage in Iceberg
+        try:
+            timezone_offset = duck_pond.get_deployment_timezone_offset(deployment_id)
+            datetime_start = datetime_start - pd.Timedelta(hours=timezone_offset)
+            if datetime_end is not None:
+                datetime_end = datetime_end - pd.Timedelta(hours=timezone_offset)
+            logger.debug(
+                f"Converted to UTC: {datetime_start} (timezone offset: {timezone_offset:+.1f}h)"
+            )
+        except Exception as e:
+            logger.warning(f"Could not get timezone offset, storing as-is: {e}")
+
+        # Write the event to Iceberg
+        try:
+            duck_pond.write_event(
+                dataset=selected_dataset,
+                deployment=deployment_id,
+                animal=animal_id,
+                event_key=event_key,
+                datetime_start=datetime_start,
+                datetime_end=datetime_end,
+                short_description=short_description if short_description else None,
+                long_description=long_description if long_description else None,
+            )
+            logger.info(
+                f"Successfully created event '{event_key}' at {datetime_start} (UTC)"
+            )
+        except Exception as e:
+            logger.error(f"Failed to write event to Iceberg: {e}")
+            raise dash.exceptions.PreventUpdate
+
+        # Update available_events if this is a new event type
+        updated_events = available_events or []
+        if not any(e.get("event_key") == event_key for e in updated_events):
+            # Add the new event type
+            new_event = {
+                "event_key": event_key,
+                "color": "#808080",  # Default gray color
+                "is_point_event": datetime_end is None,
+                "count": 1,
+            }
+            updated_events = updated_events + [new_event]
+            logger.info(f"Added new event type '{event_key}' to available events")
+
+        # Increment refresh trigger to cause graph update
+        new_refresh_trigger = (current_refresh_trigger or 0) + 1
+
+        # Format success message for toast
+        toast_message = f"Event '{event_key}' saved successfully"
+
+        return (
+            False,  # Close modal
+            event_key,  # Update last-event-type for next use
+            updated_events,  # Update available-events
+            new_refresh_trigger,  # Trigger graph refresh to show new event
+            True,  # Show success toast
+            toast_message,  # Toast message content
+        )

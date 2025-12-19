@@ -121,17 +121,6 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
     """Register all server-side callbacks with the given app instance."""
 
     @app.callback(
-        Output("modal", "is_open"),
-        [Input("save-button", "n_clicks"), Input("close", "n_clicks")],
-        [State("modal", "is_open")],
-    )
-    def toggle_modal(n1, n2, is_open):
-        """Toggle the bookmark modal open/closed state."""
-        if n1 or n2:
-            return not is_open
-        return is_open
-
-    @app.callback(
         Output("main-layout", "className"),
         Input("right-top-toggle", "n_clicks"),
         Input("right-bottom-toggle", "n_clicks"),
@@ -957,6 +946,185 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         Input("update-graph-btn", "n_clicks"),
         prevent_initial_call=True,
     )
+
+    # Clientside callback to show loading state on Update Graph button immediately
+    # The server callback will restore the button when processing completes
+    app.clientside_callback(
+        """
+        function(n_clicks) {
+            if (!n_clicks) {
+                return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+            }
+            // Immediately show loading state
+            return [true, "Updating..."];
+        }
+        """,
+        Output("update-graph-btn", "disabled"),
+        Output("update-graph-btn", "children"),
+        Input("update-graph-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
+    # Event Modal Callbacks (B-key bookmark feature)
+    # =========================================================================
+
+    @app.callback(
+        Output("event-modal", "is_open"),
+        Output("event-start-time", "value"),
+        Output("event-type-select", "options"),
+        Output("event-type-select", "value"),
+        Output("pending-event-time", "data"),
+        Output("new-event-type-container", "style"),
+        Output("new-event-type-input", "value"),
+        Output("event-end-time", "value"),
+        Output("event-short-description", "value"),
+        Output("event-long-description", "value"),
+        Input("bookmark-trigger", "value"),
+        Input("save-button", "n_clicks"),  # Bookmark button in timeline
+        Input("cancel-event-btn", "n_clicks"),
+        State("playhead-time", "data"),
+        State("last-event-type", "data"),
+        State("available-events", "data"),
+        State("selected-deployment", "data"),
+        State("event-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def handle_event_modal_open(
+        bookmark_trigger,
+        save_button_clicks,
+        cancel_clicks,
+        playhead_time,
+        last_event_type,
+        available_events,
+        selected_deployment,
+        is_open,
+    ):
+        """Handle opening/closing the event modal on B key press, save button click, or cancel."""
+        ctx = callback_context
+        if not ctx.triggered:
+            return (
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+            )
+
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+        # Handle cancel button
+        if triggered_id == "cancel-event-btn":
+            return (
+                False,  # Close modal
+                "",  # Clear start time
+                dash.no_update,  # Keep options
+                dash.no_update,  # Keep selected value
+                None,  # Clear pending time
+                {"display": "none"},  # Hide new event type input
+                "",  # Clear new event type input
+                "",  # Clear end time
+                "",  # Clear short description
+                "",  # Clear long description
+            )
+
+        # Handle B key press (bookmark-trigger) or save button click
+        if (triggered_id == "bookmark-trigger" and bookmark_trigger) or (
+            triggered_id == "save-button" and save_button_clicks
+        ):
+            # Don't open if no deployment selected
+            if not selected_deployment:
+                logger.warning("Cannot create event: no deployment selected")
+                return (
+                    dash.no_update,
+                    dash.no_update,
+                    dash.no_update,
+                    dash.no_update,
+                    dash.no_update,
+                    dash.no_update,
+                    dash.no_update,
+                    dash.no_update,
+                    dash.no_update,
+                    dash.no_update,
+                )
+
+            # Build dropdown options from available events
+            options = []
+            if available_events:
+                for event in available_events:
+                    event_key = event.get("event_key", "")
+                    if event_key:
+                        options.append({"label": event_key, "value": event_key})
+
+            # Add "Create new..." option at the end
+            options.append(
+                {"label": "➕ Create new event type...", "value": "__create_new__"}
+            )
+
+            # Determine which value to pre-select
+            selected_value = None
+            if last_event_type and any(
+                opt["value"] == last_event_type for opt in options
+            ):
+                selected_value = last_event_type
+            elif options and len(options) > 1:
+                # Select first actual event type (not "Create new")
+                selected_value = options[0]["value"]
+
+            # Format the start time for display
+            # Use utcfromtimestamp because the timestamp was created from a datetime
+            # that already had the timezone offset applied (for display purposes).
+            # Using fromtimestamp would incorrectly apply the server's local timezone.
+            if playhead_time:
+                try:
+                    dt = datetime.utcfromtimestamp(playhead_time)
+                    formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                except Exception:
+                    formatted_time = str(playhead_time)
+            else:
+                formatted_time = "Unknown"
+
+            return (
+                True,  # Open modal
+                formatted_time,  # Start time display
+                options,  # Dropdown options
+                selected_value,  # Pre-selected value
+                playhead_time,  # Store pending time
+                {"display": "none"},  # Hide new event type input initially
+                "",  # Clear new event type input
+                "",  # Clear end time
+                "",  # Clear short description
+                "",  # Clear long description
+            )
+
+        return (
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+        )
+
+    @app.callback(
+        Output("new-event-type-container", "style", allow_duplicate=True),
+        Input("event-type-select", "value"),
+        prevent_initial_call=True,
+    )
+    def toggle_new_event_type_input(selected_value):
+        """Show/hide the new event type input based on dropdown selection."""
+        if selected_value == "__create_new__":
+            return {"display": "block"}
+        return {"display": "none"}
 
     @app.callback(
         Output("channel-order", "data"),

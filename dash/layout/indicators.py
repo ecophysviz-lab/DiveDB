@@ -300,7 +300,7 @@ def assign_event_colors(events_df):
 
 
 def generate_event_indicators_row(
-    events_df, timestamp_min, timestamp_max, max_events_per_type=1000
+    events_df, timestamp_min, timestamp_max, max_events_per_type=100000
 ):
     """Generate the event indicators rows for the timeline (one row per event type)."""
     # If no events, return empty list

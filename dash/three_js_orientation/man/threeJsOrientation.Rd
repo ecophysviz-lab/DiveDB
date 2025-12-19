@@ -10,7 +10,7 @@
 }
 
 \usage{
-threeJsOrientation(id=NULL, activeTime=NULL, data=NULL, objFile=NULL,
+threeJsOrientation(id=NULL, activeTime=NULL, data=NULL, modelFile=NULL,
 style=NULL, textureFile=NULL)
 }
 
@@ -21,7 +21,7 @@ style=NULL, textureFile=NULL)
 
 \item{data}{Character. }
 
-\item{objFile}{Character. }
+\item{modelFile}{Character. }
 
 \item{style}{Named list. }
 

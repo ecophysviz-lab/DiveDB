@@ -16,6 +16,7 @@
   "author": "Will Gislason <gislawill@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "fflate": "^0.8.2",
     "ramda": "^0.26.1",
     "three": "^0.169.0"
   },

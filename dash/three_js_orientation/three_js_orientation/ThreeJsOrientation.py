@@ -30,7 +30,7 @@ class ThreeJsOrientation(Component):
 
     - data (string; required)
 
-    - objFile (string; required)
+    - modelFile (string; default "")
 
     - textureFile (string; optional)"""
 
@@ -44,7 +44,7 @@ class ThreeJsOrientation(Component):
         id: typing.Optional[typing.Union[str, dict]] = None,
         data: typing.Optional[str] = None,
         activeTime: typing.Optional[NumberType] = None,
-        objFile: typing.Optional[str] = None,
+        modelFile: typing.Optional[str] = None,
         textureFile: typing.Optional[str] = None,
         style: typing.Optional[typing.Any] = None,
         **kwargs,
@@ -53,7 +53,7 @@ class ThreeJsOrientation(Component):
             "id",
             "activeTime",
             "data",
-            "objFile",
+            "modelFile",
             "style",
             "textureFile",
         ]
@@ -62,7 +62,7 @@ class ThreeJsOrientation(Component):
             "id",
             "activeTime",
             "data",
-            "objFile",
+            "modelFile",
             "style",
             "textureFile",
         ]
@@ -72,7 +72,7 @@ class ThreeJsOrientation(Component):
         _locals.update(kwargs)  # For wildcard attrs and excess named props
         args = {k: _locals[k] for k in _explicit_args}
 
-        for k in ["activeTime", "data", "objFile"]:
+        for k in ["activeTime", "data"]:
             if k not in args:
                 raise TypeError("Required argument `" + k + "` was not specified.")
 

@@ -6,9 +6,23 @@ and query them using a familiar ORM-like syntax.
 """
 
 import datetime
+import logging
 from typing import Dict, List, Any, Optional, ClassVar, Type
 
 from notion_client import Client
+
+from DiveDB.services.utils.cache_utils import (
+    CACHE_DIRS,
+    generate_cache_key,
+    load_from_cache,
+    save_to_cache,
+)
+
+logger = logging.getLogger(__name__)
+
+# TTL constants for Notion caching
+NOTION_SCHEMA_TTL = 86400  # 24 hours for schemas (rarely change)
+NOTION_QUERY_TTL = 14400  # 4 hours for query results
 
 
 class ModelObjects:
@@ -19,16 +33,24 @@ class ModelObjects:
     def __init__(self, model_cls):
         self.model_cls = model_cls
         self._filters = []
+        self._use_cache = False
 
-    def all(self) -> List:
-        """Get all records from the database."""
+    def all(self, use_cache: bool = False) -> List:
+        """
+        Get all records from the database.
+
+        Args:
+            use_cache: If True, cache results with 4-hour TTL
+        """
+        self._use_cache = use_cache
         return self._query()
 
-    def filter(self, **kwargs) -> "ModelObjects":
+    def filter(self, use_cache: bool = False, **kwargs) -> "ModelObjects":
         """
         Filter records based on provided criteria.
 
         Args:
+            use_cache: If True, cache results with 4-hour TTL
             **kwargs: Filter criteria
             For properties with spaces, use underscores in the keyword argument:
             e.g., Project_ID="123" for "Project ID" property
@@ -36,11 +58,18 @@ class ModelObjects:
         Returns:
             Self for method chaining
         """
+        self._use_cache = use_cache
         self._filters = self._build_filters(kwargs)
         return self
 
-    def first(self) -> Optional["NotionModel"]:
-        """Get the first result."""
+    def first(self, use_cache: bool = False) -> Optional["NotionModel"]:
+        """
+        Get the first result.
+
+        Args:
+            use_cache: If True, cache results with 4-hour TTL
+        """
+        self._use_cache = use_cache
         results = self._query(limit=1)
         return results[0] if results else None
 
@@ -144,7 +173,25 @@ class ModelObjects:
         if limit:
             query_args["page_size"] = limit
 
+        # Check cache if enabled
+        cache_key = None
+        if self._use_cache:
+            cache_params = {
+                "db_id": db_id,
+                "filters": repr(self._filters),
+                "limit": limit,
+            }
+            cache_key = generate_cache_key(cache_params)
+            cached_pages = load_from_cache(
+                cache_key, ttl_seconds=NOTION_QUERY_TTL, cache_dir=CACHE_DIRS["notion"]
+            )
+            if cached_pages is not None:
+                logger.debug(f"Notion cache hit for db_id={db_id[:8]}...")
+                # Convert cached page data back to model instances
+                return [self.model_cls._from_notion_page(page) for page in cached_pages]
+
         results = []
+        raw_pages = []  # Store raw page data for caching
         has_more = True
         start_cursor = None
 
@@ -155,6 +202,7 @@ class ModelObjects:
             response = client.databases.query(database_id=db_id, **query_args)
 
             for page in response.get("results", []):
+                raw_pages.append(page)
                 results.append(self.model_cls._from_notion_page(page))
 
             has_more = response.get("has_more", False)
@@ -162,6 +210,10 @@ class ModelObjects:
 
             if limit and len(results) >= limit:
                 break
+
+        # Save to cache if enabled
+        if cache_key is not None:
+            save_to_cache(cache_key, raw_pages, cache_dir=CACHE_DIRS["notion"])
 
         return results
 
@@ -365,17 +417,40 @@ class NotionORMManager:
         self._models = {}
         self._schemas = {}
 
-    def _initialize_schema(self, db_name: str) -> Dict:
+    def _initialize_schema(self, db_name: str, use_cache: bool = True) -> Dict:
         """
         Fetch and cache the schema for a database.
+
+        Args:
+            db_name: Name of the database
+            use_cache: If True, cache schema with 24-hour TTL (default: True)
         """
         db_id = self.db_map.get(db_name)
         if not db_id:
             raise ValueError(f"Database '{db_name}' not found in database map")
 
+        # Check file cache if enabled
+        cache_key = None
+        if use_cache:
+            cache_params = {"type": "schema", "db_id": db_id}
+            cache_key = generate_cache_key(cache_params)
+            cached_schema = load_from_cache(
+                cache_key, ttl_seconds=NOTION_SCHEMA_TTL, cache_dir=CACHE_DIRS["notion"]
+            )
+            if cached_schema is not None:
+                logger.debug(f"Notion schema cache hit for {db_name}")
+                self._schemas[db_name] = cached_schema
+                return cached_schema
+
         db_info = self.client.databases.retrieve(database_id=db_id)
-        self._schemas[db_name] = db_info.get("properties", {})
-        return self._schemas[db_name]
+        schema = db_info.get("properties", {})
+        self._schemas[db_name] = schema
+
+        # Save to file cache
+        if cache_key is not None:
+            save_to_cache(cache_key, schema, cache_dir=CACHE_DIRS["notion"])
+
+        return schema
 
     def get_model(self, model_name: str) -> Type[NotionModel]:
         """

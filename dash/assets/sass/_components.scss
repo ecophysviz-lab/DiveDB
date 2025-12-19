@@ -455,3 +455,78 @@ hr {
         font-weight: 500;
     }
 }
+
+/* Dark theme Event Modal styling */
+.event-modal-dark {
+    .modal-content {
+        background-color: var(--blueExtraDark);
+        border: 2px solid var(--blueLight);
+        border-radius: var(--bs-border-radius);
+    }
+
+    .modal-header {
+        border-bottom-color: var(--blueDark);
+
+        .btn-close {
+            filter: invert(1) grayscale(100%) brightness(200%);
+        }
+    }
+
+    .modal-footer {
+        border-top-color: var(--blueDark);
+    }
+}
+
+/* Event modal dropdown styling */
+.event-modal-dropdown {
+    // Main control container
+    > div {
+        background-color: var(--blueDark) !important;
+        border: 1px solid var(--blueLight) !important;
+        border-radius: 6px !important;
+        
+        // Placeholder and value text
+        > div > div {
+            color: var(--white) !important;
+        }
+        
+        // Dropdown indicator arrow
+        svg {
+            fill: var(--blueLight) !important;
+        }
+    }
+    
+    // Dropdown menu
+    .Select-menu-outer,
+    > div[class*="menu"] {
+        background-color: var(--blueDark) !important;
+        border: 1px solid var(--blueLight) !important;
+        border-radius: 6px !important;
+        margin-top: 4px;
+        
+        // Options
+        > div > div {
+            color: var(--white) !important;
+            background-color: var(--blueDark) !important;
+            
+            &:hover {
+                background-color: var(--blueMedium) !important;
+            }
+        }
+    }
+
+    // Placeholder text
+    div[class*="placeholder"] {
+        color: var(--blueLight) !important;
+    }
+    
+    // Selected value
+    div[class*="singleValue"] {
+        color: var(--white) !important;
+    }
+    
+    // Input text when typing
+    input {
+        color: var(--white) !important;
+    }
+}

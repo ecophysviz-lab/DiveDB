@@ -18,6 +18,8 @@ from layout import (
     create_footer,
     create_footer_empty,
     create_bookmark_modal,
+    create_event_modal,
+    create_event_toast,
     create_empty_figure,
     create_empty_dataframe,
     create_loading_overlay,
@@ -34,6 +36,9 @@ from DiveDB.services import ImmichService  # noqa: E402
 
 load_dotenv()
 
+# Cache toggle - set via DASH_USE_CACHE environment variable
+USE_CACHE = os.getenv("DASH_USE_CACHE", "false").lower() in ("true", "1", "yes")
+
 # Initialize Notion manager
 notion_manager = NotionORMManager(
     token=os.getenv("NOTION_TOKEN"),
@@ -42,6 +47,7 @@ notion_manager = NotionORMManager(
         "Recording DB": os.getenv("NOTION_RECORDING_DB"),
         "Logger DB": os.getenv("NOTION_LOGGER_DB"),
         "Animal DB": os.getenv("NOTION_ANIMAL_DB"),
+        "Species DB": os.getenv("NOTION_SPECIES_DB"),
         "Asset DB": os.getenv("NOTION_ASSETS_DB"),
         "Dataset DB": os.getenv("NOTION_DATASET_DB"),
         "Signal DB": os.getenv("NOTION_SIGNAL_DB"),
@@ -123,6 +129,22 @@ def create_app_stores(dff):
         ),
         # Store for timeline bounds (updated on graph zoom)
         dcc.Store(id="timeline-bounds", data=None),  # {min: timestamp, max: timestamp}
+        # Store for original bounds (persists initial range for reset zoom)
+        dcc.Store(id="original-bounds", data=None),  # {min: timestamp, max: timestamp}
+        # Stores for B-key event bookmark feature
+        dcc.Input(
+            id="bookmark-trigger",
+            type="hidden",
+            value="",
+            style={"display": "none"},
+        ),  # Captures B keypress
+        dcc.Store(id="last-event-type", data=None),  # Persists last used event type
+        dcc.Store(
+            id="pending-event-time", data=None
+        ),  # Captures playhead time when modal opens
+        dcc.Store(
+            id="event-refresh-trigger", data=0
+        ),  # Counter to trigger graph refresh after event creation
     ]
 
 
@@ -164,6 +186,8 @@ def create_layout(
                 className="grid",
             ),
             create_bookmark_modal(),
+            create_event_modal(),  # B-key event creation modal
+            create_event_toast(),  # Toast notification for event save feedback
             create_loading_overlay(),  # Add loading overlay
             *create_app_stores(dff),
         ],
@@ -198,7 +222,7 @@ logger.info("Starting callback registration...")
 register_callbacks(app, initial_dff, video_options=[], channel_options=None)
 logger.debug("Standard callbacks registered")
 # Register selection callbacks BEFORE clientside to establish primary outputs
-register_selection_callbacks(app, duck_pond, immich_service)
+register_selection_callbacks(app, duck_pond, immich_service, use_cache=USE_CACHE)
 logger.debug("Selection callbacks registered")
 # Register clientside callbacks last (these use allow_duplicate=True)
 register_clientside_callbacks(app)

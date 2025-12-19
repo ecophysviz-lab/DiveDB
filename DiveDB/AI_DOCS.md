@@ -77,8 +77,10 @@ DataUploader → DuckPond → Iceberg Tables → DuckDB Views → DiveData
 - `estimate_data_size(dataset, labels, animal_ids, deployment_ids, recording_ids, groups, classes, date_range)` → int - Row count estimate
 - `write_signal_data(dataset, metadata, times, group, class_name, label, values)` → int - Write signal data
 - `write_to_iceberg(data, lake, dataset, mode, skip_view_refresh)` → None - Write PyArrow table
+- `write_event(dataset, deployment, animal, event_key, datetime_start, datetime_end, recording, group, short_description, long_description, event_data)` → None - Write single event to Iceberg (convenience method for Dash UI)
 - `get_deployment_timezone_offset(deployment_id)` → float - Timezone offset in hours
 - `get_view_name(dataset, table_type)` → str - Quoted view name
+- `get_3d_model_for_animal(animal_id)` → Dict - Fetch 3D model info from Notion (Animal→Asset DB→Best-3D-model)
 
 **Data Flow**:
 1. Query → Build SQL → Execute via DuckDB → Return DataFrame or DiveData

@@ -772,3 +772,236 @@ class TestDuckPondEvents:
         assert all(
             start_times[i] <= start_times[i + 1] for i in range(len(start_times) - 1)
         )
+
+
+class TestDuckPondWriteEvent:
+    """Test write_event() convenience method for creating events from the UI"""
+
+    def test_write_event_point_event(self, duck_pond):
+        """Test creating a point event (no end time)"""
+        datetime_start = pd.Timestamp("2024-01-15T10:30:00")
+
+        duck_pond.write_event(
+            dataset="test_dataset",
+            deployment="deploy_001",
+            animal="seal_001",
+            event_key="breath",
+            datetime_start=datetime_start,
+        )
+
+        # Verify event was written
+        events_df = duck_pond.get_events(dataset="test_dataset")
+        assert len(events_df) == 1
+
+        event = events_df.iloc[0]
+        assert event["event_key"] == "breath"
+        assert event["animal"] == "seal_001"
+        assert event["deployment"] == "deploy_001"
+        # For point events, start and end should be equal
+        assert event["datetime_start"] == event["datetime_end"]
+
+    def test_write_event_duration_event(self, duck_pond):
+        """Test creating a duration event (with end time)"""
+        datetime_start = pd.Timestamp("2024-01-15T10:30:00")
+        datetime_end = pd.Timestamp("2024-01-15T10:35:00")
+
+        duck_pond.write_event(
+            dataset="test_dataset",
+            deployment="deploy_001",
+            animal="seal_001",
+            event_key="dive",
+            datetime_start=datetime_start,
+            datetime_end=datetime_end,
+        )
+
+        # Verify event was written
+        events_df = duck_pond.get_events(dataset="test_dataset")
+        assert len(events_df) == 1
+
+        event = events_df.iloc[0]
+        assert event["event_key"] == "dive"
+        # For duration events, start and end should be different
+        assert pd.to_datetime(event["datetime_start"]) == datetime_start
+        assert pd.to_datetime(event["datetime_end"]) == datetime_end
+
+    def test_write_event_default_group(self, duck_pond):
+        """Test that default group is 'user_annotations'"""
+        duck_pond.write_event(
+            dataset="test_dataset",
+            deployment="deploy_001",
+            animal="seal_001",
+            event_key="breath",
+            datetime_start=pd.Timestamp("2024-01-15T10:30:00"),
+        )
+
+        events_df = duck_pond.get_events(dataset="test_dataset")
+        assert events_df.iloc[0]["group"] == "user_annotations"
+
+    def test_write_event_custom_group(self, duck_pond):
+        """Test creating event with custom group"""
+        duck_pond.write_event(
+            dataset="test_dataset",
+            deployment="deploy_001",
+            animal="seal_001",
+            event_key="breath",
+            datetime_start=pd.Timestamp("2024-01-15T10:30:00"),
+            group="manual_annotations",
+        )
+
+        events_df = duck_pond.get_events(dataset="test_dataset")
+        assert events_df.iloc[0]["group"] == "manual_annotations"
+
+    def test_write_event_with_descriptions(self, duck_pond):
+        """Test creating event with short and long descriptions"""
+        duck_pond.write_event(
+            dataset="test_dataset",
+            deployment="deploy_001",
+            animal="seal_001",
+            event_key="behavior",
+            datetime_start=pd.Timestamp("2024-01-15T10:30:00"),
+            short_description="Foraging behavior observed",
+            long_description="Extended foraging behavior with multiple prey captures observed at depth.",
+        )
+
+        events_df = duck_pond.get_events(dataset="test_dataset")
+        event = events_df.iloc[0]
+        assert event["short_description"] == "Foraging behavior observed"
+        assert "Extended foraging" in event["long_description"]
+
+    def test_write_event_with_event_data(self, duck_pond):
+        """Test creating event with custom event_data JSON"""
+        import json
+
+        event_data = {"confidence": 0.95, "source": "manual", "notes": "Clear signal"}
+
+        duck_pond.write_event(
+            dataset="test_dataset",
+            deployment="deploy_001",
+            animal="seal_001",
+            event_key="breath",
+            datetime_start=pd.Timestamp("2024-01-15T10:30:00"),
+            event_data=event_data,
+        )
+
+        events_df = duck_pond.get_events(dataset="test_dataset")
+        stored_data = json.loads(events_df.iloc[0]["event_data"])
+        assert stored_data["confidence"] == 0.95
+        assert stored_data["source"] == "manual"
+        assert stored_data["notes"] == "Clear signal"
+
+    def test_write_event_empty_event_data(self, duck_pond):
+        """Test that event_data defaults to empty JSON object"""
+        import json
+
+        duck_pond.write_event(
+            dataset="test_dataset",
+            deployment="deploy_001",
+            animal="seal_001",
+            event_key="breath",
+            datetime_start=pd.Timestamp("2024-01-15T10:30:00"),
+        )
+
+        events_df = duck_pond.get_events(dataset="test_dataset")
+        stored_data = json.loads(events_df.iloc[0]["event_data"])
+        assert stored_data == {}
+
+    def test_write_event_with_recording(self, duck_pond):
+        """Test creating event with optional recording ID"""
+        duck_pond.write_event(
+            dataset="test_dataset",
+            deployment="deploy_001",
+            animal="seal_001",
+            event_key="breath",
+            datetime_start=pd.Timestamp("2024-01-15T10:30:00"),
+            recording="rec_001",
+        )
+
+        events_df = duck_pond.get_events(dataset="test_dataset")
+        assert events_df.iloc[0]["recording"] == "rec_001"
+
+    def test_write_event_multiple_events(self, duck_pond):
+        """Test creating multiple events sequentially"""
+        base_time = pd.Timestamp("2024-01-15T10:30:00")
+
+        # Create 5 breath events
+        for i in range(5):
+            duck_pond.write_event(
+                dataset="test_dataset",
+                deployment="deploy_001",
+                animal="seal_001",
+                event_key="breath",
+                datetime_start=base_time + pd.Timedelta(minutes=i),
+            )
+
+        events_df = duck_pond.get_events(dataset="test_dataset")
+        assert len(events_df) == 5
+        assert all(events_df["event_key"] == "breath")
+
+    def test_write_event_different_event_types(self, duck_pond):
+        """Test creating events with different event types"""
+        base_time = pd.Timestamp("2024-01-15T10:30:00")
+
+        event_types = ["breath", "dive", "surface", "foraging"]
+        for i, event_type in enumerate(event_types):
+            duck_pond.write_event(
+                dataset="test_dataset",
+                deployment="deploy_001",
+                animal="seal_001",
+                event_key=event_type,
+                datetime_start=base_time + pd.Timedelta(minutes=i),
+            )
+
+        events_df = duck_pond.get_events(dataset="test_dataset")
+        assert len(events_df) == 4
+        assert set(events_df["event_key"].tolist()) == set(event_types)
+
+    def test_write_event_retrievable_by_filters(self, duck_pond):
+        """Test that written events can be retrieved using various filters"""
+        datetime_start = pd.Timestamp("2024-01-15T10:30:00")
+
+        duck_pond.write_event(
+            dataset="test_dataset",
+            deployment="deploy_001",
+            animal="seal_001",
+            event_key="breath",
+            datetime_start=datetime_start,
+        )
+
+        # Test retrieval by animal
+        events_df = duck_pond.get_events(dataset="test_dataset", animal_ids="seal_001")
+        assert len(events_df) == 1
+
+        # Test retrieval by deployment
+        events_df = duck_pond.get_events(
+            dataset="test_dataset", deployment_ids="deploy_001"
+        )
+        assert len(events_df) == 1
+
+        # Test retrieval by event_key
+        events_df = duck_pond.get_events(dataset="test_dataset", event_keys="breath")
+        assert len(events_df) == 1
+
+        # Test retrieval by date range
+        events_df = duck_pond.get_events(
+            dataset="test_dataset",
+            date_range=("2024-01-15T10:00:00", "2024-01-15T11:00:00"),
+        )
+        assert len(events_df) == 1
+
+    def test_write_event_initializes_dataset(self, temp_warehouse):
+        """Test that write_event initializes dataset if not already done"""
+        # Create DuckPond without pre-initializing any datasets
+        duck_pond = DuckPond(warehouse_path=temp_warehouse)
+
+        # This should work even though 'new_dataset' wasn't pre-initialized
+        duck_pond.write_event(
+            dataset="new_dataset",
+            deployment="deploy_001",
+            animal="seal_001",
+            event_key="breath",
+            datetime_start=pd.Timestamp("2024-01-15T10:30:00"),
+        )
+
+        # Verify event was written
+        events_df = duck_pond.get_events(dataset="new_dataset")
+        assert len(events_df) == 1

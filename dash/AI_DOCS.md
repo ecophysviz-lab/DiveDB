@@ -45,10 +45,11 @@ User Action → Callback → Store Update → UI Update → Next Callback
 | `layout/sidebar.py` | Left/right sidebars | `create_left_sidebar()`, `create_right_sidebar()`, `create_dataset_accordion_item()` | 284 |
 | `layout/timeline.py` | Footer timeline components | `create_footer()`, `create_timeline_section()` | ~840 |
 | `layout/indicators.py` | Event/video indicators | `create_event_indicator()`, `create_video_indicator()` | 460 |
-| `layout/modals.py` | Modal dialogs | `create_bookmark_modal()` | 50 |
+| `layout/modals.py` | Modal dialogs | `create_bookmark_modal()`, `create_event_modal()` | ~145 |
 | `logging_config.py` | Centralized logging | `get_logger()` | 96 |
 | `assets/channel-drag-drop.js` | Channel drag-and-drop reordering | `initializeDragDrop()` | ~237 |
 | `assets/arrow-key-navigation.js` | Global arrow key playhead navigation | - | ~130 |
+| `assets/b-key-bookmark.js` | Global B key handler for event creation | - | ~120 |
 | `assets/tooltip.js` | Slider tooltip timestamp formatter | `formatTimestamp()` | ~19 |
 
 ## Module Reference
@@ -94,6 +95,8 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - `add_new_channel()`: `add-graph-btn.n_clicks` → `graph-channel-list.children`
 - `remove_channel()`: `channel-remove.n_clicks` → `graph-channel-list.children`
 - Clientside callback: `update-graph-btn.n_clicks` → `channel-order-from-dom.data` (reads DOM order)
+- `handle_event_modal_open()`: `bookmark-trigger.value` + `cancel-event-btn.n_clicks` → `event-modal.is_open`, `event-start-time.value`, `event-type-select.options/value`, `pending-event-time.data`
+- `toggle_new_event_type_input()`: `event-type-select.value` → `new-event-type-container.style` (show/hide new event type input)
 
 **Channel Management**:
 - Channels stored as pattern-matching IDs: `{"type": "channel-select", "index": N}`
@@ -132,6 +135,8 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - `populate_channel_list_from_selection()`: `selected-channels.data` + `available-events.data` → `graph-channel-list.children` (includes Events section)
 - `show_loading_overlay()`: `deployment-button.n_clicks` → `loading-overlay.style`, `is-loading-data.data`
 - `update_graph_on_zoom()`: `graph-content.relayoutData` + `figure-store.data` → `graph-content.figure` (plotly-resampler dynamic resampling)
+- `reset_zoom_to_original()`: `reset-zoom-button.n_clicks` + `original-bounds.data` → `timeline-bounds.data`, `graph-content.figure` (resets zoom to original dataset bounds)
+- `save_event()`: `save-event-btn.n_clicks` → `event-modal.is_open`, `last-event-type.data`, `available-events.data` (writes event to Iceberg via `duck_pond.write_event()`)
 
 **Event Management**:
 - Events displayed via "EVENTS" section in Manage Channels popover
@@ -157,7 +162,9 @@ User Action → Callback → Store Update → UI Update → Next Callback
   - `playhead-time.data` → `playhead-slider.value`
   - `playhead-slider.value` → `playhead-time.data`
 - Playhead tracking line: `playhead-time.data` → `graph-content.figure` (adds vertical line)
-- Arrow key navigation: `arrow-key-input.value` → `playhead-time.data` (rate-aware steps: ±1s at 1×+, ±rate at sub-1× rates, works with `assets/arrow-key-navigation.js`)
+- Arrow key navigation: `arrow-key-input.value` → `playhead-time.data` (fixed ±0.1s steps for precise frame-by-frame navigation, works with `assets/arrow-key-navigation.js`)
+- Event modal Enter key: `event-modal.is_open` → clicks `save-event-btn` (enables B → Enter quick workflow)
+- Reset zoom button enable/disable: `timeline-bounds.data` + `original-bounds.data` → `reset-zoom-button.disabled` (enabled when zoomed)
 
 **Note**: Uses `allow_duplicate=True` to avoid conflicts with server-side callbacks
 
@@ -202,7 +209,8 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - `create_dataset_accordion_item(dataset_name, deployments, item_id)` → dbc.AccordionItem - Single dataset accordion item with deployment buttons
 
 **Component IDs**:
-- Left sidebar: `left-sidebar`, `dataset-accordion`, `graph-channels-toggle`
+- Left sidebar: `left-sidebar`, `dataset-accordion`
+- Main content: `graph-channels-toggle`, `reset-zoom-button`, `graph-content`
 - Right sidebar: `right-sidebar`, `three-d-model`, `video-trimmer`
 
 ### layout/timeline.py
@@ -246,6 +254,14 @@ User Action → Callback → Store Update → UI Update → Next Callback
 
 **Key Functions**:
 - `create_bookmark_modal()` → dbc.Modal - Bookmark timestamp modal
+- `create_event_modal()` → dbc.Modal - B-key event creation modal with event type dropdown, start/end time fields
+
+**Event Modal Components**:
+- `event-type-select`: Dropdown for selecting event type (populated from `available-events`)
+- `new-event-type-input`: Text input for creating new event types (shown when "Create new" selected)
+- `event-start-time`: Read-only display of playhead time when modal opened
+- `event-end-time`: Optional end time input for duration events
+- `save-event-btn`, `cancel-event-btn`: Modal action buttons
 
 ## Callback Chains
 
@@ -304,15 +320,16 @@ User Action → Callback → Store Update → UI Update → Next Callback
    - JavaScript visually reorders DOM elements
    - 15px dead zone prevents stuttering
 
-5. **Read DOM Order** (clientside callback in `callbacks.py`)
+5. **Read DOM Order + Button Loading** (clientside callbacks in `callbacks.py`)
    - Trigger: `update-graph-btn.n_clicks`
-   - Output: `channel-order-from-dom.data`
-   - Action: Read channel values from DOM in visual order
+   - Outputs: `channel-order-from-dom.data`, `update-graph-btn.disabled`, `update-graph-btn.children`
+   - Action: Read channel values from DOM in visual order; immediately set button to "Updating..." state
 
 6. **Update Graph** (`update_graph_from_channels`)
    - Trigger: `channel-order-from-dom.data`
-   - Output: `graph-content.figure`, `playback-timestamps.data`
-   - Action: Regenerate graph with channels in DOM order
+   - State: `timeline-bounds.data` (for zoom preservation)
+   - Outputs: `graph-content.figure`, `playback-timestamps.data`, `update-graph-btn.disabled`, `update-graph-btn.children`
+   - Action: Regenerate graph with channels in DOM order; preserve current zoom range via `timeline-bounds`; restore button state
 
 ### Playback Flow
 
@@ -334,7 +351,7 @@ User Action → Callback → Store Update → UI Update → Next Callback
 4. **Arrow Key Navigation** (clientside + `arrow-key-navigation.js`)
    - Trigger: Left/Right arrow keys → `arrow-key-input.value`
    - Output: `playhead-time.data`
-   - Action: Move playhead ±1 second
+   - Action: Move playhead ±0.1 seconds (fixed step for precise frame-by-frame analysis)
 
 5. **Enable Interval** (`update_interval_component`)
    - Trigger: `is-playing.data`
@@ -360,6 +377,31 @@ User Action → Callback → Store Update → UI Update → Next Callback
    - Trigger: `playhead-time.data`
    - Output: `three-d-model.activeTime`
    - Action: Update 3D model orientation
+
+### B-Key Event Bookmark Flow
+
+1. **B Key Press** (`b-key-bookmark.js`)
+   - Trigger: User presses 'B' key (not in input field)
+   - Action: Updates `bookmark-trigger` hidden input with timestamp
+
+2. **Open Event Modal** (`handle_event_modal_open`)
+   - Trigger: `bookmark-trigger.value`
+   - State: `playhead-time.data`, `last-event-type.data`, `available-events.data`
+   - Output: `event-modal.is_open`, `event-type-select.options/value`, `event-start-time.value`, `pending-event-time.data`
+   - Action: Open modal, populate dropdown, auto-select last event type, display start time
+
+3. **Toggle New Event Type** (`toggle_new_event_type_input`)
+   - Trigger: `event-type-select.value`
+   - Output: `new-event-type-container.style`
+   - Action: Show/hide new event type input based on "Create new" selection
+
+4. **Save Event** (`save_event`)
+   - Trigger: `save-event-btn.n_clicks` (or Enter key via clientside callback)
+   - State: `event-type-select.value`, `new-event-type-input.value`, `pending-event-time.data`, `event-end-time.value`, `selected-dataset.data`, `selected-deployment.data`
+   - Output: `event-modal.is_open`, `last-event-type.data`, `available-events.data`
+   - Action: Write event to Iceberg via `duck_pond.write_event()`, update stores, close modal
+
+**Quick Workflow**: B → Enter (creates point event with last-used event type)
 
 ## Data Structures
 
@@ -388,6 +430,11 @@ User Action → Callback → Store Update → UI Update → Next Callback
 | `figure-store` | FigureResampler | Server-side cached FigureResampler object | (cached via `Serverside()`) |
 | `available-events` | List[dict] | Event types for current deployment | `[{"event_key": "dive", "color": "#3498db", "is_point_event": False, "count": 50}, ...]` |
 | `selected-events` | List[dict] | User event selections | `[{"event_key": "dive", "signal": "depth", "enabled": True}, ...]` |
+| `timeline-bounds` | dict | Current zoom range (used to preserve zoom on graph updates) | `{"min": 1573228800.0, "max": 1573232400.0}` |
+| `original-bounds` | dict | Original dataset bounds (persists for reset zoom) | `{"min": 1573228800.0, "max": 1573232400.0}` |
+| `bookmark-trigger` | str | Hidden input for B key events (triggers event modal) | `"open:1699123456789"` |
+| `last-event-type` | str | Last used event type for auto-fill | `"breath"` |
+| `pending-event-time` | float | Playhead time captured when event modal opens | `1573228800.0` |
 
 ### data_pkl Structure
 
@@ -457,8 +504,18 @@ DataPkl(
 - `id` (string, optional)
 - `activeTime` (number, required) - Timestamp in milliseconds
 - `data` (string, required) - JSON string with orientation data (pitch, roll, heading)
-- `objFile` (string, required) - Path to .obj model file
-- `textureFile` (string, optional) - Path to texture file
+- `modelFile` (string, default="/assets/PenguinSwim.obj") - Path to 3D model file (supports .obj, .glb, .gltf, .fbx)
+- `textureFile` (string, optional) - Path to texture file (mainly for OBJ)
+
+**Supported 3D Formats**:
+- `.obj` - OBJ format (uses OBJLoader)
+- `.glb`/`.gltf` - glTF/GLB format (uses GLTFLoader)
+- `.fbx` - FBX format (uses FBXLoader)
+
+**Dynamic Model Loading**:
+The model file URL is fetched dynamically from Notion Asset DB when a deployment is selected:
+- Lookup chain: Animal → Asset DB → Best-3D-model property
+- Falls back to `/assets/PenguinSwim.obj` if no model found
 
 **Usage**:
 ```python
@@ -466,7 +523,7 @@ three_js_orientation.ThreeJsOrientation(
     id="three-d-model",
     activeTime=1573228800000,  # milliseconds
     data=model_df.to_json(orient="split"),
-    objFile="/assets/PenguinSwim.obj"
+    modelFile="/assets/PenguinSwim.obj"  # Default, overridden by callback
 )
 ```
 

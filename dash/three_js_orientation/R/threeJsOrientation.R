@@ -1,9 +1,9 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
 #' @export
-threeJsOrientation <- function(id=NULL, activeTime=NULL, data=NULL, objFile=NULL, style=NULL, textureFile=NULL) {
+threeJsOrientation <- function(id=NULL, activeTime=NULL, data=NULL, modelFile=NULL, style=NULL, textureFile=NULL) {
     
-    props <- list(id=id, activeTime=activeTime, data=data, objFile=objFile, style=style, textureFile=textureFile)
+    props <- list(id=id, activeTime=activeTime, data=data, modelFile=modelFile, style=style, textureFile=textureFile)
     if (length(props) > 0) {
         props <- props[!vapply(props, is.null, logical(1))]
     }
@@ -11,7 +11,7 @@ threeJsOrientation <- function(id=NULL, activeTime=NULL, data=NULL, objFile=NULL
         props = props,
         type = 'ThreeJsOrientation',
         namespace = 'three_js_orientation',
-        propNames = c('id', 'activeTime', 'data', 'objFile', 'style', 'textureFile'),
+        propNames = c('id', 'activeTime', 'data', 'modelFile', 'style', 'textureFile'),
         package = 'threeJsOrientation'
         )
 

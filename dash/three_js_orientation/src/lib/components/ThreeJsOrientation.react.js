@@ -2,13 +2,57 @@ import React, { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+
+// Fixed scene dimensions for consistent grid sizing across all models
+const GRID_SIZE = 100;
+const GRID_DIVISIONS = 100;
+const GRID_OFFSET = 25; // Fixed vertical offset for grids from center
+const TARGET_MODEL_SIZE = 10; // Target size for normalized models
+
+/**
+ * Get the appropriate loader based on file extension.
+ * @param {string} filename - The filename or URL to load
+ * @returns {OBJLoader|GLTFLoader|FBXLoader} The appropriate loader
+ */
+const getLoader = (filename) => {
+  if (!filename) return null;
+  
+  const ext = filename.split('.').pop().toLowerCase().split('?')[0]; // Handle URLs with query params
+  
+  if (ext === 'glb' || ext === 'gltf') {
+    return new GLTFLoader();
+  }
+  if (ext === 'fbx') {
+    return new FBXLoader();
+  }
+  return new OBJLoader(); // default
+};
+
+/**
+ * Get file extension from filename/URL
+ * @param {string} filename - The filename or URL
+ * @returns {string} The file extension (lowercase)
+ */
+const getFileExtension = (filename) => {
+  if (!filename) return '';
+  return filename.split('.').pop().toLowerCase().split('?')[0];
+};
+
+/**
+ * Check if a model file path is valid (not empty or placeholder)
+ */
+const isValidModelFile = (modelFile) => {
+  return modelFile && modelFile.trim() !== '' && modelFile !== 'none';
+};
 
 const ThreeJsOrientation = ({
   id,
   data,
   activeTime,
-  objFile,
+  modelFile, // Can be empty/null for no-model state
   textureFile,
   style,
 }) => {
@@ -24,6 +68,8 @@ const ThreeJsOrientation = ({
   const loadStatus = useRef(0);
   const initialCameraPositionRef = useRef();
   const initialControlsTargetRef = useRef();
+  const gridHelpersRef = useRef([]);
+  const axesHelperRef = useRef();
 
   const [currentPRH, setCurrentPRH] = useState({
     pitch: 0,
@@ -32,6 +78,9 @@ const ThreeJsOrientation = ({
   });
 
   const [hasOrientationData, setHasOrientationData] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [hasModel, setHasModel] = useState(false);
 
   // Add a ref to store the target quaternion
   const targetQuaternionRef = useRef(new THREE.Quaternion());
@@ -39,7 +88,277 @@ const ThreeJsOrientation = ({
   // Sprites for cardinal direction labels
   const directionLabelsRef = useRef([]);
 
-  // Initialize the scene only once
+  // Function to add direction labels
+  const addDirectionLabels = (scene, yPosition, distance) => {
+    const labels = ["N", "S", "E", "W"];
+    const positions = [
+      new THREE.Vector3(0, yPosition, -distance), // North
+      new THREE.Vector3(0, yPosition, distance), // South
+      new THREE.Vector3(distance, yPosition, 0), // East
+      new THREE.Vector3(-distance, yPosition, 0), // West
+    ];
+
+    labels.forEach((label, index) => {
+      const sprite = createTextSprite(label);
+      sprite.position.copy(positions[index]);
+      scene.add(sprite);
+      directionLabelsRef.current.push(sprite);
+    });
+  };
+
+  // Function to create a text sprite
+  const createTextSprite = (message) => {
+    const fontface = "Arial";
+    const fontsize = 82;
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 128;
+    const context = canvas.getContext("2d");
+    context.font = `${fontsize}px ${fontface}`;
+    context.fillStyle = "white";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(message, canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+
+    const spriteMaterial = new THREE.SpriteMaterial({
+      map: texture,
+      depthTest: false,
+      depthWrite: false,
+    });
+
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(20, 10, 1); // Adjust size as needed
+    return sprite;
+  };
+
+  // Function to update direction labels rotation based on heading
+  const updateDirectionLabels = () => {
+    if (directionLabelsRef.current.length > 0) {
+      const headingRad = currentPRH.heading * (Math.PI / 180);
+      directionLabelsRef.current.forEach((sprite) => {
+        sprite.rotation.y = -headingRad;
+      });
+    }
+  };
+
+  /**
+   * Set up the default scene with grids (no model)
+   */
+  const setupDefaultScene = (scene, camera, controls) => {
+    // Add grid helpers at fixed positions
+    const gridHelperBelow = new THREE.GridHelper(GRID_SIZE, GRID_DIVISIONS);
+    gridHelperBelow.position.y = -GRID_OFFSET;
+    scene.add(gridHelperBelow);
+    gridHelpersRef.current.push(gridHelperBelow);
+
+    const gridHelperAbove = new THREE.GridHelper(
+      GRID_SIZE,
+      GRID_DIVISIONS,
+      0x5a5a8a,
+      0x5a5a8a
+    );
+    gridHelperAbove.position.y = GRID_OFFSET;
+    scene.add(gridHelperAbove);
+    gridHelpersRef.current.push(gridHelperAbove);
+
+    // Add cardinal direction labels to the lower grid
+    addDirectionLabels(scene, gridHelperBelow.position.y, GRID_SIZE / 2);
+
+    // Set up camera for the default view
+    camera.position.set(0, 30, 100);
+    camera.updateProjectionMatrix();
+    
+    // Store initial camera position and controls target
+    initialCameraPositionRef.current = camera.position.clone();
+    initialControlsTargetRef.current = new THREE.Vector3(0, 0, 0);
+    
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    setHasModel(false);
+    setIsLoading(false);
+    setLoadError(null);
+  };
+
+  /**
+   * Process the loaded model and add it to the scene.
+   * Handles different loader output formats (OBJ, GLTF, FBX).
+   * Normalizes model size to TARGET_MODEL_SIZE for consistent grid appearance.
+   */
+  const processLoadedModel = (loadResult, fileExtension, scene, camera, controls) => {
+    let model;
+    let animations = [];
+
+    // GLTFLoader returns { scene, animations, ... }
+    if (fileExtension === 'glb' || fileExtension === 'gltf') {
+      model = loadResult.scene;
+      animations = loadResult.animations || [];
+      console.log(`GLTF/GLB model loaded with ${animations.length} animations`);
+    } 
+    // FBXLoader returns a Group with animations property
+    else if (fileExtension === 'fbx') {
+      model = loadResult;
+      animations = loadResult.animations || [];
+      console.log(`FBX model loaded with ${animations.length} animations`);
+    }
+    // OBJLoader returns a Group
+    else {
+      model = loadResult;
+      animations = loadResult.animations || [];
+    }
+
+    modelRef.current = model;
+
+    // Create an animation mixer for the model
+    mixerRef.current = new THREE.AnimationMixer(model);
+
+    // Play all animations if available
+    if (animations.length > 0) {
+      animations.forEach((clip) => {
+        mixerRef.current.clipAction(clip).play();
+      });
+    }
+
+    // Calculate model's bounding box BEFORE any transforms
+    const box = new THREE.Box3().setFromObject(model);
+    const modelSize = box.getSize(new THREE.Vector3());
+    const maxDimension = Math.max(modelSize.x, modelSize.y, modelSize.z);
+    
+    // Normalize the model scale so the largest dimension equals TARGET_MODEL_SIZE
+    const scaleFactor = TARGET_MODEL_SIZE / maxDimension;
+    model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    
+    console.log(`Model original size: ${maxDimension.toFixed(2)}, scale factor: ${scaleFactor.toFixed(4)}`);
+
+    // Recalculate bounding box after scaling
+    const scaledBox = new THREE.Box3().setFromObject(model);
+    const center = scaledBox.getCenter(new THREE.Vector3());
+    model.position.sub(center);
+
+    // Apply texture if provided
+    // For OBJ/FBX: textures need to be loaded separately
+    // For GLB/GLTF: textures are usually embedded, but we can override if provided
+    if (textureFile && textureFile.trim() !== '') {
+      console.log(`Loading texture: ${textureFile}`);
+      const textureLoader = new THREE.TextureLoader();
+      
+      // For cross-origin textures (like from Notion S3), we need to handle CORS
+      textureLoader.setCrossOrigin('anonymous');
+      
+      textureLoader.load(
+        textureFile,
+        (texture) => {
+          console.log('Texture loaded successfully');
+          model.traverse((child) => {
+            if (child.isMesh) {
+              // Preserve existing material properties, just add/update the texture map
+              if (child.material) {
+                child.material.map = texture;
+                child.material.needsUpdate = true;
+              }
+            }
+          });
+        },
+        undefined, // onProgress
+        (error) => {
+          console.warn('Failed to load texture:', error);
+        }
+      );
+    }
+
+    // Add axes helper to the model (scaled appropriately)
+    const axesHelper = new THREE.AxesHelper(TARGET_MODEL_SIZE * 20);
+    model.add(axesHelper);
+    axesHelperRef.current = axesHelper;
+
+    scene.add(model);
+
+    // Add grids at fixed positions (not relative to model size)
+    const gridHelperBelow = new THREE.GridHelper(GRID_SIZE, GRID_DIVISIONS);
+    gridHelperBelow.position.y = -GRID_OFFSET;
+    scene.add(gridHelperBelow);
+    gridHelpersRef.current.push(gridHelperBelow);
+
+    const gridHelperAbove = new THREE.GridHelper(
+      GRID_SIZE,
+      GRID_DIVISIONS,
+      0x5a5a8a,
+      0x5a5a8a
+    );
+    gridHelperAbove.position.y = GRID_OFFSET;
+    scene.add(gridHelperAbove);
+    gridHelpersRef.current.push(gridHelperAbove);
+
+    // Add cardinal direction labels to the lower grid
+    addDirectionLabels(scene, gridHelperBelow.position.y, GRID_SIZE / 2);
+
+    // Set camera to a good viewing position for the normalized model
+    const fitDistance = TARGET_MODEL_SIZE * 8;
+    camera.position.set(0, TARGET_MODEL_SIZE * 2, fitDistance);
+    camera.updateProjectionMatrix();
+
+    // Store initial camera position and controls target
+    initialCameraPositionRef.current = camera.position.clone();
+    initialControlsTargetRef.current = new THREE.Vector3(0, 0, 0);
+
+    // Update controls target
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    setHasModel(true);
+    setIsLoading(false);
+    setLoadError(null);
+  };
+
+  /**
+   * Clean up the current model and associated objects from the scene.
+   */
+  const cleanupModel = (scene) => {
+    // Remove current model
+    if (modelRef.current) {
+      scene.remove(modelRef.current);
+      modelRef.current.traverse((child) => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach((mat) => mat.dispose());
+          } else {
+            child.material.dispose();
+          }
+        }
+      });
+      modelRef.current = null;
+    }
+
+    // Remove grid helpers
+    gridHelpersRef.current.forEach((grid) => {
+      scene.remove(grid);
+      grid.geometry.dispose();
+      grid.material.dispose();
+    });
+    gridHelpersRef.current = [];
+
+    // Remove direction labels
+    directionLabelsRef.current.forEach((sprite) => {
+      scene.remove(sprite);
+      sprite.material.map.dispose();
+      sprite.material.dispose();
+    });
+    directionLabelsRef.current = [];
+
+    // Reset mixer
+    if (mixerRef.current) {
+      mixerRef.current.stopAllAction();
+      mixerRef.current = null;
+    }
+
+    setHasModel(false);
+  };
+
+  // Initialize the scene only once, but reload model when modelFile changes
   useEffect(() => {
     const mount = mountRef.current;
     const width = mount.clientWidth;
@@ -74,102 +393,51 @@ const ThreeJsOrientation = ({
     controls.dampingFactor = 0.05;
     controlsRef.current = controls;
 
-    const loader = new OBJLoader();
-    loader.load(
-      objFile,
-      (obj) => {
-        modelRef.current = obj;
+    // Check if we should load a model or show empty state
+    if (isValidModelFile(modelFile)) {
+      // Load the model
+      setIsLoading(true);
+      setLoadError(null);
+      loadStatus.current = 0;
 
-        // Create an animation mixer for the model
-        mixerRef.current = new THREE.AnimationMixer(obj);
+      const fileExtension = getFileExtension(modelFile);
+      const loader = getLoader(modelFile);
+      
+      console.log(`Loading 3D model: ${modelFile} (format: ${fileExtension})`);
 
-        // Assuming animations are part of the model, load and play them
-        if (obj.animations && obj.animations.length > 0) {
-          obj.animations.forEach((clip) => {
-            mixerRef.current.clipAction(clip).play();
-          });
-        }
-
-        // Scale the model to 1/10th of its original size
-        obj.scale.set(0.1, 0.1, 0.1);
-
-        if (textureFile) {
-          const textureLoader = new THREE.TextureLoader();
-          const texture = textureLoader.load(textureFile, () => {
-            obj.traverse((child) => {
-              if (child.isMesh) {
-                child.material.map = texture;
-                child.material.needsUpdate = true;
+      loader.load(
+        modelFile,
+        (loadResult) => {
+          processLoadedModel(loadResult, fileExtension, scene, camera, controls);
+        },
+        (xhr) => {
+          if (xhr.total > 0) {
+            const percentLoaded = (xhr.loaded / xhr.total) * 100;
+            const loadThresholds = [0, 25, 50, 75, 100];
+            loadThresholds.forEach((threshold, index) => {
+              if (
+                loadStatus.current === loadThresholds[index - 1] &&
+                percentLoaded >= threshold
+              ) {
+                console.log(`${threshold}% loaded`);
+                loadStatus.current = threshold;
               }
             });
-          });
-        }
-
-        const box = new THREE.Box3().setFromObject(obj);
-        const center = box.getCenter(new THREE.Vector3());
-        obj.position.sub(center);
-
-        // Add axes helper to the model
-        const axesHelper = new THREE.AxesHelper(300);
-        obj.add(axesHelper);
-
-        // Adjust the camera to fit the model
-        const size = box.getSize(new THREE.Vector3()).length();
-        const fitDistance = size / Math.atan((Math.PI * camera.fov) / 360);
-        camera.position.set(0, 0, fitDistance * 2);
-        camera.updateProjectionMatrix();
-
-        // Store initial camera position and controls target
-        initialCameraPositionRef.current = camera.position.clone();
-        initialControlsTargetRef.current = controls.target.clone();
-
-        // Update controls target
-        controls.target.copy(center);
-        controls.update();
-
-        scene.add(obj);
-
-        // Calculate model's height
-        const modelHeight = box.max.y - box.min.y;
-        const gridOffset = modelHeight * 5;
-
-        // Add grid helper below the model
-        const gridSize = 100;
-        const gridDivisions = 100;
-
-        const gridHelperBelow = new THREE.GridHelper(gridSize, gridDivisions);
-        gridHelperBelow.position.y = box.min.y - gridOffset;
-        scene.add(gridHelperBelow);
-
-        const gridHelperAbove = new THREE.GridHelper(
-          gridSize,
-          gridDivisions,
-          0x5a5a8a,
-          0x5a5a8a
-        );
-        gridHelperAbove.position.y = box.max.y + gridOffset;
-        scene.add(gridHelperAbove);
-
-        // Add cardinal direction labels to the lower grid
-        addDirectionLabels(scene, gridHelperBelow.position.y, gridSize / 2);
-      },
-      (xhr) => {
-        const percentLoaded = (xhr.loaded / xhr.total) * 100;
-        const loadThresholds = [0, 25, 50, 75, 100];
-        loadThresholds.forEach((threshold, index) => {
-          if (
-            loadStatus.current === loadThresholds[index - 1] &&
-            percentLoaded >= threshold
-          ) {
-            console.log(`${threshold}% loaded`);
-            loadStatus.current = threshold;
           }
-        });
-      },
-      (error) => {
-        console.error("An error occurred during OBJ loading:", error);
-      }
-    );
+        },
+        (error) => {
+          console.error(`Error loading ${fileExtension.toUpperCase()} model:`, error);
+          setLoadError(`Failed to load model: ${error.message || 'Unknown error'}`);
+          setIsLoading(false);
+          // Fall back to default scene on error
+          setupDefaultScene(scene, camera, controls);
+        }
+      );
+    } else {
+      // No model file - show default scene with grids only
+      console.log("No model file specified, showing default scene");
+      setupDefaultScene(scene, camera, controls);
+    }
 
     // Start animation loop
     const animate = () => {
@@ -209,13 +477,11 @@ const ThreeJsOrientation = ({
       cancelAnimationFrame(requestIDRef.current);
       window.removeEventListener("resize", handleResize);
       controls.dispose();
-      if (modelRef.current) {
-        scene.remove(modelRef.current);
-      }
+      cleanupModel(scene);
       mount.removeChild(renderer.domElement);
       renderer.dispose();
     };
-  }, [objFile, textureFile]);
+  }, [modelFile, textureFile]);
 
   // Update the model's rotation whenever data or activeTime changes
   useEffect(() => {
@@ -353,68 +619,51 @@ const ThreeJsOrientation = ({
     }
   };
 
-  // Function to add direction labels
-  const addDirectionLabels = (scene, yPosition, distance) => {
-    const labels = ["N", "S", "E", "W"];
-    const positions = [
-      new THREE.Vector3(0, yPosition, -distance), // North
-      new THREE.Vector3(0, yPosition, distance), // South
-      new THREE.Vector3(distance, yPosition, 0), // East
-      new THREE.Vector3(-distance, yPosition, 0), // West
-    ];
-
-    labels.forEach((label, index) => {
-      const sprite = createTextSprite(label);
-      sprite.position.copy(positions[index]);
-      scene.add(sprite);
-      directionLabelsRef.current.push(sprite);
-    });
-  };
-
-  // Function to create a text sprite
-  const createTextSprite = (message) => {
-    const fontface = "Arial";
-    const fontsize = 82;
-    const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 128;
-    const context = canvas.getContext("2d");
-    context.font = `${fontsize}px ${fontface}`;
-    context.fillStyle = "white";
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText(message, canvas.width / 2, canvas.height / 2);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-
-    const spriteMaterial = new THREE.SpriteMaterial({
-      map: texture,
-      depthTest: false,
-      depthWrite: false,
-    });
-
-    const sprite = new THREE.Sprite(spriteMaterial);
-    sprite.scale.set(20, 10, 1); // Adjust size as needed
-    return sprite;
-  };
-
-  // Function to update direction labels rotation based on heading
-  const updateDirectionLabels = () => {
-    if (directionLabelsRef.current.length > 0) {
-      const headingRad = currentPRH.heading * (Math.PI / 180);
-      directionLabelsRef.current.forEach((sprite) => {
-        sprite.rotation.y = -headingRad;
-      });
-    }
-  };
-
   return (
     <div
       id={id}
       style={{ position: "relative", width: "100%", height: "100%", ...style }}
       ref={mountRef}
     >
+      {/* Loading indicator */}
+      {isLoading && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            padding: "20px",
+            borderRadius: "8px",
+            fontSize: "14px",
+            zIndex: 10,
+          }}
+        >
+          Loading 3D model...
+        </div>
+      )}
+
+      {/* Error message */}
+      {loadError && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            backgroundColor: "rgba(255, 200, 200, 0.9)",
+            padding: "20px",
+            borderRadius: "8px",
+            fontSize: "14px",
+            color: "#800",
+            zIndex: 10,
+          }}
+        >
+          {loadError}
+        </div>
+      )}
+
       {/* Overlay for displaying pitch, roll, heading values */}
       <div
         style={{
@@ -466,14 +715,16 @@ const ThreeJsOrientation = ({
   );
 };
 
-ThreeJsOrientation.defaultProps = {};
+ThreeJsOrientation.defaultProps = {
+  modelFile: "", // Empty string = no model, just grids
+};
 
 ThreeJsOrientation.propTypes = {
   id: PropTypes.string,
   data: PropTypes.string.isRequired,
   activeTime: PropTypes.number.isRequired,
-  objFile: PropTypes.string.isRequired,
-  textureFile: PropTypes.string, // Optional texture file
+  modelFile: PropTypes.string, // Optional - empty/null shows grids only
+  textureFile: PropTypes.string, // Optional texture file (mainly for OBJ)
   style: PropTypes.object,
 };
 

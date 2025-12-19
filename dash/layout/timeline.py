@@ -474,7 +474,7 @@ def create_footer_empty():
                                                                 [
                                                                     html.Button(
                                                                         [
-                                                                            "Save",
+                                                                            "Event",
                                                                             html.Img(
                                                                                 src="/assets/images/save.svg",
                                                                             ),
@@ -485,7 +485,7 @@ def create_footer_empty():
                                                                         disabled=True,
                                                                     ),
                                                                     dbc.Tooltip(
-                                                                        "Bookmark Timestamp",
+                                                                        "Create Event (B)",
                                                                         target="save-button",
                                                                         placement="top",
                                                                         delay={
@@ -749,7 +749,7 @@ def create_footer(dff, video_options=None, events_df=None):
                                                                 [
                                                                     html.Button(
                                                                         [
-                                                                            "Save",
+                                                                            "Event",
                                                                             html.Img(
                                                                                 src="/assets/images/save.svg",
                                                                             ),
@@ -759,7 +759,7 @@ def create_footer(dff, video_options=None, events_df=None):
                                                                         n_clicks=0,
                                                                     ),
                                                                     dbc.Tooltip(
-                                                                        "Bookmark Timestamp",
+                                                                        "Create Event (B)",
                                                                         target="save-button",
                                                                         placement="top",
                                                                         delay={

@@ -210,8 +210,7 @@ def create_right_sidebar(
                                                 id="three-d-model",
                                                 data=data_json,
                                                 activeTime=0,
-                                                objFile="/assets/PenguinSwim.obj",
-                                                textureFile="/assets/PenguinSwim.png",
+                                                modelFile="",  # Empty = no model, just grids. Updated by callback.
                                                 style={
                                                     "width": "100%",
                                                     "height": "100%",

@@ -34,7 +34,7 @@ from .indicators import (
     generate_event_indicators_row,
     calculate_video_timeline_position,
 )
-from .modals import create_bookmark_modal
+from .modals import create_bookmark_modal, create_event_modal, create_event_toast
 
 __all__ = [
     # Component creators
@@ -48,6 +48,8 @@ __all__ = [
     "create_timeline_section",
     "create_deployment_info_display",
     "create_bookmark_modal",
+    "create_event_modal",
+    "create_event_toast",
     "create_loading_overlay",
     # Empty state helpers
     "create_empty_figure",

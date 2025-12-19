@@ -1,4 +1,4 @@
-.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash dash build-dash clean-cache
+.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash dash dash-nocache build-dash clean-cache clear-cache
 
 COMPOSE_CMD = docker compose -f docker-compose.development.yaml
 
@@ -30,7 +30,10 @@ watch-dash-components:
 	done
 
 dash:
-	python dash/data_visualization.py
+	DASH_USE_CACHE=true python dash/data_visualization.py
+
+dash-nocache:
+	DASH_USE_CACHE=false python dash/data_visualization.py
 
 build-dash:
 	@echo "Building $(component)..."
@@ -63,3 +66,8 @@ clean-cache:
 	@echo "Cleaning DuckPond cache files older than 1 day..."
 	@python -c "from DiveDB.services.utils.cache_utils import cleanup_old_cache_files; cleanup_old_cache_files('.cache/duckpond', 86400)"
 	@echo "✓ Cache cleanup complete"
+
+clear-cache:
+	@echo "Clearing all cache files..."
+	@python -c "from DiveDB.services.utils.cache_utils import clear_all_caches; result = clear_all_caches(); print('\n'.join(f'  {k}: {v} files' for k,v in result.items()))"
+	@echo "✓ All caches cleared"

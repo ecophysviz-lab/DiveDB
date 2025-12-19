@@ -13,6 +13,18 @@ from typing import Dict, List, Optional, Literal, Union
 
 import requests
 
+from DiveDB.services.utils.cache_utils import (
+    CACHE_DIRS,
+    generate_cache_key,
+    load_from_cache,
+    save_to_cache,
+)
+
+logger = logging.getLogger(__name__)
+
+# TTL constant for Immich caching (1 hour)
+IMMICH_CACHE_TTL = 3600
+
 
 class ImmichService:
     """Immich integration service for media asset management"""
@@ -46,13 +58,14 @@ class ImmichService:
             }
         )
 
-        logging.info(f"Initialized ImmichService with base URL: {self.base_url}")
+        logger.info(f"Initialized ImmichService with base URL: {self.base_url}")
 
     def find_media_by_deployment_id(
         self,
         deployment_id: str,
         media_type: Optional[Literal["IMAGE", "VIDEO"]] = None,
         shared: bool = True,
+        use_cache: bool = False,
     ) -> Dict[str, Union[List[Dict], str]]:
         """
         Find media assets associated with a deployment ID (album name)
@@ -61,10 +74,28 @@ class ImmichService:
             deployment_id: Deployment ID to search for (matches album name)
             media_type: Filter by media type ("IMAGE" or "VIDEO"), None for all
             shared: Search in shared albums (default: True)
+            use_cache: If True, cache results with 1-hour TTL
 
         Returns:
             Dict with 'success' status, 'data' list of assets, or 'error' message
         """
+        # Check cache if enabled
+        cache_key = None
+        if use_cache:
+            cache_params = {
+                "method": "find_media_by_deployment_id",
+                "deployment_id": deployment_id,
+                "media_type": media_type,
+                "shared": shared,
+            }
+            cache_key = generate_cache_key(cache_params)
+            cached_result = load_from_cache(
+                cache_key, ttl_seconds=IMMICH_CACHE_TTL, cache_dir=CACHE_DIRS["immich"]
+            )
+            if cached_result is not None:
+                logger.debug(f"Immich cache hit for deployment_id={deployment_id}")
+                return cached_result
+
         try:
             # Get all albums (shared or owned)
             albums_response = self.session.get(
@@ -94,7 +125,7 @@ class ImmichService:
                 }
 
             album_id = target_album["id"]
-            logging.info(f"Found album '{deployment_id}' with ID: {album_id}")
+            logger.info(f"Found album '{deployment_id}' with ID: {album_id}")
 
             # Get assets from the album
             album_details_response = self.session.get(
@@ -114,9 +145,9 @@ class ImmichService:
             if media_type:
                 assets = [asset for asset in assets if asset.get("type") == media_type]
 
-            logging.info(f"Found {len(assets)} assets in album '{deployment_id}'")
+            logger.info(f"Found {len(assets)} assets in album '{deployment_id}'")
 
-            return {
+            result = {
                 "success": True,
                 "data": assets,
                 "album_info": {
@@ -126,23 +157,32 @@ class ImmichService:
                 },
             }
 
+            # Save to cache if enabled
+            if cache_key is not None:
+                save_to_cache(cache_key, result, cache_dir=CACHE_DIRS["immich"])
+
+            return result
+
         except requests.exceptions.RequestException as e:
-            logging.error(
+            logger.error(
                 f"Network error searching for deployment '{deployment_id}': {str(e)}"
             )
             return {"success": False, "error": f"Network error: {str(e)}"}
         except Exception as e:
-            logging.error(
+            logger.error(
                 f"Unexpected error searching for deployment '{deployment_id}': {str(e)}"
             )
             return {"success": False, "error": f"Unexpected error: {str(e)}"}
 
-    def get_media_details(self, asset_id: str) -> Dict[str, Union[Dict, str]]:
+    def get_media_details(
+        self, asset_id: str, use_cache: bool = False
+    ) -> Dict[str, Union[Dict, str]]:
         """
         Get detailed metadata and playback URLs for a specific media asset
 
         Args:
             asset_id: Unique identifier for the media asset
+            use_cache: If True, cache results with 1-hour TTL
 
         Returns:
             Dict with 'success' status, 'data' dict with metadata and URLs, or 'error' message
@@ -151,6 +191,21 @@ class ImmichService:
             - metadata: Asset details (dates, tags, EXIF, etc.)
             - urls: Playback URLs (original, thumbnail, preview)
         """
+        # Check cache if enabled
+        cache_key = None
+        if use_cache:
+            cache_params = {
+                "method": "get_media_details",
+                "asset_id": asset_id,
+            }
+            cache_key = generate_cache_key(cache_params)
+            cached_result = load_from_cache(
+                cache_key, ttl_seconds=IMMICH_CACHE_TTL, cache_dir=CACHE_DIRS["immich"]
+            )
+            if cached_result is not None:
+                logger.debug(f"Immich cache hit for asset_id={asset_id[:8]}...")
+                return cached_result
+
         try:
             # Get asset details
             asset_response = self.session.get(f"{self.base_url}/assets/{asset_id}")
@@ -202,15 +257,21 @@ class ImmichService:
                 "video_playback": f"{base_asset_url}/video/playback",
             }
 
-            logging.info(f"Retrieved details for asset: {asset_id}")
+            logger.info(f"Retrieved details for asset: {asset_id}")
 
-            return {"success": True, "data": {"metadata": metadata, "urls": urls}}
+            result = {"success": True, "data": {"metadata": metadata, "urls": urls}}
+
+            # Save to cache if enabled
+            if cache_key is not None:
+                save_to_cache(cache_key, result, cache_dir=CACHE_DIRS["immich"])
+
+            return result
 
         except requests.exceptions.RequestException as e:
-            logging.error(f"Network error fetching asset '{asset_id}': {str(e)}")
+            logger.error(f"Network error fetching asset '{asset_id}': {str(e)}")
             return {"success": False, "error": f"Network error: {str(e)}"}
         except Exception as e:
-            logging.error(f"Unexpected error fetching asset '{asset_id}': {str(e)}")
+            logger.error(f"Unexpected error fetching asset '{asset_id}': {str(e)}")
             return {"success": False, "error": f"Unexpected error: {str(e)}"}
 
     def create_asset_share_link(
@@ -246,7 +307,7 @@ class ImmichService:
 
             if response.status_code == 201:
                 share_data = response.json()
-                logging.info(
+                logger.info(
                     f"Created share link for asset {asset_id}, expires in {expires_hours} hours"
                 )
                 return {
@@ -258,7 +319,7 @@ class ImmichService:
                     },
                 }
             else:
-                logging.error(
+                logger.error(
                     f"Failed to create share link for asset {asset_id}: {response.status_code} - {response.text}"
                 )
                 return {
@@ -267,7 +328,7 @@ class ImmichService:
                 }
 
         except Exception as e:
-            logging.error(f"Error creating share link for asset {asset_id}: {str(e)}")
+            logger.error(f"Error creating share link for asset {asset_id}: {str(e)}")
             return {"success": False, "error": f"Error creating share link: {str(e)}"}
 
     def prepare_video_options_for_react(
@@ -287,7 +348,7 @@ class ImmichService:
             Dict with 'success' status and 'video_options' list or 'error' message
         """
         if not media_result["success"]:
-            logging.error(
+            logger.error(
                 f"Failed to fetch media: {media_result.get('error', 'Unknown error')}"
             )
             return {
@@ -301,7 +362,7 @@ class ImmichService:
         video_options = []
 
         if not video_assets:
-            logging.warning("No video assets found in deployment album")
+            logger.warning("No video assets found in deployment album")
             return {
                 "success": True,
                 "video_options": [],
@@ -322,7 +383,7 @@ class ImmichService:
             if share_result["success"]:
                 asset_share_key = share_result["share_data"]["key"]
             else:
-                logging.warning(
+                logger.warning(
                     f"Failed to create share key for asset {asset_id}: {share_result.get('error', 'Unknown')}"
                 )
 
@@ -358,11 +419,11 @@ class ImmichService:
 
                 video_options.append(video_option)
             else:
-                logging.error(
+                logger.error(
                     f"Failed to load metadata for asset {asset_id}: {details_result.get('error', 'Unknown')}"
                 )
 
-        logging.info(f"Prepared {len(video_options)} video options for React component")
+        logger.info(f"Prepared {len(video_options)} video options for React component")
         return {
             "success": True,
             "video_options": video_options,

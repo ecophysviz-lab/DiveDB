@@ -1,6 +1,7 @@
 """
 Client-side callback functions for the DiveDB data visualization dashboard.
 """
+
 from dash import Output, Input, State
 
 
@@ -210,10 +211,8 @@ def register_clientside_callbacks(app):
                 return window.dash_clientside.no_update;
             }
 
-            // Rate-aware step: at 1x or faster use 1 second, at slower rates use the rate
-            // e.g., at 0.1x rate, step is 0.1 seconds; at 5x rate, step is 1 second
-            const rate = playback_rate || 1;
-            const STEP = rate >= 1 ? 1 : rate;
+            // Fixed 0.1 second step for precise frame-by-frame navigation
+            const STEP = 0.1;
 
             // Get bounds
             const minTime = slider_min || (timestamps && timestamps.length > 0 ? Math.min(...timestamps) : 0);
@@ -318,5 +317,90 @@ def register_clientside_callbacks(app):
         Output("playhead-time", "data", allow_duplicate=True),
         Input("timeline-bounds", "data"),
         State("playhead-time", "data"),
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
+    # Reset Zoom Button Enable/Disable
+    # =========================================================================
+    # Enable the reset zoom button when user has zoomed (timeline-bounds differs from original-bounds)
+    app.clientside_callback(
+        """
+        function(timeline_bounds, original_bounds) {
+            // If either is null/undefined, keep button disabled
+            if (!timeline_bounds || !original_bounds) {
+                return true;  // disabled
+            }
+            
+            // Compare bounds with small tolerance for floating point comparison
+            const tolerance = 0.001;
+            const minDiff = Math.abs(timeline_bounds.min - original_bounds.min);
+            const maxDiff = Math.abs(timeline_bounds.max - original_bounds.max);
+            
+            // If bounds are different, enable the button (return false for disabled)
+            const isZoomed = minDiff > tolerance || maxDiff > tolerance;
+            
+            console.log('Reset zoom button:', isZoomed ? 'enabled (user has zoomed)' : 'disabled (at original bounds)');
+            return !isZoomed;  // disabled = !isZoomed
+        }
+        """,
+        Output("reset-zoom-button", "disabled"),
+        Input("timeline-bounds", "data"),
+        State("original-bounds", "data"),
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
+    # Event Modal Enter Key Submission (B-key bookmark feature)
+    # =========================================================================
+    # This clientside callback clicks the save button when Enter is pressed
+    # in the event modal, enabling the quick B -> Enter workflow
+    app.clientside_callback(
+        """
+        function(is_open) {
+            if (!is_open) {
+                // Modal closed, remove any existing listener
+                if (window._eventModalKeyHandler) {
+                    document.removeEventListener('keydown', window._eventModalKeyHandler);
+                    window._eventModalKeyHandler = null;
+                }
+                return window.dash_clientside.no_update;
+            }
+
+            // Modal is open, set up Enter key listener
+            if (!window._eventModalKeyHandler) {
+                window._eventModalKeyHandler = function(e) {
+                    // Only handle Enter key
+                    if (e.key !== 'Enter') return;
+                    
+                    // Don't trigger if user is in the end-time input (allow multiline)
+                    const activeEl = document.activeElement;
+                    if (activeEl && activeEl.id === 'event-end-time') {
+                        return;
+                    }
+                    
+                    // Don't trigger if in the new event type input with empty value
+                    if (activeEl && activeEl.id === 'new-event-type-input') {
+                        if (!activeEl.value || !activeEl.value.trim()) {
+                            return;  // Don't submit with empty new event type
+                        }
+                    }
+                    
+                    // Find and click the save button
+                    const saveBtn = document.getElementById('save-event-btn');
+                    if (saveBtn) {
+                        e.preventDefault();
+                        saveBtn.click();
+                        console.log('Enter key triggered event save');
+                    }
+                };
+                document.addEventListener('keydown', window._eventModalKeyHandler);
+            }
+
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("event-modal", "id"),  # Dummy output
+        Input("event-modal", "is_open"),
         prevent_initial_call=True,
     )

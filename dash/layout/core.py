@@ -126,6 +126,29 @@ def create_main_content(fig, channel_options=None):
                                         html.Button(
                                             [
                                                 html.Img(
+                                                    src="/assets/images/home.svg",
+                                                    className="",
+                                                ),
+                                            ],
+                                            className="btn btn-sm btn-icon-only m-0",
+                                            id="reset-zoom-button",
+                                            disabled=True,  # Disabled until user zooms in
+                                        ),
+                                        dbc.Tooltip(
+                                            "Reset Zoom",
+                                            target="reset-zoom-button",
+                                            placement="bottom",
+                                            delay={"show": 100, "hide": 0},
+                                            autohide=True,
+                                        ),
+                                    ],
+                                    width={"size": "auto"},
+                                ),
+                                dbc.Col(
+                                    [
+                                        html.Button(
+                                            [
+                                                html.Img(
                                                     src="/assets/images/filter.svg",
                                                     className="",
                                                 ),
@@ -189,6 +212,7 @@ def create_main_content(fig, channel_options=None):
                                         id="graph-content",
                                         figure=fig,
                                         responsive=True,
+                                        config={"displayModeBar": False},
                                     ),
                                 ],
                                 className="graph-content-container",

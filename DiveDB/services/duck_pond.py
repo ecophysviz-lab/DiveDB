@@ -3,7 +3,7 @@ DuckPond - Apache Iceberg data lake interface (formerly Delta Lake)
 """
 
 import logging
-from typing import List, Literal, Dict, Optional
+from typing import Any, List, Literal, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -494,6 +494,101 @@ class DuckPond:
         except Exception as e:
             logging.error(f"Failed to write to {table_name}: {e}")
             raise
+
+    def write_event(
+        self,
+        dataset: str,
+        deployment: str,
+        animal: str,
+        event_key: str,
+        datetime_start: pd.Timestamp,
+        datetime_end: Optional[pd.Timestamp] = None,
+        recording: Optional[str] = None,
+        group: str = "user_annotations",
+        short_description: Optional[str] = None,
+        long_description: Optional[str] = None,
+        event_data: Optional[Dict] = None,
+    ) -> None:
+        """
+        Write a single event to the Iceberg events table.
+
+        This is a convenience method for creating events from the Dash UI
+        (e.g., via the B-key bookmark feature).
+
+        Args:
+            dataset: Dataset identifier
+            deployment: Deployment identifier
+            animal: Animal identifier
+            event_key: Event type/key (e.g., "breath", "dive", "behavior")
+            datetime_start: Event start time
+            datetime_end: Event end time (for duration events). If None, uses datetime_start (point event)
+            recording: Optional recording identifier
+            group: Event group (default: "user_annotations")
+            short_description: Optional short description
+            long_description: Optional long description
+            event_data: Optional additional event data (will be JSON serialized)
+        """
+        import json
+
+        # For point events, end time equals start time
+        if datetime_end is None:
+            datetime_end = datetime_start
+
+        # Build the event record
+        event = {
+            "dataset": dataset,
+            "animal": animal,
+            "deployment": str(deployment),
+            "recording": recording,
+            "group": group,
+            "event_key": event_key,
+            "datetime_start": datetime_start,
+            "datetime_end": datetime_end,
+            "short_description": short_description,
+            "long_description": long_description,
+            "event_data": json.dumps(event_data or {}),
+        }
+
+        # Create PyArrow schema matching the events table
+        events_schema = pa.schema(
+            [
+                pa.field("dataset", pa.string(), nullable=False),
+                pa.field("animal", pa.string(), nullable=False),
+                pa.field("deployment", pa.string(), nullable=False),
+                pa.field("recording", pa.string(), nullable=True),
+                pa.field("group", pa.string(), nullable=False),
+                pa.field("event_key", pa.string(), nullable=False),
+                pa.field("datetime_start", pa.timestamp("us"), nullable=False),
+                pa.field("datetime_end", pa.timestamp("us"), nullable=False),
+                pa.field("short_description", pa.string(), nullable=True),
+                pa.field("long_description", pa.string(), nullable=True),
+                pa.field("event_data", pa.string(), nullable=False),
+            ]
+        )
+
+        # Create PyArrow table with single event
+        event_table = pa.table(
+            [
+                pa.array([event["dataset"]]),
+                pa.array([event["animal"]]),
+                pa.array([event["deployment"]]),
+                pa.array([event["recording"]]),
+                pa.array([event["group"]]),
+                pa.array([event["event_key"]]),
+                pa.array([event["datetime_start"]]),
+                pa.array([event["datetime_end"]]),
+                pa.array([event["short_description"]]),
+                pa.array([event["long_description"]]),
+                pa.array([event["event_data"]]),
+            ],
+            schema=events_schema,
+        )
+
+        # Write to Iceberg
+        self.write_to_iceberg(event_table, "events", dataset=dataset)
+        logging.info(
+            f"Created event '{event_key}' at {datetime_start} for deployment {deployment}"
+        )
 
     def read_from_delta(self, query: str):
         """Read data using SQL query (backward compatibility)"""
@@ -1139,9 +1234,9 @@ class DuckPond:
             groups=groups,
             classes=classes,
             date_range=date_range,
-            limit=limit
-            if not (frequency or max_frequency)
-            else None,  # Don't limit before resampling
+            limit=(
+                limit if not (frequency or max_frequency) else None
+            ),  # Don't limit before resampling
         )
 
         # Apply resampling transformation if frequency or max_frequency is provided
@@ -1457,6 +1552,181 @@ class DuckPond:
             # Return what we have so far
 
         return icon_map
+
+    def get_3d_model_for_animal(self, animal_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch 3D model info for an animal via Animal→Asset DB→Best-3D-model chain.
+
+        The Animal DB has a direct relation to Asset DB, which contains the
+        Best-3D-model file property with the 3D model file URL, and optionally
+        3D-Material(s) for textures.
+
+        Args:
+            animal_id: Animal identifier (e.g., "apfo-001a")
+
+        Returns:
+            Dict with model info:
+            {
+                "model_url": str,
+                "model_filename": str,
+                "filetype": str,
+                "texture_url": str or None,
+                "texture_filename": str or None
+            }
+            Returns None values for model if no model found.
+        """
+        default_model = {
+            "model_url": None,
+            "model_filename": None,
+            "filetype": None,
+            "texture_url": None,
+            "texture_filename": None,
+        }
+
+        if not animal_id or not self.notion_integration.notion_manager:
+            logging.debug("No animal_id or notion_manager, returning empty model")
+            return default_model
+
+        try:
+            # Get the Animal model
+            AnimalModel = self.notion_integration.notion_manager.get_model("Animal")
+
+            # Query all animals to find the matching one
+            all_animals = AnimalModel.objects.all()
+
+            target_animal = None
+            for animal in all_animals:
+                # Try to get the animal identifier - could be in different properties
+                animal_name = None
+                for prop_name in ["Name", "Animal ID", "name", "animal_id"]:
+                    if hasattr(animal, prop_name):
+                        animal_name = getattr(animal, prop_name, None)
+                        if animal_name:
+                            break
+
+                if animal_name == animal_id:
+                    target_animal = animal
+                    break
+
+            if not target_animal:
+                logging.debug(
+                    f"Animal '{animal_id}' not found in Notion, returning empty model"
+                )
+                return default_model
+
+            # Traverse Animal → Asset DB directly (same pattern as _get_animal_icons)
+            asset_records = None
+            if hasattr(target_animal, "get_asset"):
+                asset_records = target_animal.get_asset()
+
+            if not asset_records or len(asset_records) == 0:
+                logging.debug(
+                    f"No asset found for animal '{animal_id}', returning empty model"
+                )
+                return default_model
+
+            asset = asset_records[0]
+            asset_name = getattr(asset, "Name", getattr(asset, "name", "unknown"))
+            logging.debug(f"Found asset for animal '{animal_id}': {asset_name}")
+
+            # Extract Best-3D-model file property
+            # Property name in Notion is "Best-3D-model" (files type)
+            model_file_value = None
+            for prop_name in [
+                "Best-3D-model",
+                "Best 3D model",
+                "best_3d_model",
+                "3D-Model",
+            ]:
+                if hasattr(asset, prop_name):
+                    model_file_value = getattr(asset, prop_name, None)
+                    if model_file_value:
+                        logging.debug(f"Found 3D model property '{prop_name}'")
+                        break
+
+            if not model_file_value:
+                logging.debug(
+                    f"No Best-3D-model property found on asset '{asset_name}', returning empty model"
+                )
+                return default_model
+
+            # Extract 3D-Material(s) texture file property (optional)
+            texture_url = None
+            texture_filename = None
+            for prop_name in [
+                "3D-Material(s)",
+                "3D-Materials",
+                "3D Material",
+                "Texture",
+                "texture",
+            ]:
+                if hasattr(asset, prop_name):
+                    texture_value = getattr(asset, prop_name, None)
+                    if (
+                        texture_value
+                        and isinstance(texture_value, list)
+                        and len(texture_value) > 0
+                    ):
+                        first_texture = texture_value[0]
+                        if isinstance(first_texture, dict):
+                            texture_url = first_texture.get("url")
+                            texture_filename = first_texture.get("name")
+                            if texture_url:
+                                logging.debug(f"Found texture: {texture_filename}")
+                                break
+
+            # Parse the model files property (list of file info dicts)
+            # Each dict has: {'url': '...', 'name': '...', 'type': 'file', 'expiry_time': '...'}
+            if isinstance(model_file_value, list) and len(model_file_value) > 0:
+                first_file = model_file_value[0]
+                if isinstance(first_file, dict):
+                    model_url = first_file.get("url")
+                    model_filename = first_file.get("name", "model.obj")
+
+                    if model_url:
+                        # Determine filetype from filename
+                        filetype = (
+                            model_filename.split(".")[-1].lower()
+                            if "." in model_filename
+                            else "obj"
+                        )
+                        logging.info(
+                            f"Found 3D model for animal '{animal_id}': {model_filename} ({filetype})"
+                            + (
+                                f" with texture {texture_filename}"
+                                if texture_filename
+                                else ""
+                            )
+                        )
+                        return {
+                            "model_url": model_url,
+                            "model_filename": model_filename,
+                            "filetype": filetype,
+                            "texture_url": texture_url,
+                            "texture_filename": texture_filename,
+                        }
+
+            # Legacy handling for string URLs (e.g., external Google Drive links)
+            elif isinstance(model_file_value, str) and model_file_value:
+                filetype = (
+                    model_file_value.split(".")[-1].lower()
+                    if "." in model_file_value
+                    else "obj"
+                )
+                return {
+                    "model_url": model_file_value,
+                    "model_filename": model_file_value.split("/")[-1],
+                    "filetype": filetype,
+                    "texture_url": texture_url,
+                    "texture_filename": texture_filename,
+                }
+
+            logging.debug("Could not parse 3D model file value, returning empty model")
+            return default_model
+
+        except Exception as e:
+            logging.warning(f"Failed to fetch 3D model for animal '{animal_id}': {e}")
+            return default_model
 
     def get_all_datasets_and_deployments(self) -> Dict[str, List[Dict]]:
         """
