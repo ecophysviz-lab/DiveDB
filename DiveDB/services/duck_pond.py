@@ -150,6 +150,7 @@ class DuckPond:
         include_metadata: bool = True,
         pack_groups: bool = True,
         load_metadata: bool = True,
+        use_cache: bool = False,
     ) -> List[Dict]:
         """
         Discover available channels for a dataset and optionally hydrate metadata from Signal DB.
@@ -159,10 +160,31 @@ class DuckPond:
             include_metadata: If True, join metadata from Signal DB via Standardized Channel DB lookup
             pack_groups: If True, groups are returned as one collection with all standardized children
             load_metadata: If False, skip loading metadata from Notion (faster for initial discovery)
+            use_cache: If True, cache results with 1-hour TTL (default: False)
 
         Returns:
             List[Dict] of channels/groups as specified
         """
+        # Cache TTL: 1 hour (3600 seconds) - channel metadata changes rarely
+        CACHE_TTL = 3600
+
+        # Check cache if enabled
+        cache_key = None
+        if use_cache:
+            cache_params = {
+                "method": "get_available_channels",
+                "dataset": dataset,
+                "include_metadata": include_metadata,
+                "pack_groups": pack_groups,
+                "load_metadata": load_metadata,
+            }
+            cache_key = generate_cache_key(cache_params)
+            cached_result = load_from_cache(
+                cache_key, ttl_seconds=CACHE_TTL, cache_dir=".cache/duckpond"
+            )
+            if cached_result is not None:
+                logging.debug(f"Cache hit for get_available_channels({dataset})")
+                return cached_result
 
         triples, present_groups = self._discover_dataset_channels(dataset)
         # print(triples)
@@ -339,6 +361,11 @@ class DuckPond:
                 "icon": group_meta.get("icon") if group_meta else None,
             }
             results.append(group_item)
+
+        # Save to cache if enabled
+        if cache_key is not None:
+            save_to_cache(cache_key, results, cache_dir=".cache/duckpond")
+            logging.debug(f"Cached get_available_channels({dataset}) result")
 
         return results
 
@@ -1357,6 +1384,7 @@ class DuckPond:
         limit: int | None = None,
         apply_timezone_offset: Optional[int] = None,
         add_timestamp_columns: bool = False,
+        use_cache: bool = False,
     ):
         """
         Get events from a specific dataset.
@@ -1371,12 +1399,38 @@ class DuckPond:
             limit: Row limit
             apply_timezone_offset: Optional timezone offset in hours to add to datetime columns
             add_timestamp_columns: If True, adds 'timestamp_start' and 'timestamp_end' columns (seconds since epoch)
+            use_cache: If True, cache results with 5-minute TTL (default: False)
 
         Returns:
             pd.DataFrame with columns: dataset, animal, deployment, recording,
             group, event_key, datetime_start, datetime_end, short_description,
             long_description, event_data
         """
+        # Cache TTL: 5 minutes (300 seconds) - events may be written during sessions
+        CACHE_TTL = 300
+
+        # Check cache if enabled
+        cache_key = None
+        if use_cache:
+            cache_params = {
+                "method": "get_events",
+                "dataset": dataset,
+                "animal_ids": animal_ids,
+                "deployment_ids": deployment_ids,
+                "recording_ids": recording_ids,
+                "event_keys": event_keys,
+                "date_range": date_range,
+                "limit": limit,
+                "apply_timezone_offset": apply_timezone_offset,
+            }
+            cache_key = generate_cache_key(cache_params)
+            cached_result = load_from_cache(
+                cache_key, ttl_seconds=CACHE_TTL, cache_dir=".cache/duckpond"
+            )
+            if cached_result is not None:
+                logging.debug(f"Cache hit for get_events({dataset})")
+                return cached_result
+
         # Ensure dataset is initialized
         self.dataset_manager.ensure_dataset_initialized(dataset)
 
@@ -1461,6 +1515,11 @@ class DuckPond:
                 add_timestamp_columns,
                 timestamp_col_name="timestamp_end",
             )
+
+        # Save to cache if enabled
+        if cache_key is not None:
+            save_to_cache(cache_key, df, cache_dir=".cache/duckpond")
+            logging.debug(f"Cached get_events({dataset}) result")
 
         return df
 
@@ -1553,7 +1612,9 @@ class DuckPond:
 
         return icon_map
 
-    def get_3d_model_for_animal(self, animal_id: str) -> Optional[Dict[str, Any]]:
+    def get_3d_model_for_animal(
+        self, animal_id: str, use_cache: bool = False
+    ) -> Optional[Dict[str, Any]]:
         """
         Fetch 3D model info for an animal via Animal→Asset DB→Best-3D-model chain.
 
@@ -1563,6 +1624,7 @@ class DuckPond:
 
         Args:
             animal_id: Animal identifier (e.g., "apfo-001a")
+            use_cache: If True, cache results with 1-hour TTL (default: False)
 
         Returns:
             Dict with model info:
@@ -1575,6 +1637,9 @@ class DuckPond:
             }
             Returns None values for model if no model found.
         """
+        # Cache TTL: 1 hour (3600 seconds) - 3D model assignments rarely change
+        CACHE_TTL = 3600
+
         default_model = {
             "model_url": None,
             "model_filename": None,
@@ -1586,6 +1651,21 @@ class DuckPond:
         if not animal_id or not self.notion_integration.notion_manager:
             logging.debug("No animal_id or notion_manager, returning empty model")
             return default_model
+
+        # Check cache if enabled
+        cache_key = None
+        if use_cache:
+            cache_params = {
+                "method": "get_3d_model_for_animal",
+                "animal_id": animal_id,
+            }
+            cache_key = generate_cache_key(cache_params)
+            cached_result = load_from_cache(
+                cache_key, ttl_seconds=CACHE_TTL, cache_dir=".cache/duckpond"
+            )
+            if cached_result is not None:
+                logging.debug(f"Cache hit for get_3d_model_for_animal({animal_id})")
+                return cached_result
 
         try:
             # Get the Animal model
@@ -1698,13 +1778,22 @@ class DuckPond:
                                 else ""
                             )
                         )
-                        return {
+                        result = {
                             "model_url": model_url,
                             "model_filename": model_filename,
                             "filetype": filetype,
                             "texture_url": texture_url,
                             "texture_filename": texture_filename,
                         }
+                        # Save to cache if enabled
+                        if cache_key is not None:
+                            save_to_cache(
+                                cache_key, result, cache_dir=".cache/duckpond"
+                            )
+                            logging.debug(
+                                f"Cached get_3d_model_for_animal({animal_id}) result"
+                            )
+                        return result
 
             # Legacy handling for string URLs (e.g., external Google Drive links)
             elif isinstance(model_file_value, str) and model_file_value:
@@ -1713,13 +1802,18 @@ class DuckPond:
                     if "." in model_file_value
                     else "obj"
                 )
-                return {
+                result = {
                     "model_url": model_file_value,
                     "model_filename": model_file_value.split("/")[-1],
                     "filetype": filetype,
                     "texture_url": texture_url,
                     "texture_filename": texture_filename,
                 }
+                # Save to cache if enabled
+                if cache_key is not None:
+                    save_to_cache(cache_key, result, cache_dir=".cache/duckpond")
+                    logging.debug(f"Cached get_3d_model_for_animal({animal_id}) result")
+                return result
 
             logging.debug("Could not parse 3D model file value, returning empty model")
             return default_model
@@ -1728,15 +1822,35 @@ class DuckPond:
             logging.warning(f"Failed to fetch 3D model for animal '{animal_id}': {e}")
             return default_model
 
-    def get_all_datasets_and_deployments(self) -> Dict[str, List[Dict]]:
+    def get_all_datasets_and_deployments(
+        self, use_cache: bool = False
+    ) -> Dict[str, List[Dict]]:
         """
         Get all datasets and their deployments in a single call using one optimized query.
 
+        Args: use_cache: If True, cache results with 5-minute TTL (default: False)
         Returns:
             Dict mapping dataset names to lists of deployment records.
             Each deployment record contains: deployment, animal, min_date, max_date, sample_count
             Format: {"dataset1": [{"deployment": "...", "animal": "...", ...}, ...], ...}
         """
+        # Cache TTL: 5 minutes (300 seconds) - datasets/deployments change infrequently
+        CACHE_TTL = 300
+
+        # Check cache if enabled
+        cache_key = None
+        if use_cache:
+            cache_params = {
+                "method": "get_all_datasets_and_deployments",
+            }
+            cache_key = generate_cache_key(cache_params)
+            cached_result = load_from_cache(
+                cache_key, ttl_seconds=CACHE_TTL, cache_dir=".cache/duckpond"
+            )
+            if cached_result is not None:
+                logging.debug("Cache hit for get_all_datasets_and_deployments")
+                return cached_result
+
         datasets = self.get_all_datasets()
         result = {}
 
@@ -1817,6 +1931,11 @@ class DuckPond:
                             animal_id, "/assets/images/seal.svg"
                         )
 
+        # Save to cache if enabled
+        if cache_key is not None:
+            save_to_cache(cache_key, result, cache_dir=".cache/duckpond")
+            logging.debug("Cached get_all_datasets_and_deployments result")
+
         return result
 
     def list_dataset_tables(self, dataset: str) -> List[str]:
@@ -1831,14 +1950,41 @@ class DuckPond:
         """Remove a dataset and all its tables (use with caution!)"""
         return self.dataset_manager.remove_dataset(dataset)
 
-    def get_deployment_timezone_offset(self, deployment_id: str) -> float:
+    def get_deployment_timezone_offset(
+        self, deployment_id: str, use_cache: bool = False
+    ) -> float:
         """
         Get timezone offset for a deployment from Notion Deployments table.
-        Args: deployment_id: Deployment identifier (e.g., "2019-11-08_apfo-001")
-        Returns: Timezone offset in hours (e.g., 13.0 for Antarctica/McMurdo)
+
+        Args:
+            deployment_id: Deployment identifier (e.g., "2019-11-08_apfo-001")
+            use_cache: If True, cache results with 1-hour TTL (default: False)
+
+        Returns:
+            Timezone offset in hours (e.g., 13.0 for Antarctica/McMurdo)
         """
         from zoneinfo import ZoneInfo
         from datetime import datetime, timezone
+
+        # Cache TTL: 1 hour (3600 seconds) - timezone data is essentially static
+        CACHE_TTL = 3600
+
+        # Check cache if enabled
+        cache_key = None
+        if use_cache:
+            cache_params = {
+                "method": "get_deployment_timezone_offset",
+                "deployment_id": deployment_id,
+            }
+            cache_key = generate_cache_key(cache_params)
+            cached_result = load_from_cache(
+                cache_key, ttl_seconds=CACHE_TTL, cache_dir=".cache/duckpond"
+            )
+            if cached_result is not None:
+                logging.debug(
+                    f"Cache hit for get_deployment_timezone_offset({deployment_id})"
+                )
+                return cached_result
 
         try:
             # Query the Deployments table (loaded from Notion into DuckDB)
@@ -1860,7 +2006,16 @@ class DuckPond:
                     .utcoffset()
                     .total_seconds()
                 )
-                return offset_seconds / 3600
+                offset_hours = offset_seconds / 3600
+
+                # Save to cache if enabled
+                if cache_key is not None:
+                    save_to_cache(cache_key, offset_hours, cache_dir=".cache/duckpond")
+                    logging.debug(
+                        f"Cached get_deployment_timezone_offset({deployment_id}) result"
+                    )
+
+                return offset_hours
             else:
                 logging.warning(
                     f"No timezone found for deployment {deployment_id}, using UTC"

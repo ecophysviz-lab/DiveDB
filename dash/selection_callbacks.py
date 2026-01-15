@@ -772,7 +772,9 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
         """Load all datasets and their deployments when the page loads."""
         logger.info("Loading datasets and deployments from data lake on page load...")
         try:
-            all_datasets_and_deployments = duck_pond.get_all_datasets_and_deployments()
+            all_datasets_and_deployments = duck_pond.get_all_datasets_and_deployments(
+                use_cache=use_cache
+            )
             logger.debug(
                 f"Found {len(all_datasets_and_deployments)} datasets with deployments"
             )
@@ -875,103 +877,19 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
         default_texture_file = ""  # Empty = no texture initially
 
         if not callback_context.triggered or not datasets_with_deployments:
-            # Create minimal empty data JSON for 3D model
-            empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
-            return (
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                [],
-                empty_data_json,
-                no_update,  # modelFile - don't update
-                no_update,  # textureFile - don't update
-                True,
-                True,
-                True,
-                True,
-                True,
-                True,
-                True,
-                True,
-                [],  # available-channels
-                [],  # selected-channels
-                [],  # available-events
-                [],  # selected-events
-                None,  # timeline-bounds
-                None,  # original-bounds
-            )
+            # No trigger or no data - preserve existing state
+            raise dash.exceptions.PreventUpdate
 
         if not n_clicks_list or not any(n_clicks_list):
-            # Create minimal empty data JSON for 3D model
-            empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
-            return (
-                no_update,
-                no_update,
-                no_update,
-                no_update,  # figure-store
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                [],
-                empty_data_json,
-                no_update,  # modelFile - don't update
-                no_update,  # textureFile - don't update
-                True,
-                True,
-                True,
-                True,
-                True,
-                True,
-                True,
-                True,
-                [],  # available-channels
-                [],  # selected-channels
-                [],  # available-events
-                [],  # selected-events
-                None,  # timeline-bounds
-                None,  # original-bounds
-            )
+            # No clicks - preserve existing state
+            raise dash.exceptions.PreventUpdate
 
         # Find which button was clicked
         triggered_id = callback_context.triggered[0]["prop_id"]
 
         if "deployment-button" not in triggered_id:
-            # Create minimal empty data JSON for 3D model
-            empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
-            return (
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                no_update,
-                [],
-                empty_data_json,
-                no_update,  # modelFile - don't update
-                no_update,  # textureFile - don't update
-                True,
-                True,
-                True,
-                True,
-                True,
-                True,
-                True,
-                True,
-                [],  # available-channels
-                [],  # selected-channels
-                [],  # available-events
-                [],  # selected-events
-                None,  # timeline-bounds
-                None,  # original-bounds
-            )
+            # Not a deployment button click - preserve existing state
+            raise dash.exceptions.PreventUpdate
 
         # Extract dataset and index from triggered_id
         import json
@@ -985,36 +903,7 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
             deployments_data = datasets_with_deployments.get(dataset, [])
             if not deployments_data or idx >= len(deployments_data):
                 logger.error(f"Invalid deployment index {idx} for dataset {dataset}")
-                # Create minimal empty data JSON for 3D model
-                empty_data_json = pd.DataFrame({"datetime": []}).to_json(orient="split")
-                return (
-                    no_update,
-                    no_update,
-                    no_update,
-                    no_update,
-                    no_update,
-                    no_update,
-                    no_update,
-                    no_update,
-                    [],
-                    empty_data_json,
-                    no_update,  # modelFile - don't update
-                    no_update,  # textureFile - don't update
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    True,
-                    [],  # available-channels
-                    [],  # selected-channels
-                    [],  # available-events
-                    [],  # selected-events
-                    None,  # timeline-bounds
-                    None,  # original-bounds
-                )
+                raise dash.exceptions.PreventUpdate
 
             selected_deployment = deployments_data[idx]
             logger.info(
@@ -1042,7 +931,7 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
                 # Continue with DuckDB operations (sequential, share connection)
                 # Get timezone offset from Notion via DuckDB
                 timezone_offset = duck_pond.get_deployment_timezone_offset(
-                    deployment_id
+                    deployment_id, use_cache=use_cache
                 )
                 logger.info(f"Deployment timezone offset: UTC{timezone_offset:+.1f}")
 
@@ -1059,13 +948,14 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
                     f"Date range: {date_range['start']} to {date_range['end']}"
                 )
 
-                # Fetch available channels from DuckPond (without metadata for speed)
+                # Fetch available channels from DuckPond (with caching for faster repeat loads)
                 logger.debug("Fetching available channels...")
                 available_channels = duck_pond.get_available_channels(
                     dataset=dataset,
                     include_metadata=True,
                     pack_groups=True,
                     load_metadata=False,
+                    use_cache=use_cache,
                 )
                 logger.debug(f"Found {len(available_channels)} channel options")
 
@@ -1134,6 +1024,7 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
                         date_range=(date_range["start"], date_range["end"]),
                         apply_timezone_offset=timezone_offset,
                         add_timestamp_columns=True,
+                        use_cache=use_cache,
                     )
                     logger.debug(
                         f"Loaded {len(events_df) if not events_df.empty else 0} events"
@@ -1195,7 +1086,9 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
                 logger.debug("3D model data prepared WITHOUT orientation (empty)")
 
             # Get 3D model file URL from Notion (Animal→Asset→Best-3D-model)
-            model_info = duck_pond.get_3d_model_for_animal(animal_id)
+            model_info = duck_pond.get_3d_model_for_animal(
+                animal_id, use_cache=use_cache
+            )
             model_file_url = (
                 model_info.get("model_url") or ""
             )  # Empty string = no model
@@ -1417,8 +1310,10 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
             logger.error(f"Could not find deployment {deployment_id} in datasets")
             raise dash.exceptions.PreventUpdate
 
-        # Get timezone offset
-        timezone_offset = duck_pond.get_deployment_timezone_offset(deployment_id)
+        # Get timezone offset (with caching for repeated graph updates)
+        timezone_offset = duck_pond.get_deployment_timezone_offset(
+            deployment_id, use_cache=use_cache
+        )
 
         # Build date range
         min_dt = pd.to_datetime(selected_deployment["min_date"])
@@ -1457,7 +1352,7 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
         enabled_events = [ev for ev in selected_events if ev.get("enabled")]
         logger.debug(f"Enabled events: {[ev['event_key'] for ev in enabled_events]}")
 
-        # Fetch events if any are enabled
+        # Fetch events if any are enabled (with caching)
         events_df = None
         if enabled_events:
             try:
@@ -1467,6 +1362,7 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
                     date_range=(date_range["start"], date_range["end"]),
                     apply_timezone_offset=timezone_offset,
                     add_timestamp_columns=True,
+                    use_cache=use_cache,
                 )
                 logger.debug(
                     f"Loaded {len(events_df) if events_df is not None and not events_df.empty else 0} events for graph"
@@ -2065,8 +1961,10 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
                 logger.error(f"Could not find deployment {deployment_id} in datasets")
                 raise dash.exceptions.PreventUpdate
 
-            # Get timezone offset from DuckPond
-            timezone_offset = duck_pond.get_deployment_timezone_offset(deployment_id)
+            # Get timezone offset from DuckPond (with caching)
+            timezone_offset = duck_pond.get_deployment_timezone_offset(
+                deployment_id, use_cache=use_cache
+            )
 
             # Build date range from deployment metadata (from DuckPond)
             min_dt = pd.to_datetime(selected_deployment["min_date"])
@@ -2208,7 +2106,9 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
         # The playhead-time is in local time (after timezone offset was applied for display)
         # We need to subtract the offset to get back to UTC for storage in Iceberg
         try:
-            timezone_offset = duck_pond.get_deployment_timezone_offset(deployment_id)
+            timezone_offset = duck_pond.get_deployment_timezone_offset(
+                deployment_id, use_cache=use_cache
+            )
             datetime_start = datetime_start - pd.Timedelta(hours=timezone_offset)
             if datetime_end is not None:
                 datetime_end = datetime_end - pd.Timedelta(hours=timezone_offset)

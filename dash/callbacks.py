@@ -515,11 +515,22 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         video_ids,
     ):
         """Manage both auto and manual video selection with proper priority."""
+        ctx = callback_context
+
+        # Debug: Log callback entry with all trigger info
+        logger.debug("video_selection_manager triggered:")
+        logger.debug(f"  - ctx.triggered: {ctx.triggered}")
+        logger.debug(f"  - n_clicks_list: {n_clicks_list}")
+        logger.debug(f"  - video_ids: {video_ids}")
+        logger.debug(
+            f"  - video_options count: {len(video_options) if video_options else 0}"
+        )
+
         if not video_options:
+            logger.debug("  - PreventUpdate: no video_options")
             raise dash.exceptions.PreventUpdate
 
         time_offset = time_offset or 0
-        ctx = callback_context
 
         # Check if this was triggered by a manual click
         manual_click_triggered = False
@@ -590,32 +601,56 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         time_offset,
     ):
         """Jump playhead to video start time and start playback when video indicator is clicked."""
-        if not video_options or not callback_context.triggered:
+        ctx = callback_context
+
+        # Debug: Log callback entry
+        logger.debug("jump_to_video_on_click triggered:")
+        logger.debug(f"  - ctx.triggered: {ctx.triggered}")
+        logger.debug(f"  - n_clicks_list: {n_clicks_list}")
+        logger.debug(f"  - video_ids: {video_ids}")
+        logger.debug(
+            f"  - video_options count: {len(video_options) if video_options else 0}"
+        )
+
+        if not video_options or not ctx.triggered:
+            logger.debug("  - PreventUpdate: no video_options or no trigger")
             raise dash.exceptions.PreventUpdate
 
         time_offset = time_offset or 0
-        ctx = callback_context
 
         # Check if this was triggered by a video indicator click
         clicked_video = None
         for trigger in ctx.triggered:
+            logger.debug(f"  - Checking trigger: {trigger}")
             if "video-indicator" in trigger["prop_id"] and trigger.get("value"):
                 # Extract the clicked video ID from the trigger
                 import json
 
                 trigger_id = json.loads(trigger["prop_id"].split(".")[0])
                 clicked_video_id = trigger_id["id"]
+                logger.debug(
+                    f"  - Extracted video ID: {clicked_video_id} (type: {type(clicked_video_id)})"
+                )
 
                 # Find the corresponding video in video_options
+                video_option_ids = [vid.get("id") for vid in video_options]
+                logger.debug(f"  - Available video IDs in options: {video_option_ids}")
+
                 for vid in video_options:
                     if vid.get("id") == clicked_video_id:
                         clicked_video = vid
+                        logger.debug(f"  - Found matching video: {vid.get('filename')}")
                         break
 
                 if clicked_video:
                     break
+            else:
+                logger.debug(
+                    "  - Trigger not a video-indicator click or value is falsy"
+                )
 
         if not clicked_video:
+            logger.debug("  - PreventUpdate: no clicked_video found")
             raise dash.exceptions.PreventUpdate
 
         # Calculate the video start time
@@ -795,9 +830,11 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
                     dbc.Col(
                         dbc.Select(
                             options=dropdown_options,
-                            value=dropdown_options[0]["value"]
-                            if dropdown_options
-                            else "depth",
+                            value=(
+                                dropdown_options[0]["value"]
+                                if dropdown_options
+                                else "depth"
+                            ),
                             id={"type": "channel-select", "index": new_channel_id},
                         ),
                     ),

@@ -10,6 +10,7 @@
 - **Port**: 8054 (development)
 - **Key Dependencies**: `DuckPond`, `NotionORMManager`, `ImmichService`
 - **Performance**: Uses `plotly-resampler` for dynamic data resampling on zoom/pan
+- **Caching**: Set `DASH_USE_CACHE=true` to enable file-based caching for faster deployment loads
 
 ## Architecture Overview
 
@@ -577,13 +578,16 @@ video_preview.VideoPreview(
 **Location**: `DiveDB/services/duck_pond.py`
 
 **Key Methods Used**:
-- `get_all_datasets_and_deployments()` → dict - Returns all datasets with deployments
-- `get_available_channels(dataset, include_metadata, pack_groups, load_metadata)` → List[dict] - Returns channel metadata
+- `get_all_datasets_and_deployments(use_cache)` → dict - Returns all datasets with deployments (5-min TTL)
+- `get_available_channels(dataset, include_metadata, pack_groups, load_metadata, use_cache)` → List[dict] - Returns channel metadata (1-hour TTL)
 - `get_channels_metadata(dataset, channel_ids)` → dict - Returns metadata for specific channels
-- `get_data(dataset, deployment_ids, animal_ids, date_range, frequency, labels, add_timestamp_column, apply_timezone_offset, pivoted)` → pd.DataFrame - Fetches data
-- `get_events(dataset, animal_ids, date_range, apply_timezone_offset, add_timestamp_columns)` → pd.DataFrame - Fetches events
-- `get_deployment_timezone_offset(deployment_id)` → float - Returns timezone offset in hours
+- `get_data(dataset, deployment_ids, animal_ids, date_range, frequency, labels, add_timestamp_column, apply_timezone_offset, pivoted, use_cache)` → pd.DataFrame - Fetches data (1-day TTL)
+- `get_events(dataset, animal_ids, date_range, apply_timezone_offset, add_timestamp_columns, use_cache)` → pd.DataFrame - Fetches events (5-min TTL)
+- `get_deployment_timezone_offset(deployment_id, use_cache)` → float - Returns timezone offset in hours (1-hour TTL)
+- `get_3d_model_for_animal(animal_id, use_cache)` → dict - Returns 3D model info from Notion (1-hour TTL)
 - `estimate_data_size(dataset, labels, deployment_ids, animal_ids, date_range)` → int - Estimates row count
+
+**Caching**: All methods with `use_cache` parameter support file-based caching via `DiveDB/services/utils/cache_utils.py`. Enable with `DASH_USE_CACHE=true` environment variable.
 
 **Initialization**: `DuckPond.from_environment(notion_manager=notion_manager)` (data_visualization.py:61)
 
@@ -600,11 +604,13 @@ video_preview.VideoPreview(
 
 ### ImmichService
 
-**Location**: `immich_integration/immich_service.py`
+**Location**: `DiveDB/services/immich_service.py`
 
 **Key Methods Used**:
-- `find_media_by_deployment_id(deployment_id, media_type, shared)` → dict - Finds videos/images by deployment
+- `find_media_by_deployment_id(deployment_id, media_type, shared, use_cache)` → dict - Finds videos/images by deployment (1-hour TTL)
 - `prepare_video_options_for_react(media_result)` → dict - Formats video data for React components
+
+**Caching**: Supports file-based caching via `use_cache` parameter. Enable with `DASH_USE_CACHE=true`.
 
 **Initialization**: `ImmichService()` (data_visualization.py:62)
 
