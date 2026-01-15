@@ -433,6 +433,23 @@ body {
     }
 }
 
+// Playhead line overlay - positioned via CSS for performance
+// This avoids re-rendering the entire Plotly figure on each playback tick
+.playhead-line-overlay {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #73a9c4;
+    pointer-events: none;
+    z-index: 100;
+    display: none;  // Hidden until playhead position is set
+    
+    // Offset to align with the Plotly graph area (accounting for y-axis labels)
+    // These values are set dynamically by the clientside callback
+    // Default: left is percentage-based within the plot area
+}
+
 .video-container {
     width: 100%;
     height: 100%;

@@ -1178,7 +1178,7 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
                     "datetime"
                 )
                 # Downsample to 1 Hz for 3D model performance
-                model_df = model_df.resample("1S").last()
+                model_df = model_df.resample("1s").last()
                 model_data_json = model_df.to_json(orient="split")
                 logger.debug(
                     f"3D model data prepared WITH orientation (downsampled to 1 Hz): {len(model_df)} rows, {model_df.shape[1]} columns"

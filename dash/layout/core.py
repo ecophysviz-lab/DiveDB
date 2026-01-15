@@ -214,6 +214,12 @@ def create_main_content(fig, channel_options=None):
                                         responsive=True,
                                         config={"displayModeBar": False},
                                     ),
+                                    # Playhead line overlay - positioned via CSS for performance
+                                    # This avoids re-rendering the entire Plotly figure on each tick
+                                    html.Div(
+                                        id="playhead-line-overlay",
+                                        className="playhead-line-overlay",
+                                    ),
                                 ],
                                 className="graph-content-container",
                             ),

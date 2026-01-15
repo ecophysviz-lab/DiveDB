@@ -2,6 +2,7 @@
 Server-side callback functions for the DiveDB data visualization dashboard.
 """
 
+import bisect
 import dash
 from dash import Output, Input, State, callback_context, ALL
 from datetime import datetime
@@ -9,6 +10,47 @@ import pandas as pd
 from logging_config import get_logger
 
 logger = get_logger(__name__)
+
+
+def find_nearest_timestamp(timestamps, target):
+    """
+    Find the nearest timestamp to the target using binary search.
+
+    O(log n) complexity vs O(n) for pd.Series approach.
+
+    Args:
+        timestamps: Sorted list of timestamps
+        target: Target timestamp to find nearest match for
+
+    Returns:
+        The timestamp from the list closest to target
+    """
+    if not timestamps:
+        return target
+
+    n = len(timestamps)
+
+    # Handle edge cases
+    if target <= timestamps[0]:
+        return timestamps[0]
+    if target >= timestamps[-1]:
+        return timestamps[-1]
+
+    # Binary search for insertion point
+    idx = bisect.bisect_left(timestamps, target)
+
+    # Check which neighbor is closer
+    if idx == 0:
+        return timestamps[0]
+    if idx == n:
+        return timestamps[-1]
+
+    before = timestamps[idx - 1]
+    after = timestamps[idx]
+
+    if (target - before) <= (after - target):
+        return before
+    return after
 
 
 def parse_video_duration(duration_str):
@@ -186,23 +228,22 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         """Update the video preview component with current playhead time, playing state, and rate."""
         return playhead_time, is_playing, playback_rate or 1
 
-    @app.callback(
-        Output("three-d-model", "activeTime"),
-        [Input("playhead-time", "data")],
-        State("playback-timestamps", "data"),
-    )
-    def update_active_time(playhead_time, timestamps):
-        """Update the 3D model's active time based on playhead position."""
-        if not timestamps:
-            raise dash.exceptions.PreventUpdate
-        # Find the nearest timestamp (not index!) to the playhead time
-        timestamps_series = pd.Series(timestamps)
-        nearest_idx = timestamps_series.sub(playhead_time).abs().idxmin()
-        # Return the actual timestamp value, not the index
-        # Convert to milliseconds for JavaScript
-        nearest_timestamp_seconds = timestamps[nearest_idx]
-        nearest_timestamp_ms = nearest_timestamp_seconds * 1000
-        return nearest_timestamp_ms
+    # NOTE: 3D model update moved to clientside callback for performance
+    # See clientside_callbacks.py - eliminates server round-trip on every playhead tick
+    # @app.callback(
+    #     Output("three-d-model", "activeTime"),
+    #     [Input("playhead-time", "data")],
+    #     State("playback-timestamps", "data"),
+    # )
+    # def update_active_time(playhead_time, timestamps):
+    #     """Update the 3D model's active time based on playhead position."""
+    #     if not timestamps:
+    #         raise dash.exceptions.PreventUpdate
+    #     # Find the nearest timestamp using O(log n) binary search
+    #     nearest_timestamp_seconds = find_nearest_timestamp(timestamps, playhead_time)
+    #     # Convert to milliseconds for JavaScript
+    #     nearest_timestamp_ms = nearest_timestamp_seconds * 1000
+    #     return nearest_timestamp_ms
 
     @app.callback(
         Output("is-playing", "data"),
@@ -318,6 +359,7 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
 
         At 1x rate: skip 10 seconds
         At 100x rate: skip 1000 seconds
+        Uses O(log n) binary search for nearest timestamp.
         """
         ctx = callback_context
         if not ctx.triggered or not timestamps:
@@ -331,9 +373,9 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         # Calculate skip amount: 10x playback rate
         skip_amount = 10 * playback_rate
 
-        # Get min/max bounds
-        min_time = min(timestamps)
-        max_time = max(timestamps)
+        # Get min/max bounds (timestamps list is sorted)
+        min_time = timestamps[0]
+        max_time = timestamps[-1]
 
         if triggered_id == "next-button":
             # Skip forward
@@ -347,10 +389,8 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         # Clamp to dataset bounds
         target_time = max(min_time, min(max_time, target_time))
 
-        # Find nearest timestamp
-        timestamps_series = pd.Series(timestamps)
-        nearest_idx = timestamps_series.sub(target_time).abs().idxmin()
-        new_time = timestamps[nearest_idx]
+        # Find nearest timestamp using O(log n) binary search
+        new_time = find_nearest_timestamp(timestamps, target_time)
 
         # Calculate dynamic tooltip (show actual skip amount)
         if skip_amount < 1:
@@ -387,7 +427,7 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         """Update playhead time based on interval timer and playback rate.
 
         Advances playhead by playback_rate seconds per interval tick.
-        Finds nearest available timestamp after time advance.
+        Finds nearest available timestamp after time advance using O(log n) binary search.
         """
         logger.debug(
             f"Interval callback fired: n_intervals={n_intervals}, is_playing={is_playing}, "
@@ -404,18 +444,16 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         # Advance by playback_rate seconds
         target_time = current_time + playback_rate
 
-        # Get min/max bounds
-        min_time = min(timestamps)
-        max_time = max(timestamps)
+        # Get min/max bounds (timestamps list is sorted)
+        min_time = timestamps[0]
+        max_time = timestamps[-1]
 
         # If we've reached the end, loop back to start
         if target_time > max_time:
             new_time = min_time
         else:
-            # Find the nearest timestamp to the target time
-            timestamps_series = pd.Series(timestamps)
-            nearest_idx = timestamps_series.sub(target_time).abs().idxmin()
-            new_time = timestamps[nearest_idx]
+            # Find the nearest timestamp using O(log n) binary search
+            new_time = find_nearest_timestamp(timestamps, target_time)
 
         logger.debug(
             f"Playhead advancing: current_time={current_time}, target_time={target_time}, "

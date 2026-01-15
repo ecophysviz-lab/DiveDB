@@ -132,56 +132,136 @@ def register_clientside_callbacks(app):
         prevent_initial_call=True,
     )
 
-    # Playhead tracking line on graph
-    # This callback draws a vertical line on the graph that follows the playhead position
+    # Playhead tracking line overlay (CSS-based for performance)
+    # This callback updates a CSS overlay instead of the Plotly figure
+    # This avoids expensive figure re-renders on every playhead tick
     app.clientside_callback(
         """
-        function(playhead_time, existing_fig) {
+        function(playhead_time, timeline_bounds) {
             // Prevent update if no valid data
-            if (!playhead_time || !existing_fig) {
-                return window.dash_clientside.no_update;
+            if (!playhead_time || !timeline_bounds || 
+                timeline_bounds.min === null || timeline_bounds.max === null) {
+                console.log('Playhead overlay: missing data', {playhead_time, timeline_bounds});
+                return { display: 'none' };
             }
-
-            // Convert playhead timestamp (seconds) to milliseconds
-            const playhead_ms = playhead_time * 1000;
-
-            // Create Date object and convert to ISO string
-            const playhead_date = new Date(playhead_ms);
-            const playhead_iso = playhead_date.toISOString();
-
-            // Clone the existing figure to avoid mutation
-            const updated_fig = {...existing_fig};
-
-            // Ensure layout exists
-            if (!updated_fig.layout) {
-                updated_fig.layout = {};
+            
+            // Get the Plotly graph element - need to find the actual plotly div inside
+            const graphContainer = document.getElementById('graph-content');
+            if (!graphContainer) {
+                console.log('Playhead overlay: graph-content not found');
+                return { display: 'none' };
             }
-
-            // Update shapes with vertical line at playhead position
-            updated_fig.layout.shapes = [{
-                type: 'line',
-                x0: playhead_iso,
-                x1: playhead_iso,
-                y0: 0,
-                y1: 1,
-                xref: 'x',
-                yref: 'paper',
-                line: {
-                    color: '#73a9c4',
-                    width: 2,
-                    dash: 'solid'
-                }
-            }];
-
-            // Preserve UI state (zoom, pan, etc.)
-            updated_fig.layout.uirevision = 'constant';
-
-            return updated_fig;
+            
+            // The actual Plotly div might be a child element with _fullLayout
+            // In Dash, the graph component wraps the plotly div
+            let graphDiv = graphContainer;
+            if (!graphDiv._fullLayout) {
+                // Try to find the inner plotly div
+                graphDiv = graphContainer.querySelector('.js-plotly-plot') || 
+                           graphContainer.querySelector('[class*="plotly"]') ||
+                           graphContainer;
+            }
+            
+            if (!graphDiv._fullLayout) {
+                console.log('Playhead overlay: _fullLayout not found');
+                return { display: 'none' };
+            }
+            
+            // Get the actual plot area dimensions from Plotly's internal layout
+            const layout = graphDiv._fullLayout;
+            const plotArea = layout._size;  // Contains l (left), r (right), t (top), b (bottom)
+            
+            if (!plotArea) {
+                console.log('Playhead overlay: _size not found in layout');
+                return { display: 'none' };
+            }
+            
+            // Calculate position as percentage of the timeline range
+            const range = timeline_bounds.max - timeline_bounds.min;
+            if (range <= 0) {
+                return { display: 'none' };
+            }
+            
+            const pct = (playhead_time - timeline_bounds.min) / range;
+            
+            // Clamp to valid range (0-1)
+            if (pct < 0 || pct > 1) {
+                return { display: 'none' };
+            }
+            
+            // Calculate pixel position within the plot area
+            // plotArea.l = left margin, plotArea.r = right margin
+            const containerWidth = graphDiv.clientWidth || graphContainer.clientWidth;
+            const plotWidth = containerWidth - plotArea.l - plotArea.r;
+            const leftPx = plotArea.l + (pct * plotWidth);
+            
+            return {
+                display: 'block',
+                left: leftPx + 'px',
+                top: plotArea.t + 'px',
+                height: 'calc(100% - ' + (plotArea.t + plotArea.b) + 'px)'
+            };
         }
         """,
-        Output("graph-content", "figure", allow_duplicate=True),
+        Output("playhead-line-overlay", "style"),
+        [Input("playhead-time", "data"), Input("timeline-bounds", "data")],
+        prevent_initial_call=True,
+    )
+
+    # 3D Model time update (clientside for performance)
+    # This eliminates a server round-trip on every playhead tick
+    # Uses binary search for O(log n) nearest timestamp lookup
+    app.clientside_callback(
+        """
+        function(playhead_time, timestamps) {
+            // Prevent update if no valid data
+            if (!playhead_time || !timestamps || timestamps.length === 0) {
+                return window.dash_clientside.no_update;
+            }
+            
+            // Binary search for nearest timestamp - O(log n)
+            const target = playhead_time;
+            const ts = timestamps;
+            const n = ts.length;
+            
+            // Handle edge cases
+            if (target <= ts[0]) {
+                return ts[0] * 1000;
+            }
+            if (target >= ts[n - 1]) {
+                return ts[n - 1] * 1000;
+            }
+            
+            // Binary search for insertion point
+            let lo = 0, hi = n - 1;
+            while (lo < hi) {
+                const mid = Math.floor((lo + hi) / 2);
+                if (ts[mid] < target) {
+                    lo = mid + 1;
+                } else {
+                    hi = mid;
+                }
+            }
+            
+            // Check which neighbor is closer
+            let nearest;
+            if (lo === 0) {
+                nearest = ts[0];
+            } else if (lo === n) {
+                nearest = ts[n - 1];
+            } else {
+                const before = ts[lo - 1];
+                const after = ts[lo];
+                nearest = (target - before) <= (after - target) ? before : after;
+            }
+            
+            // Return timestamp in milliseconds for the 3D model component
+            return nearest * 1000;
+        }
+        """,
+        Output("three-d-model", "activeTime"),
         [Input("playhead-time", "data")],
-        [State("graph-content", "figure")],
+        [State("playback-timestamps", "data")],
         prevent_initial_call=True,
     )
 
