@@ -87,14 +87,14 @@ def plot_tag_data_interactive(
                 y_data = np.ascontiguousarray(signal_data_filtered[channel].to_numpy())
 
                 # Set labels and line properties
-                original_name = (
-                    signal_info["metadata"]
-                    .get(channel, {})
-                    .get("original_name", channel)
-                )
-                unit = signal_info["metadata"].get(channel, {}).get("unit", "")
+                channel_meta = signal_info["metadata"].get(channel, {})
+                original_name = channel_meta.get("original_name", channel)
+                unit = channel_meta.get("unit", "")
                 y_label = f"{original_name} [{unit}]" if unit else original_name
-                color = color_mapping.get(original_name, generate_random_color())
+                # Use color from Notion metadata if available, fallback to color_mapping.json
+                color = channel_meta.get("color") or color_mapping.get(
+                    original_name, generate_random_color()
+                )
                 color_mapping[original_name] = color
 
                 fig.add_trace(

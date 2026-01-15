@@ -150,12 +150,16 @@ def _create_data_pkl_from_groups(dff, data_columns, group_membership):
                 channel_metadata[col] = {
                     "original_name": channel_name,
                     "unit": col_meta.get("y_units") or "",
+                    "color": col_meta.get(
+                        "color"
+                    ),  # Color from Notion Standardized Channel DB
                 }
             else:
                 # Fallback metadata - use the column name itself, formatted nicely
                 channel_metadata[col] = {
                     "original_name": col.replace("_", " ").title(),
                     "unit": "",
+                    "color": None,
                 }
 
         signal_info[display_name] = {

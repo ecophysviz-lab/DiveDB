@@ -215,25 +215,18 @@ class DuckPond:
         for g, c, label in triples:
             label_norm = (str(label) or "").strip()
 
-            # Look up Signal DB ID for this channel
-            signal_id = None
+            # Look up metadata for this channel
             chan_key = label_norm.lower()
+            signal_meta = None
 
-            # Try direct channel_id lookup first
-            if chan_key in channel_id_to_signal_id:
-                signal_id = channel_id_to_signal_id[chan_key]
-            # Try alias lookup
+            # Try direct channel_id lookup first (signal_metadata_map is keyed by channel_id)
+            if chan_key in signal_metadata_map:
+                signal_meta = signal_metadata_map[chan_key]
+            # Try alias lookup - map alias to channel_id, then lookup metadata
             elif chan_key in original_alias_to_channel_id:
                 mapped_channel_id = original_alias_to_channel_id[chan_key]
-                signal_id = channel_id_to_signal_id.get(mapped_channel_id.lower())
+                signal_meta = signal_metadata_map.get(mapped_channel_id.lower())
 
-            # Get metadata from Signal DB if signal ID found
-            signal_meta = None
-            if signal_id:
-                signal_meta = signal_metadata_map.get(signal_id)
-            # print(signal_meta)
-            # import pprint
-            # pprint.pprint(signal_metadata_map)
             # Build item with metadata from Signal DB (no fallbacks)
             item = {
                 "kind": "variable",
@@ -269,9 +262,8 @@ class DuckPond:
 
             # Try to get metadata for this group from Signal DB (by name lookup)
             group_meta = None
-            # Find Signal DB record with matching name
-            for signal_id, metadata in signal_metadata_map.items():
-                print("metadata", metadata, group_name)
+            # Find Signal DB record with matching name (signal_metadata_map is keyed by channel_id)
+            for channel_id, metadata in signal_metadata_map.items():
                 name = metadata.get("name") if metadata.get("name") else "None"
                 if name.lower() == group_name.lower():
                     group_meta = metadata
@@ -280,21 +272,19 @@ class DuckPond:
             channels_payload: List[Dict] = []
             # Include labels present in dataset for this group
             for lbl in sorted(group_to_labels_present.get(group_name, set())):
-                # Look up Signal DB ID for this specific channel
+                # Look up metadata for this specific channel (signal_metadata_map is keyed by channel_id)
                 lbl_key = lbl.lower()
-                channel_signal_id = None
-                if lbl_key in channel_id_to_signal_id:
-                    channel_signal_id = channel_id_to_signal_id[lbl_key]
+                channel_signal_meta = None
+
+                # Try direct channel_id lookup first
+                if lbl_key in signal_metadata_map:
+                    channel_signal_meta = signal_metadata_map[lbl_key]
+                # Try alias lookup - map alias to channel_id, then lookup metadata
                 elif lbl_key in original_alias_to_channel_id:
                     mapped_channel_id = original_alias_to_channel_id[lbl_key]
-                    channel_signal_id = channel_id_to_signal_id.get(
+                    channel_signal_meta = signal_metadata_map.get(
                         mapped_channel_id.lower()
                     )
-
-                # Get metadata from Signal DB for this channel's signal ID
-                channel_signal_meta = None
-                if channel_signal_id:
-                    channel_signal_meta = signal_metadata_map.get(channel_signal_id)
 
                 channels_payload.append(
                     {
@@ -397,18 +387,14 @@ class DuckPond:
         for channel_id in channel_ids:
             chan_key = channel_id.lower()
 
-            # Try direct channel_id lookup first
-            signal_id = None
-            if chan_key in channel_id_to_signal_id:
-                signal_id = channel_id_to_signal_id[chan_key]
-            # Try alias lookup
+            # Try direct channel_id lookup first (signal_metadata_map is keyed by channel_id)
+            if chan_key in signal_metadata_map:
+                result[channel_id] = signal_metadata_map[chan_key]
+            # Try alias lookup - map alias to channel_id, then lookup metadata
             elif chan_key in original_alias_to_channel_id:
                 mapped_channel_id = original_alias_to_channel_id[chan_key]
-                signal_id = channel_id_to_signal_id.get(mapped_channel_id.lower())
-
-            # Get metadata from Signal DB if signal ID found
-            if signal_id and signal_id in signal_metadata_map:
-                result[channel_id] = signal_metadata_map[signal_id]
+                if mapped_channel_id.lower() in signal_metadata_map:
+                    result[channel_id] = signal_metadata_map[mapped_channel_id.lower()]
 
         return result
 
