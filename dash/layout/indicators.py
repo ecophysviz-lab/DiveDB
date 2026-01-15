@@ -216,11 +216,22 @@ def create_event_indicator(
     timestamp_min,
     timestamp_max,
     color=None,
+    event_timestamp=None,
 ):
     """Create an event indicator for the timeline.
 
     Uses absolute timestamps stored as CSS variables so indicators can be
     repositioned client-side when timeline bounds change (zoom).
+
+    Args:
+        event_id: Unique identifier for the event (used for pattern-matching ID)
+        tooltip_content: Content to display in tooltip
+        start_ratio: Start position as ratio (0-1) of timeline
+        end_ratio: End position as ratio (0-1) of timeline
+        timestamp_min: Timeline minimum timestamp
+        timestamp_max: Timeline maximum timestamp
+        color: Optional color for the event indicator
+        event_timestamp: The actual event start timestamp (Unix seconds) for click handling
     """
     timestamp_range = timestamp_max - timestamp_min
 
@@ -244,17 +255,25 @@ def create_event_indicator(
     if color:
         style["--event-color"] = color
 
+    # Use pattern-matching ID for click handling (similar to video indicators)
+    # Store the actual event timestamp in the ID for playhead jumping
+    button_id = {
+        "type": "event-indicator",
+        "id": event_id,
+        "timestamp": event_timestamp,
+    }
+
     return html.Div(
         [
             html.Button(
                 [],
-                className="",
-                id=event_id,
+                className="event-indicator-btn",
+                id=button_id,
                 style={"backgroundColor": color} if color else {},
             ),
             dbc.Tooltip(
                 tooltip_content,
-                target=event_id,
+                target=button_id,
                 className="tooltip-saved",
                 placement="top",
                 delay={"show": 100, "hide": 0},
@@ -410,6 +429,7 @@ def generate_event_indicators_row(
                     timestamp_min,
                     timestamp_max,
                     color=event_color,
+                    event_timestamp=start_ts,
                 )
             )
 

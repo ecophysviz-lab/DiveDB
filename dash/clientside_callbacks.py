@@ -470,6 +470,135 @@ def register_clientside_callbacks(app):
     )
 
     # =========================================================================
+    # Client-Side Playback Manager Integration
+    # =========================================================================
+    # Receive playhead updates from the JavaScript playback manager
+    # The playback-manager.js writes to playhead-update-input, which triggers this callback
+    app.clientside_callback(
+        """
+        function(updateInput) {
+            // Check if this is a valid update from the playback manager
+            if (!updateInput || updateInput === '') {
+                return window.dash_clientside.no_update;
+            }
+            
+            // Parse the input - format is "timestamp|counter" (e.g., "1573228800.123|1699123456789")
+            // Using | as delimiter since : appears in timestamps with decimals
+            const delimiterIndex = updateInput.lastIndexOf('|');
+            if (delimiterIndex === -1) {
+                return window.dash_clientside.no_update;
+            }
+            
+            const newTime = parseFloat(updateInput.substring(0, delimiterIndex));
+            
+            if (isNaN(newTime)) {
+                return window.dash_clientside.no_update;
+            }
+            
+            return newTime;
+        }
+        """,
+        Output("playhead-time", "data", allow_duplicate=True),
+        Input("playhead-update-input", "value"),
+        prevent_initial_call=True,
+    )
+
+    # Play/Pause toggle that starts/stops the client-side playback manager
+    # This replaces the server-side toggle_play_pause callback for playback control
+    app.clientside_callback(
+        """
+        function(n_clicks, timestamps, playbackRate, currentTime, sliderMin) {
+            // Initialize the playback manager if needed
+            const mgr = window.DiveDBPlayback;
+            if (!mgr) {
+                console.error('[PlaybackCallback] DiveDBPlayback not loaded');
+                return [window.dash_clientside.no_update, window.dash_clientside.no_update, window.dash_clientside.no_update];
+            }
+            
+            // Always update the manager with current state
+            mgr.setTimestamps(timestamps || []);
+            mgr.setRate(playbackRate || 1);
+            
+            // Set current time if not already set
+            if (mgr.currentTime === null) {
+                mgr.setCurrentTime(currentTime || sliderMin || 0);
+            }
+            
+            // Determine new state based on click count
+            // Odd clicks = playing, even clicks = paused
+            if (n_clicks % 2 === 1) {
+                // Start playing
+                mgr.start();
+                return [true, 'Pause', 'btn btn-primary btn-round btn-pause btn-lg'];
+            } else {
+                // Stop playing
+                mgr.stop();
+                return [false, 'Play', 'btn btn-primary btn-round btn-play btn-lg'];
+            }
+        }
+        """,
+        Output("is-playing", "data", allow_duplicate=True),
+        Output("play-button", "children", allow_duplicate=True),
+        Output("play-button", "className", allow_duplicate=True),
+        Input("play-button", "n_clicks"),
+        State("playback-timestamps", "data"),
+        State("playback-rate", "data"),
+        State("playhead-time", "data"),
+        State("playhead-slider", "min"),
+        prevent_initial_call=True,
+    )
+
+    # Sync playback rate changes to the JS playback manager
+    app.clientside_callback(
+        """
+        function(playbackRate) {
+            const mgr = window.DiveDBPlayback;
+            if (mgr) {
+                mgr.setRate(playbackRate || 1);
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("playback-rate", "id"),  # Dummy output
+        Input("playback-rate", "data"),
+        prevent_initial_call=True,
+    )
+
+    # Sync timestamps to JS playback manager when they change
+    app.clientside_callback(
+        """
+        function(timestamps) {
+            const mgr = window.DiveDBPlayback;
+            if (mgr) {
+                mgr.setTimestamps(timestamps || []);
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("playback-timestamps", "id"),  # Dummy output
+        Input("playback-timestamps", "data"),
+        prevent_initial_call=True,
+    )
+
+    # Sync current time to JS playback manager when slider is dragged
+    # This ensures manual slider drags update the JS manager's current time
+    app.clientside_callback(
+        """
+        function(playheadTime) {
+            const mgr = window.DiveDBPlayback;
+            if (mgr && !mgr.isPlaying) {
+                // Only sync if not playing (to avoid interfering with playback)
+                mgr.setCurrentTime(playheadTime);
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("playhead-time", "id"),  # Dummy output
+        Input("playhead-time", "data"),
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
     # Event Modal Enter Key Submission (B-key bookmark feature)
     # =========================================================================
     # This clientside callback clicks the save button when Enter is pressed

@@ -52,6 +52,7 @@ User Action → Callback → Store Update → UI Update → Next Callback
 | `assets/arrow-key-navigation.js` | Global arrow key playhead navigation | - | ~130 |
 | `assets/b-key-bookmark.js` | Global B key handler for event creation | - | ~120 |
 | `assets/tooltip.js` | Slider tooltip timestamp formatter | `formatTimestamp()` | ~19 |
+| `assets/playback-manager.js` | Client-side playback loop (eliminates server round-trips) | `DiveDBPlayback` | ~200 |
 
 ## Module Reference
 
@@ -91,6 +92,8 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - `skip_navigation()`: `previous-button.n_clicks` + `next-button.n_clicks` → `playhead-time.data` (skips ±10×rate seconds)
 - `update_playhead_from_interval()`: `interval-component.n_intervals` + `playback-rate.data` → `playhead-time.data` (rate-aware)
 - `video_selection_manager()`: `playhead-time.data` + `video-indicator.n_clicks` → `selected-video.data`, `manual-video-override.data`
+- `jump_to_video_on_click()`: `video-indicator.n_clicks` → `playhead-time.data`, `is-playing.data` (jumps playhead to video start and starts playback)
+- `jump_to_event_on_click()`: `event-indicator.n_clicks` → `playhead-time.data` (jumps playhead to event start time, does not affect playback state)
 - `update_video_preview()`: `playhead-time.data` + `is-playing.data` + `playback-rate.data` → `video-trimmer.playheadTime`, `video-trimmer.isPlaying`, `video-trimmer.playbackRate`
 - `update_video_player()`: `selected-video.data` → `video-trimmer.videoSrc`, `video-trimmer.videoMetadata`, `video-trimmer.datasetStartTime`
 - `add_new_channel()`: `add-graph-btn.n_clicks` → `graph-channel-list.children`
@@ -262,6 +265,10 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - Position calculated via CSS: `left: calc((var(--event-start-ts) - var(--view-min)) / (var(--view-max) - var(--view-min)) * 100%)`
 - View bounds (`--view-min`, `--view-max`) inherited from container elements and updated on zoom
 
+**Click Handling**:
+- Video indicators: Pattern-matching ID `{"type": "video-indicator", "id": video_id}` → jumps playhead to video start and starts playback
+- Event indicators: Pattern-matching ID `{"type": "event-indicator", "id": event_id, "timestamp": start_ts}` → jumps playhead to event start time (does not affect playback)
+
 **Note**: Avoid inline styles on buttons. Tooltips use `delay` and `autohide` params.
 
 ### layout/modals.py
@@ -349,50 +356,48 @@ User Action → Callback → Store Update → UI Update → Next Callback
 
 ### Playback Flow
 
-1. **Toggle Play/Pause** (`toggle_play_pause`)
+**Architecture**: Client-side JavaScript playback manager (`playback-manager.js`) handles playback loop with `requestAnimationFrame`, eliminating server round-trips during playback.
+
+1. **Toggle Play/Pause** (clientside in `clientside_callbacks.py`)
    - Trigger: `play-button.n_clicks`
    - Output: `is-playing.data`, `play-button.children`, `play-button.className`
-   - Action: Toggle play state, update button UI
+   - Action: Start/stop `DiveDBPlayback` JS manager, toggle button UI
 
-2. **Cycle Playback Rate** (`cycle_playback_rate`)
+2. **JS Playback Loop** (`playback-manager.js`)
+   - Updates playhead at ~30fps using `requestAnimationFrame`
+   - Binary search for nearest timestamp (O(log n))
+   - Writes to `playhead-update-input` → triggers clientside callback → `playhead-time.data`
+   - Zero server round-trips during playback
+
+3. **Cycle Playback Rate** (`cycle_playback_rate`)
    - Trigger: `forward-button.n_clicks` or `rewind-button.n_clicks`
    - Output: `playback-rate.data`, tooltip updates
    - Action: Forward cycles up (1→5→10→100→1), Rewind cycles down
+   - Syncs to JS manager via clientside callback
 
-3. **Skip Navigation** (`skip_navigation`)
+4. **Skip Navigation** (`skip_navigation`)
    - Trigger: `previous-button.n_clicks` or `next-button.n_clicks`
    - Output: `playhead-time.data`, tooltip updates
    - Action: Jump ±(10 × playback_rate) seconds
 
-4. **Arrow Key Navigation** (clientside + `arrow-key-navigation.js`)
+5. **Arrow Key Navigation** (clientside + `arrow-key-navigation.js`)
    - Trigger: Left/Right arrow keys → `arrow-key-input.value`
    - Output: `playhead-time.data`
    - Action: Move playhead ±0.1 seconds (fixed step for precise frame-by-frame analysis)
 
-5. **Enable Interval** (`update_interval_component`)
-   - Trigger: `is-playing.data`
-   - Output: `interval-component.disabled`
-   - Action: Enable/disable interval based on play state
-
-6. **Update Playhead** (`update_playhead_from_interval`)
-   - Trigger: `interval-component.n_intervals`
-   - State: `playback-rate.data`
-   - Output: `playhead-time.data`
-   - Action: Advance playhead by `playback_rate` seconds per tick
-
-7. **Sync Slider** (clientside)
+6. **Sync Slider** (clientside)
    - Trigger: `playhead-time.data` → `playhead-slider.value`
    - Action: Update slider position
 
-8. **Update Video** (`video_selection_manager`)
+7. **Update Video** (`video_selection_manager`)
    - Trigger: `playhead-time.data`
    - Output: `selected-video.data`
    - Action: Auto-select overlapping video
 
-9. **Update 3D Model** (`update_active_time`)
+8. **Update 3D Model** (clientside)
    - Trigger: `playhead-time.data`
    - Output: `three-d-model.activeTime`
-   - Action: Update 3D model orientation
+   - Action: Update 3D model orientation (binary search for nearest timestamp)
 
 ### B-Key Event Bookmark Flow
 

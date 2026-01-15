@@ -244,26 +244,22 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
     #     nearest_timestamp_ms = nearest_timestamp_seconds * 1000
     #     return nearest_timestamp_ms
 
-    @app.callback(
-        Output("is-playing", "data"),
-        Output("play-button", "children"),
-        Output("play-button", "className"),
-        Input("play-button", "n_clicks"),
-        State("is-playing", "data"),
-    )
-    def toggle_play_pause(n_clicks, is_playing):
-        """Toggle play/pause state and update button text and styling."""
-        if n_clicks % 2 == 1:
-            # Playing state - show pause button
-            return True, "Pause", "btn btn-primary btn-round btn-pause btn-lg"
-        else:
-            # Paused state - show play button
-            return False, "Play", "btn btn-primary btn-round btn-play btn-lg"
+    # NOTE: Play/pause toggle moved to clientside callback for zero-latency response
+    # The clientside callback in clientside_callbacks.py now handles:
+    # - Setting is-playing state
+    # - Starting/stopping the JS playback manager
+    # - Updating button text and styling
+    # See: clientside_callbacks.py - "Client-Side Playback Manager Integration"
 
+    # NOTE: Interval component is now always disabled since client-side JS playback
+    # manager handles playback timing. This eliminates server round-trips during playback.
+    # The interval is kept as a fallback but disabled by default.
     @app.callback(Output("interval-component", "disabled"), Input("is-playing", "data"))
     def update_interval_component(is_playing):
-        """Enable/disable the interval component based on play state."""
-        return not is_playing  # Interval is disabled when not playing
+        """Keep interval disabled - playback is handled by client-side JS manager."""
+        # Always return True (disabled) since JS playback manager handles timing
+        # This prevents duplicate playhead updates from both JS and interval
+        return True
 
     @app.callback(
         Output("play-button-tooltip", "children"),
@@ -670,6 +666,64 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
             "Pause",
             "btn btn-primary btn-round btn-pause btn-lg",
         )
+
+    @app.callback(
+        Output("playhead-time", "data", allow_duplicate=True),
+        [
+            Input({"type": "event-indicator", "id": ALL, "timestamp": ALL}, "n_clicks"),
+        ],
+        [
+            State({"type": "event-indicator", "id": ALL, "timestamp": ALL}, "id"),
+        ],
+        prevent_initial_call=True,
+    )
+    def jump_to_event_on_click(n_clicks_list, event_ids):
+        """Jump playhead to event start time when event indicator is clicked.
+
+        Unlike video click which also starts playback, event click only moves
+        the playhead to the event's start timestamp.
+        """
+        ctx = callback_context
+
+        # Debug: Log callback entry
+        logger.debug("jump_to_event_on_click triggered:")
+        logger.debug(f"  - ctx.triggered: {ctx.triggered}")
+        logger.debug(f"  - n_clicks_list: {n_clicks_list}")
+        logger.debug(f"  - event_ids: {event_ids}")
+
+        if not ctx.triggered:
+            logger.debug("  - PreventUpdate: no trigger")
+            raise dash.exceptions.PreventUpdate
+
+        # Check if this was triggered by an event indicator click
+        clicked_timestamp = None
+        for trigger in ctx.triggered:
+            logger.debug(f"  - Checking trigger: {trigger}")
+            if "event-indicator" in trigger["prop_id"] and trigger.get("value"):
+                # Extract the clicked event's timestamp from the trigger
+                import json
+
+                trigger_id = json.loads(trigger["prop_id"].split(".")[0])
+                clicked_timestamp = trigger_id.get("timestamp")
+                event_id = trigger_id.get("id")
+                logger.debug(
+                    f"  - Extracted event ID: {event_id}, timestamp: {clicked_timestamp}"
+                )
+
+                if clicked_timestamp is not None:
+                    break
+            else:
+                logger.debug(
+                    "  - Trigger not an event-indicator click or value is falsy"
+                )
+
+        if clicked_timestamp is None:
+            logger.debug("  - PreventUpdate: no clicked_timestamp found")
+            raise dash.exceptions.PreventUpdate
+
+        logger.info(f"Jumping to event at timestamp: {clicked_timestamp}")
+
+        return clicked_timestamp
 
     @app.callback(
         Output("video-trimmer", "videoSrc"),

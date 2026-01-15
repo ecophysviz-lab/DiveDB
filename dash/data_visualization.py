@@ -145,6 +145,14 @@ def create_app_stores(dff):
         dcc.Store(
             id="event-refresh-trigger", data=0
         ),  # Counter to trigger graph refresh after event creation
+        # Hidden input for client-side playback manager to update playhead-time
+        # The playback-manager.js writes to this, which triggers a clientside callback
+        dcc.Input(
+            id="playhead-update-input",
+            type="hidden",
+            value="",
+            style={"display": "none"},
+        ),
     ]
 
 
