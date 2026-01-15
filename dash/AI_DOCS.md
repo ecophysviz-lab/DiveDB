@@ -165,8 +165,15 @@ User Action → Callback → Store Update → UI Update → Next Callback
 - Arrow key navigation: `arrow-key-input.value` → `playhead-time.data` (fixed ±0.1s steps for precise frame-by-frame navigation, works with `assets/arrow-key-navigation.js`)
 - Event modal Enter key: `event-modal.is_open` → clicks `save-event-btn` (enables B → Enter quick workflow)
 - Reset zoom button enable/disable: `timeline-bounds.data` + `original-bounds.data` → `reset-zoom-button.disabled` (enabled when zoomed)
+- Indicator zoom sync: `timeline-bounds.data` → Updates CSS variables on `event-indicators-container` and `video-indicators-container` (repositions indicators on zoom)
 
 **Note**: Uses `allow_duplicate=True` to avoid conflicts with server-side callbacks
+
+**Indicator Zoom Sync Architecture**:
+- Indicators store absolute timestamps as CSS variables (`--event-start-ts`, `--event-end-ts`, `--video-start-ts`, `--video-end-ts`)
+- Container elements (`#event-indicators-container`, `#video-indicators-container`) provide view bounds (`--view-min`, `--view-max`)
+- CSS uses calc() to position indicators relative to current view bounds
+- Clientside callback updates container CSS variables when `timeline-bounds` changes, triggering instant repositioning
 
 ### graph_utils.py
 
@@ -233,20 +240,28 @@ User Action → Callback → Store Update → UI Update → Next Callback
   - `next-button`: Skip forward (10× playback rate seconds)
 - Speed display: `playback-rate-display` (shows current rate, e.g., "0.5×" or "5×")
 - Timeline container: `timeline-container`
+- Indicator containers (for zoom-aware positioning):
+  - `event-indicators-container`: Wraps event rows, provides `--view-min`/`--view-max` CSS variables
+  - `video-indicators-container`: Wraps video indicators, provides `--view-min`/`--view-max` CSS variables
 
 ### layout/indicators.py
 
 **Purpose**: Event and video indicator components for timeline
 
 **Key Functions**:
-- `create_event_indicator(event_id, tooltip_content, position_data, timestamp_min, timestamp_max)` → html.Div - Single event indicator
+- `create_event_indicator(event_id, tooltip_content, start_ratio, end_ratio, timestamp_min, timestamp_max, color)` → html.Div - Single event indicator
 - `create_video_indicator(video_id, tooltip_content, position_data, timestamp_min, timestamp_max)` → html.Div - Single video indicator
-- `create_saved_indicator(saved_id, tooltip_content, position_data, timestamp_min, timestamp_max)` → html.Div - Saved bookmark indicator
+- `create_saved_indicator(saved_id, timestamp_display, notes, start_ratio, end_ratio, timestamp_min, timestamp_max)` → html.Div - Saved bookmark indicator
 - `calculate_video_timeline_position(video, timeline_start_ts, timeline_end_ts)` → dict - Calculates video position ratios
 - `generate_event_indicators_row(events_df, timestamp_min, timestamp_max)` → List[html.Div] - Generates all event indicator rows
 - `assign_event_colors(events_df)` → pd.DataFrame - Assigns colors to events
 
-**Note**: Uses CSS variables for positioning; avoid inline styles on buttons. Tooltips use `delay` and `autohide` params.
+**CSS Variables for Zoom-Aware Positioning**:
+- Indicators store absolute timestamps: `--event-start-ts`, `--event-end-ts` (events), `--video-start-ts`, `--video-end-ts` (videos)
+- Position calculated via CSS: `left: calc((var(--event-start-ts) - var(--view-min)) / (var(--view-max) - var(--view-min)) * 100%)`
+- View bounds (`--view-min`, `--view-max`) inherited from container elements and updated on zoom
+
+**Note**: Avoid inline styles on buttons. Tooltips use `delay` and `autohide` params.
 
 ### layout/modals.py
 

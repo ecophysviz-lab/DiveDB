@@ -431,6 +431,45 @@ def register_clientside_callbacks(app):
     )
 
     # =========================================================================
+    # Event and Video Indicator Zoom Sync
+    # =========================================================================
+    # Update CSS variables on indicator containers when timeline-bounds changes
+    # This repositions event and video indicators to match the zoomed view
+    # Uses direct DOM manipulation since the containers may not exist initially
+    app.clientside_callback(
+        """
+        function(bounds) {
+            if (!bounds || bounds.min === null || bounds.max === null) {
+                return window.dash_clientside.no_update;
+            }
+            
+            // Update event indicators container CSS variables
+            const eventContainer = document.getElementById('event-indicators-container');
+            if (eventContainer) {
+                eventContainer.style.setProperty('--view-min', bounds.min);
+                eventContainer.style.setProperty('--view-max', bounds.max);
+            }
+            
+            // Update video indicators container CSS variables
+            const videoContainer = document.getElementById('video-indicators-container');
+            if (videoContainer) {
+                videoContainer.style.setProperty('--view-min', bounds.min);
+                videoContainer.style.setProperty('--view-max', bounds.max);
+            }
+            
+            console.log('Updated indicator container bounds:', bounds.min, '-', bounds.max);
+            
+            // Return no_update - we're modifying DOM directly
+            // timeline-container is used as a dummy output since it always exists
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("timeline-container", "className", allow_duplicate=True),
+        Input("timeline-bounds", "data"),
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
     # Event Modal Enter Key Submission (B-key bookmark feature)
     # =========================================================================
     # This clientside callback clicks the save button when Enter is pressed

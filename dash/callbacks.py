@@ -6,7 +6,6 @@ import bisect
 import dash
 from dash import Output, Input, State, callback_context, ALL
 from datetime import datetime
-import pandas as pd
 from logging_config import get_logger
 
 logger = get_logger(__name__)

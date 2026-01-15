@@ -112,8 +112,17 @@ def create_saved_indicator(
     timestamp_min,
     timestamp_max,
 ):
-    """Create a saved timestamp indicator."""
+    """Create a saved timestamp indicator.
+
+    Uses absolute timestamps stored as CSS variables so indicators can be
+    repositioned client-side when timeline bounds change (zoom).
+    """
     timestamp_range = timestamp_max - timestamp_min
+
+    # Calculate absolute timestamps for client-side repositioning on zoom
+    saved_start_ts = timestamp_min + (timestamp_range * start_ratio)
+    saved_end_ts = timestamp_min + (timestamp_range * end_ratio)
+
     return html.Div(
         [
             html.Button(
@@ -138,9 +147,8 @@ def create_saved_indicator(
         ],
         className="saved_indicator",
         style={
-            "--start": int(timestamp_range * start_ratio),
-            "--end": int(timestamp_range * end_ratio),
-            "--length": int(timestamp_range),
+            "--event-start-ts": saved_start_ts,
+            "--event-end-ts": saved_end_ts,
         },
     )
 
@@ -148,7 +156,11 @@ def create_saved_indicator(
 def create_video_indicator(
     video_id, tooltip_content, position_data, timestamp_min, timestamp_max
 ):
-    """Create a video available indicator."""
+    """Create a video available indicator.
+
+    Uses absolute timestamps stored as CSS variables so indicators can be
+    repositioned client-side when timeline bounds change (zoom).
+    """
     timestamp_range = timestamp_max - timestamp_min
     start_ratio = position_data["start"]
     end_ratio = position_data["end"]
@@ -166,6 +178,11 @@ def create_video_indicator(
     if status in ["before", "after"]:
         button_style["opacity"] = "0.5"  # Make out-of-view videos semi-transparent
         button_style["filter"] = "grayscale(0.5)"  # Add slight desaturation
+
+    # Calculate absolute timestamps for client-side repositioning on zoom
+    video_start_ts = timestamp_min + (timestamp_range * start_ratio)
+    video_end_ts = timestamp_min + (timestamp_range * end_ratio)
+
     return html.Div(
         [
             html.Button(
@@ -184,9 +201,8 @@ def create_video_indicator(
         ],
         className=full_class,
         style={
-            "--start": int(timestamp_range * start_ratio),
-            "--end": int(timestamp_range * end_ratio),
-            "--length": int(timestamp_range),
+            "--video-start-ts": video_start_ts,
+            "--video-end-ts": video_end_ts,
             "position": "relative",  # Ensure button positioning works
         },
     )
@@ -201,7 +217,11 @@ def create_event_indicator(
     timestamp_max,
     color=None,
 ):
-    """Create an event indicator for the timeline."""
+    """Create an event indicator for the timeline.
+
+    Uses absolute timestamps stored as CSS variables so indicators can be
+    repositioned client-side when timeline bounds change (zoom).
+    """
     timestamp_range = timestamp_max - timestamp_min
 
     # Ensure minimum width for very short events
@@ -212,11 +232,14 @@ def create_event_indicator(
         start_ratio = max(0, center - min_width_ratio / 2)
         end_ratio = min(1, center + min_width_ratio / 2)
 
-    # Build style dict with color if provided
+    # Calculate absolute timestamps for client-side repositioning on zoom
+    event_start_ts = timestamp_min + (timestamp_range * start_ratio)
+    event_end_ts = timestamp_min + (timestamp_range * end_ratio)
+
+    # Build style dict with absolute timestamps (used by CSS for positioning)
     style = {
-        "--start": int(timestamp_range * start_ratio),
-        "--end": int(timestamp_range * end_ratio),
-        "--length": int(timestamp_range),
+        "--event-start-ts": event_start_ts,
+        "--event-end-ts": event_end_ts,
     }
     if color:
         style["--event-color"] = color

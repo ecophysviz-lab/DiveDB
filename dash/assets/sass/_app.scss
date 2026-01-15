@@ -545,19 +545,24 @@ body {
     .video_available {
         .video_available_indicator {
             width: 100%;
-            height: 3px;
+            height: 4px;
             background-color: rgba(var(--blue-rgb), 0.2);
             border-radius: 3px;
             z-index: 10;
             position: relative;
             margin: 4px 0;
+            overflow: hidden; // Clip indicators that extend beyond view bounds on zoom
 
             > button {
                 display: block;
                 position: absolute;
-                top: 0;
-                left: calc(var(--start) / var(--length) * 100%);
-                width: calc((var(--end) - var(--start)) / var(--length) * 100%);
+                overflow-y: visible;
+                top: 2px;
+                // Use absolute timestamps and view bounds for zoom-aware positioning
+                // --video-start-ts, --video-end-ts set on indicator element
+                // --view-min, --view-max inherited from #video-indicators-container
+                left: calc((var(--video-start-ts) - var(--view-min)) / (var(--view-max) - var(--view-min)) * 100%);
+                width: calc((var(--video-end-ts) - var(--video-start-ts)) / (var(--view-max) - var(--view-min)) * 100%);
                 height: 5px;
                 transform: translateY(-50%);
                 background: transparent;
@@ -595,12 +600,17 @@ body {
         border-radius: 5px;
         z-index: 10;
         position: relative;
+        overflow: hidden; // Clip indicators that extend beyond view bounds on zoom
 
         .saved_indicator {
             position: absolute;
             bottom: 0;
-            left: calc(var(--start) / var(--length) * 100%);
-            width: calc((var(--end) - var(--start)) / var(--length) * 100%);
+            overflow-y: visible;
+            // Use absolute timestamps and view bounds for zoom-aware positioning
+            // --event-start-ts, --event-end-ts set on indicator element
+            // --view-min, --view-max inherited from #event-indicators-container
+            left: calc((var(--event-start-ts) - var(--view-min)) / (var(--view-max) - var(--view-min)) * 100%);
+            width: calc((var(--event-end-ts) - var(--event-start-ts)) / (var(--view-max) - var(--view-min)) * 100%);
             height: 100%;
             transition: all 0.3s ease-out;
 
