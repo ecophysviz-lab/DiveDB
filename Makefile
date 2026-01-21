@@ -29,7 +29,14 @@ watch-dash-components:
 		$(MAKE) build-dash component="$$component_name" SKIP_NPM=1; \
 	done
 
+build-css:
+	cd dash && npm run build-css
+
+watch-css:
+	cd dash && npm run watch-css
+
 dash:
+	$(MAKE) build-css
 	DASH_USE_CACHE=true python dash/data_visualization.py
 
 dash-nocache:
