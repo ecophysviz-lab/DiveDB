@@ -1040,7 +1040,7 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
                 # Join video results at the end (blocks only if still running)
                 logger.debug("Waiting for video fetch to complete...")
                 try:
-                    video_options = video_future.result(timeout=30)
+                    video_options = video_future.result(timeout=300)
                 except Exception as e:
                     logger.error(f"Video fetch failed or timed out: {e}")
                     video_options = []

@@ -154,7 +154,9 @@ def create_timeline_section(dff, video_options=None, events_df=None):
                                                             pd.to_datetime(
                                                                 timestamp_min,
                                                                 unit="s",
-                                                            ).strftime("%H:%M:%S"),
+                                                            ).strftime(
+                                                                "%m/%d %H:%M:%S"
+                                                            ),
                                                         ],
                                                         id="timeline-start-label",
                                                         className="xs m-0",
@@ -174,7 +176,9 @@ def create_timeline_section(dff, video_options=None, events_df=None):
                                                             pd.to_datetime(
                                                                 timestamp_max,
                                                                 unit="s",
-                                                            ).strftime("%H:%M:%S"),
+                                                            ).strftime(
+                                                                "%m/%d %H:%M:%S"
+                                                            ),
                                                         ],
                                                         id="timeline-end-label",
                                                         className="xs m-0",

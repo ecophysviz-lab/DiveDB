@@ -44,7 +44,15 @@ def parse_video_duration(duration_str):
 
 
 def calculate_video_timeline_position(video, timeline_start_ts, timeline_end_ts):
-    """Calculate video start/end ratios for timeline positioning."""
+    """Calculate video start/end ratios and timestamps for timeline positioning.
+
+    Returns dict with:
+        - start: clamped ratio (0-1) for display purposes
+        - end: clamped ratio (0-1) for display purposes
+        - status: 'within', 'overlapping', 'before', 'after', or 'error'
+        - video_start_ts: actual video start timestamp (for CSS positioning)
+        - video_end_ts: actual video end timestamp (for CSS positioning)
+    """
     try:
         # Parse video creation timestamp
         video_start_dt = datetime.fromisoformat(video["fileCreatedAt"])
@@ -60,7 +68,13 @@ def calculate_video_timeline_position(video, timeline_start_ts, timeline_end_ts)
         timeline_duration = timeline_end_ts - timeline_start_ts
 
         if timeline_duration <= 0:
-            return {"start": 0, "end": 0, "status": "error"}
+            return {
+                "start": 0,
+                "end": 0,
+                "status": "error",
+                "video_start_ts": video_start_ts,
+                "video_end_ts": video_end_ts,
+            }
 
         start_ratio = (video_start_ts - timeline_start_ts) / timeline_duration
         end_ratio = (video_end_ts - timeline_start_ts) / timeline_duration
@@ -69,10 +83,22 @@ def calculate_video_timeline_position(video, timeline_start_ts, timeline_end_ts)
         if start_ratio > 1.0 or end_ratio < 0.0:
             if start_ratio > 1.0:
                 # Video after timeline - show at far right
-                return {"start": 0.95, "end": 1.0, "status": "after"}
+                return {
+                    "start": 0.95,
+                    "end": 1.0,
+                    "status": "after",
+                    "video_start_ts": video_start_ts,
+                    "video_end_ts": video_end_ts,
+                }
             else:
                 # Video before timeline - show at far left
-                return {"start": 0.0, "end": 0.05, "status": "before"}
+                return {
+                    "start": 0.0,
+                    "end": 0.05,
+                    "status": "before",
+                    "video_start_ts": video_start_ts,
+                    "video_end_ts": video_end_ts,
+                }
 
         # Handle videos that extend beyond the timeline bounds
         # Clamp ratios to 0.0-1.0 range but preserve relative positioning
@@ -97,10 +123,22 @@ def calculate_video_timeline_position(video, timeline_start_ts, timeline_end_ts)
                 clamped_start = 0.95
                 clamped_end = 1.0
 
-        return {"start": clamped_start, "end": clamped_end, "status": status}
+        return {
+            "start": clamped_start,
+            "end": clamped_end,
+            "status": status,
+            "video_start_ts": video_start_ts,
+            "video_end_ts": video_end_ts,
+        }
     except (ValueError, KeyError, TypeError) as e:
         logger.error(f"Error calculating video position: {e}")
-        return {"start": 0, "end": 0, "status": "error"}
+        return {
+            "start": 0,
+            "end": 0,
+            "status": "error",
+            "video_start_ts": timeline_start_ts,
+            "video_end_ts": timeline_start_ts,
+        }
 
 
 def create_saved_indicator(
@@ -161,9 +199,6 @@ def create_video_indicator(
     Uses absolute timestamps stored as CSS variables so indicators can be
     repositioned client-side when timeline bounds change (zoom).
     """
-    timestamp_range = timestamp_max - timestamp_min
-    start_ratio = position_data["start"]
-    end_ratio = position_data["end"]
     status = position_data["status"]
 
     # Determine CSS classes based on video status
@@ -179,9 +214,9 @@ def create_video_indicator(
         button_style["opacity"] = "0.5"  # Make out-of-view videos semi-transparent
         button_style["filter"] = "grayscale(0.5)"  # Add slight desaturation
 
-    # Calculate absolute timestamps for client-side repositioning on zoom
-    video_start_ts = timestamp_min + (timestamp_range * start_ratio)
-    video_end_ts = timestamp_min + (timestamp_range * end_ratio)
+    # Use actual video timestamps for CSS positioning (not clamped ratios)
+    video_start_ts = position_data["video_start_ts"]
+    video_end_ts = position_data["video_end_ts"]
 
     return html.Div(
         [
@@ -203,7 +238,6 @@ def create_video_indicator(
         style={
             "--video-start-ts": video_start_ts,
             "--video-end-ts": video_end_ts,
-            "position": "relative",  # Ensure button positioning works
         },
     )
 
