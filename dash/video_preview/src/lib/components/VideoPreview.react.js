@@ -153,7 +153,7 @@ const VideoPreview = ({
       // If we're playing, expect ~1 second progression (with tolerance)
       // If paused or time jump is large, it's manual scrubbing
       if (!isPlaying || Math.abs(timeDiff) > 3 || Math.abs(timeDiff) < 0.5) {
-        significantTimeJump = Math.abs(timeDiff) > 0.1; // Any meaningful change when paused/jumped
+        significantTimeJump = Math.abs(timeDiff) >= 0.05; // Any meaningful change when paused/jumped
       }
     }
 
