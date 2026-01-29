@@ -215,17 +215,19 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
 
         return " ".join(current_classes)
 
-    @app.callback(
-        Output("video-trimmer", "playheadTime"),
-        Output("video-trimmer", "isPlaying"),
-        Output("video-trimmer", "playbackRate"),
-        Input("playhead-time", "data"),
-        Input("is-playing", "data"),
-        Input("playback-rate", "data"),
-    )
-    def update_video_preview(playhead_time, is_playing, playback_rate):
-        """Update the video preview component with current playhead time, playing state, and rate."""
-        return playhead_time, is_playing, playback_rate or 1
+    # NOTE: update_video_preview moved to clientside callback for performance
+    # See clientside_callbacks.py - eliminates server round-trip on every playhead tick
+    # @app.callback(
+    #     Output("video-trimmer", "playheadTime"),
+    #     Output("video-trimmer", "isPlaying"),
+    #     Output("video-trimmer", "playbackRate"),
+    #     Input("playhead-time", "data"),
+    #     Input("is-playing", "data"),
+    #     Input("playback-rate", "data"),
+    # )
+    # def update_video_preview(playhead_time, is_playing, playback_rate):
+    #     """Update the video preview component with current playhead time, playing state, and rate."""
+    #     return playhead_time, is_playing, playback_rate or 1
 
     # NOTE: 3D model update moved to clientside callback for performance
     # See clientside_callbacks.py - eliminates server round-trip on every playhead tick
@@ -244,91 +246,53 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
     #     nearest_timestamp_ms = nearest_timestamp_seconds * 1000
     #     return nearest_timestamp_ms
 
-    @app.callback(
-        Output("is-playing", "data"),
-        Output("play-button", "children"),
-        Output("play-button", "className"),
-        Input("play-button", "n_clicks"),
-        State("is-playing", "data"),
-    )
-    def toggle_play_pause(n_clicks, is_playing):
-        """Toggle play/pause state and update button text and styling."""
-        if n_clicks % 2 == 1:
-            # Playing state - show pause button
-            return True, "Pause", "btn btn-primary btn-round btn-pause btn-lg"
-        else:
-            # Paused state - show play button
-            return False, "Play", "btn btn-primary btn-round btn-play btn-lg"
+    # NOTE: toggle_play_pause moved to clientside callback for performance
+    # See clientside_callbacks.py - eliminates server round-trip on play/pause
+    # @app.callback(
+    #     Output("is-playing", "data"),
+    #     Output("play-button", "children"),
+    #     Output("play-button", "className"),
+    #     Input("play-button", "n_clicks"),
+    #     State("is-playing", "data"),
+    # )
+    # def toggle_play_pause(n_clicks, is_playing):
+    #     """Toggle play/pause state and update button text and styling."""
+    #     if n_clicks % 2 == 1:
+    #         # Playing state - show pause button
+    #         return True, "Pause", "btn btn-primary btn-round btn-pause btn-lg"
+    #     else:
+    #         # Paused state - show play button
+    #         return False, "Play", "btn btn-primary btn-round btn-play btn-lg"
 
-    @app.callback(Output("interval-component", "disabled"), Input("is-playing", "data"))
-    def update_interval_component(is_playing):
-        """Enable/disable the interval component based on play state."""
-        return not is_playing  # Interval is disabled when not playing
+    # NOTE: These callbacks have been moved to clientside for zero server round-trips
+    # during play/pause. See clientside_callbacks.py for the implementations.
+    #
+    # @app.callback(Output("interval-component", "disabled"), Input("is-playing", "data"))
+    # def update_interval_component(is_playing):
+    #     """Enable/disable the interval component based on play state."""
+    #     return not is_playing  # Interval is disabled when not playing
+    #
+    # @app.callback(
+    #     Output("play-button-tooltip", "children"),
+    #     Input("is-playing", "data"),
+    # )
+    # def update_play_button_tooltip(is_playing):
+    #     """Update play button tooltip based on playing state."""
+    #     return "Pause" if is_playing else "Play"
 
-    @app.callback(
-        Output("play-button-tooltip", "children"),
-        Input("is-playing", "data"),
-    )
-    def update_play_button_tooltip(is_playing):
-        """Update play button tooltip based on playing state."""
-        return "Pause" if is_playing else "Play"
-
-    # Playback rate cycling: Forward increases rate, Rewind decreases rate
-    # Available rates: 0.1, 0.5, 1, 5, 10, 100 (supports sub-second playback)
-    PLAYBACK_RATES = [0.1, 0.5, 1, 5, 10, 100]
-
-    @app.callback(
-        Output("playback-rate", "data"),
-        Output("rewind-button-tooltip", "children"),
-        Output("forward-button-tooltip", "children"),
-        Input("forward-button", "n_clicks"),
-        Input("rewind-button", "n_clicks"),
-        State("playback-rate", "data"),
-        prevent_initial_call=True,
-    )
-    def cycle_playback_rate(forward_clicks, rewind_clicks, current_rate):
-        """Cycle playback rate when Forward/Rewind buttons are clicked.
-
-        Forward: Increase rate (1 → 5 → 10 → 100 → 1)
-        Rewind: Decrease rate (100 → 10 → 5 → 1 → 100)
-        """
-        ctx = callback_context
-        if not ctx.triggered:
-            raise dash.exceptions.PreventUpdate
-
-        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
-
-        # Find current rate index
-        try:
-            current_idx = PLAYBACK_RATES.index(current_rate)
-        except ValueError:
-            current_idx = 0  # Default to 1x if rate not found
-
-        if triggered_id == "forward-button":
-            # Cycle up
-            new_idx = (current_idx + 1) % len(PLAYBACK_RATES)
-        elif triggered_id == "rewind-button":
-            # Cycle down
-            new_idx = (current_idx - 1) % len(PLAYBACK_RATES)
-        else:
-            raise dash.exceptions.PreventUpdate
-
-        new_rate = PLAYBACK_RATES[new_idx]
-        # Format rate display: show decimal for fractional rates, integer for whole numbers
-        rate_str = f"{new_rate}×" if new_rate < 1 else f"{int(new_rate)}×"
-        tooltip_text = f"Speed: {rate_str}"
-
-        logger.debug(f"Playback rate changed: {current_rate}× → {new_rate}×")
-        return new_rate, tooltip_text, tooltip_text
+    # NOTE: Playback rate cycling, skip navigation, and tooltips have been moved to
+    # clientside callbacks for zero server round-trips. See clientside_callbacks.py.
+    # Only the display button content remains server-side (requires html.Img component).
 
     # Update playback rate display button when rate changes
+    # This remains server-side because it needs to create html.Img components
+    # The tooltip is handled by a separate clientside callback
     @app.callback(
         Output("playback-rate-display", "children"),
-        Output("playback-rate-tooltip", "children"),
         Input("playback-rate", "data"),
     )
     def update_playback_rate_display(playback_rate):
-        """Update the playback rate display button text and tooltip."""
+        """Update the playback rate display button text."""
         from dash import html
 
         rate = playback_rate or 1
@@ -337,128 +301,38 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         return [
             rate_str,
             html.Img(src="/assets/images/speed.svg"),
-        ], f"Current Speed: {rate_str}"
+        ]
 
-    # Skip navigation: Previous/Next buttons jump by 10x playback rate
-    @app.callback(
-        Output("playhead-time", "data", allow_duplicate=True),
-        Output("previous-button-tooltip", "children"),
-        Output("next-button-tooltip", "children"),
-        Input("previous-button", "n_clicks"),
-        Input("next-button", "n_clicks"),
-        State("playhead-time", "data"),
-        State("playback-timestamps", "data"),
-        State("playback-rate", "data"),
-        prevent_initial_call=True,
-    )
-    def skip_navigation(
-        prev_clicks, next_clicks, current_time, timestamps, playback_rate
-    ):
-        """Skip forward/backward by 10x playback rate seconds.
-
-        At 1x rate: skip 10 seconds
-        At 100x rate: skip 1000 seconds
-        Uses O(log n) binary search for nearest timestamp.
-        """
-        ctx = callback_context
-        if not ctx.triggered or not timestamps:
-            raise dash.exceptions.PreventUpdate
-
-        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
-
-        # Ensure playback_rate is valid
-        playback_rate = playback_rate or 1
-
-        # Calculate skip amount: 10x playback rate
-        skip_amount = 10 * playback_rate
-
-        # Get min/max bounds (timestamps list is sorted)
-        min_time = timestamps[0]
-        max_time = timestamps[-1]
-
-        if triggered_id == "next-button":
-            # Skip forward
-            target_time = current_time + skip_amount
-        elif triggered_id == "previous-button":
-            # Skip backward
-            target_time = current_time - skip_amount
-        else:
-            raise dash.exceptions.PreventUpdate
-
-        # Clamp to dataset bounds
-        target_time = max(min_time, min(max_time, target_time))
-
-        # Find nearest timestamp using O(log n) binary search
-        new_time = find_nearest_timestamp(timestamps, target_time)
-
-        # Calculate dynamic tooltip (show actual skip amount)
-        if skip_amount < 1:
-            # Sub-second: show milliseconds
-            skip_text = f"{int(skip_amount * 1000)}ms"
-        elif skip_amount < 60:
-            # Less than a minute: show seconds (handle fractional)
-            skip_text = f"{skip_amount}s" if skip_amount % 1 else f"{int(skip_amount)}s"
-        else:
-            # Minutes and seconds
-            minutes = int(skip_amount // 60)
-            seconds = skip_amount % 60
-            skip_text = f"{minutes}m {int(seconds)}s" if seconds else f"{minutes}m"
-        prev_tooltip = f"Skip Back ({skip_text})"
-        next_tooltip = f"Skip Forward ({skip_text})"
-
-        logger.debug(
-            f"Skip navigation: {current_time} → {new_time} (skip={skip_amount}s)"
-        )
-        return new_time, prev_tooltip, next_tooltip
-
-    @app.callback(
-        Output("playhead-time", "data"),
-        Input("interval-component", "n_intervals"),
-        State("is-playing", "data"),
-        State("playback-timestamps", "data"),
-        State("playhead-time", "data"),
-        State("playback-rate", "data"),
-        prevent_initial_call=True,
-    )
-    def update_playhead_from_interval(
-        n_intervals, is_playing, timestamps, current_time, playback_rate
-    ):
-        """Update playhead time based on interval timer and playback rate.
-
-        Advances playhead by playback_rate seconds per interval tick.
-        Finds nearest available timestamp after time advance using O(log n) binary search.
-        """
-        logger.debug(
-            f"Interval callback fired: n_intervals={n_intervals}, is_playing={is_playing}, "
-            f"timestamps_len={len(timestamps) if timestamps else 0}, current_time={current_time}, rate={playback_rate}×"
-        )
-
-        if not is_playing or not timestamps:
-            logger.debug("Preventing update: not playing or no timestamps")
-            raise dash.exceptions.PreventUpdate
-
-        # Ensure playback_rate is valid
-        playback_rate = playback_rate or 1
-
-        # Advance by playback_rate seconds
-        target_time = current_time + playback_rate
-
-        # Get min/max bounds (timestamps list is sorted)
-        min_time = timestamps[0]
-        max_time = timestamps[-1]
-
-        # If we've reached the end, loop back to start
-        if target_time > max_time:
-            new_time = min_time
-        else:
-            # Find the nearest timestamp using O(log n) binary search
-            new_time = find_nearest_timestamp(timestamps, target_time)
-
-        logger.debug(
-            f"Playhead advancing: current_time={current_time}, target_time={target_time}, "
-            f"new_time={new_time}, rate={playback_rate}×"
-        )
-        return new_time
+    # NOTE: The playhead update is now handled by a clientside callback that reads
+    # from the JavaScript playback manager (window.DiveDBPlayback). This is registered
+    # in clientside_callbacks.py as update_playhead_from_interval_clientside.
+    # The original server-side callback is commented out below for reference.
+    #
+    # @app.callback(
+    #     Output("playhead-time", "data"),
+    #     Input("interval-component", "n_intervals"),
+    #     State("is-playing", "data"),
+    #     State("playback-timestamps", "data"),
+    #     State("playhead-time", "data"),
+    #     State("playback-rate", "data"),
+    #     prevent_initial_call=True,
+    # )
+    # def update_playhead_from_interval(
+    #     n_intervals, is_playing, timestamps, current_time, playback_rate
+    # ):
+    #     """Update playhead time based on interval timer and playback rate."""
+    #     if not is_playing or not timestamps:
+    #         raise dash.exceptions.PreventUpdate
+    #     playback_rate = playback_rate or 1
+    #     target_time = current_time + playback_rate
+    #     min_time = timestamps[0]
+    #     max_time = timestamps[-1]
+    #     if target_time > max_time:
+    #         new_time = min_time
+    #     else:
+    #         new_time = find_nearest_timestamp(timestamps, target_time)
+    #     return new_time
+    pass  # Placeholder to maintain code structure
 
     # NOTE: Slider → playhead-time sync is handled by clientside callback
     # to avoid race conditions with the interval-based playhead updates
@@ -489,36 +363,31 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
     #     existing_fig["layout"]["uirevision"] = "constant"
     #     return existing_fig
 
-    # Video selection callback using pattern-matching for dynamically created video indicators
+    # Video manual selection callback using pattern-matching for video indicators
+    # NOTE: Auto-selection based on playhead time is now handled by a clientside callback
+    # in clientside_callbacks.py for performance. This callback only handles manual clicks.
     @app.callback(
-        Output("selected-video", "data"),
-        Output("manual-video-override", "data"),
+        Output("selected-video", "data", allow_duplicate=True),
+        Output("manual-video-override", "data", allow_duplicate=True),
         [
-            Input("playhead-time", "data"),
             Input({"type": "video-indicator", "id": ALL}, "n_clicks"),
         ],
         [
-            State("selected-video", "data"),
-            State("manual-video-override", "data"),
-            State("video-time-offset", "data"),
             State("current-video-options", "data"),
             State({"type": "video-indicator", "id": ALL}, "id"),
         ],
+        prevent_initial_call=True,
     )
-    def video_selection_manager(
-        playhead_time,
+    def video_manual_selection(
         n_clicks_list,
-        selected_video,
-        manual_override,
-        time_offset,
         video_options,
         video_ids,
     ):
-        """Manage both auto and manual video selection with proper priority."""
+        """Handle manual video selection when user clicks a video indicator."""
         ctx = callback_context
 
-        # Debug: Log callback entry with all trigger info
-        logger.debug("video_selection_manager triggered:")
+        # Debug: Log callback entry
+        logger.debug("video_manual_selection triggered:")
         logger.debug(f"  - ctx.triggered: {ctx.triggered}")
         logger.debug(f"  - n_clicks_list: {n_clicks_list}")
         logger.debug(f"  - video_ids: {video_ids}")
@@ -530,15 +399,11 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
             logger.debug("  - PreventUpdate: no video_options")
             raise dash.exceptions.PreventUpdate
 
-        time_offset = time_offset or 0
-
         # Check if this was triggered by a manual click
-        manual_click_triggered = False
         clicked_video = None
 
         for trigger in ctx.triggered:
             if "video-indicator" in trigger["prop_id"] and trigger.get("value"):
-                manual_click_triggered = True
                 # Extract the clicked video ID from the trigger
                 import json
 
@@ -557,27 +422,14 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
                     )
                 break
 
-        if manual_click_triggered and clicked_video:
-            # Manual selection - this becomes the new override
+        if clicked_video:
+            # Manual selection - set both selected video and manual override
+            logger.debug(f"  - Manual selection: {clicked_video.get('filename')}")
             return clicked_video, clicked_video
-
-        elif manual_override:
-            # We have a manual override active - maintain it regardless of playhead
-            return manual_override, manual_override
-
         else:
-            # Auto-selection based on playhead time with offset applied
-            best_video = find_best_overlapping_video(
-                video_options, playhead_time, time_offset
-            )
-
-            if best_video:
-                return best_video, None  # Clear manual override
-            else:
-                logger.debug(
-                    f"No overlapping video found (offset: {time_offset}s) - clearing selection"
-                )
-                return None, None  # Clear both selection and manual override
+            # No valid click detected
+            logger.debug("  - PreventUpdate: no valid click")
+            raise dash.exceptions.PreventUpdate
 
     @app.callback(
         Output("playhead-time", "data", allow_duplicate=True),

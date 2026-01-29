@@ -10,6 +10,7 @@ const VideoPreview = ({
   style,
   playheadTime,
   isPlaying, // Prop for controlling playback
+  playbackRate = 1, // Prop for controlling playback speed (0.25 to 16)
   showControls = true, // Prop for controlling video controls visibility
   timeOffset = 0, // Prop for timeline offset in seconds
 }) => {
@@ -23,6 +24,8 @@ const VideoPreview = ({
   const lastPlayheadTime = useRef(null);
   const lastPlayingState = useRef(false);
   const videoStartTime = useRef(null); // Cache video start timestamp
+  const lastSeekTime = useRef(0); // Throttle seeking operations
+  const lastActiveState = useRef(null); // Track active state to avoid unnecessary re-renders
 
   // Reset video state when videoSrc changes
   useEffect(() => {
@@ -36,6 +39,8 @@ const VideoPreview = ({
       lastPlayheadTime.current = null;
       lastPlayingState.current = false;
       videoStartTime.current = null;
+      lastSeekTime.current = 0; // Reset seek throttle
+      lastActiveState.current = null; // Reset active state tracking
       
       if (videoRef.current) {
         videoRef.current.currentTime = 0;
@@ -130,6 +135,7 @@ const VideoPreview = ({
   };
 
   // Handle play/pause state changes and manual seeking
+  // Optimized with: seek throttling, state change detection to avoid unnecessary re-renders
   useEffect(() => {
     if (!videoRef.current || !playheadTime || !videoMetadata) return;
 
@@ -138,8 +144,11 @@ const VideoPreview = ({
 
     const { isActive, videoPosition } = positionData;
     
-    // Update active state
-    setIsVideoActive(isActive);
+    // Only update active state if it actually changed (prevents unnecessary re-renders)
+    if (lastActiveState.current !== isActive) {
+      setIsVideoActive(isActive);
+      lastActiveState.current = isActive;
+    }
 
     // Detect state changes
     const playStateChanged = lastPlayingState.current !== isPlaying;
@@ -157,27 +166,34 @@ const VideoPreview = ({
       }
     }
 
+    // Throttle seeking during playback - max once per 100ms
+    const SEEK_THROTTLE_MS = 100;
+    const now = Date.now();
+    const timeSinceLastSeek = now - lastSeekTime.current;
+    const shouldThrottleSeek = isPlaying && timeSinceLastSeek < SEEK_THROTTLE_MS;
+
     if (isActive) {
       // Handle seeking (time jumps, state changes, or first update that need position update)
-      if (playStateChanged || significantTimeJump || isFirstUpdate) {
-        console.log(`🎯 ${videoMetadata.filename}: Seeking to ${videoPosition.toFixed(2)}s`);
+      // Apply throttle only during normal playback
+      if ((playStateChanged || significantTimeJump || isFirstUpdate) && !shouldThrottleSeek) {
         videoRef.current.currentTime = videoPosition;
+        lastSeekTime.current = now;
       }
 
       // Handle playback state changes
       if (playStateChanged || isFirstUpdate) {
         if (isPlaying) {
-          console.log(`▶️ ${videoMetadata.filename}: Starting playback`);
+          // Set playback rate before playing (clamped to browser-supported range)
+          const clampedRate = Math.max(0.25, Math.min(16, playbackRate || 1));
+          videoRef.current.playbackRate = clampedRate;
           videoRef.current.play().catch(e => console.warn("Video play failed:", e));
         } else {
-          console.log(`⏸️ ${videoMetadata.filename}: Pausing video`);
           videoRef.current.pause();
         }
       }
     } else {
       // Video is outside temporal range
       if (!videoRef.current.paused) {
-        console.log(`❌ ${videoMetadata.filename}: Video inactive - pausing`);
         videoRef.current.pause();
       }
     }
@@ -186,6 +202,15 @@ const VideoPreview = ({
     lastPlayheadTime.current = playheadTime;
     lastPlayingState.current = isPlaying;
   }, [isPlaying, playheadTime, videoMetadata]);
+
+  // Handle playback rate changes while playing
+  useEffect(() => {
+    if (!videoRef.current || !isPlaying) return;
+    
+    // Clamp to browser-supported range (most browsers: 0.25 to 16)
+    const clampedRate = Math.max(0.25, Math.min(16, playbackRate || 1));
+    videoRef.current.playbackRate = clampedRate;
+  }, [playbackRate, isPlaying]);
 
   // Handle offset changes - immediately recalculate video position
   useEffect(() => {
@@ -440,6 +465,7 @@ VideoPreview.propTypes = {
   style: PropTypes.object,
   playheadTime: PropTypes.number,
   isPlaying: PropTypes.bool,
+  playbackRate: PropTypes.number,
   showControls: PropTypes.bool,
   timeOffset: PropTypes.number,
 };
@@ -447,6 +473,7 @@ VideoPreview.propTypes = {
 VideoPreview.defaultProps = {
   style: {},
   isPlaying: false,
+  playbackRate: 1,
   showControls: true,
   timeOffset: 0,
 };

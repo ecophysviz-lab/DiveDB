@@ -1,4 +1,4 @@
-.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash dash dash-nocache build-dash clean-cache clear-cache
+.PHONY: up down build migrate makemigrations createsuperuser shell bash test test-dash importmetadata build-all-dash dash dash-dev dash-nocache build-dash clean-cache clear-cache
 
 COMPOSE_CMD = docker compose -f docker-compose.development.yaml
 
@@ -30,17 +30,27 @@ watch-dash-components:
 	done
 
 build-css:
-	cd dash && npm run build-css
+	cd dash && npm run build-css > /dev/null 2>&1
 
 watch-css:
 	cd dash && npm run watch-css
 
 dash:
 	$(MAKE) build-css
-	DASH_USE_CACHE=true python dash/data_visualization.py
+	DASH_USE_CACHE=true DASH_DEBUG=false python dash/data_visualization.py
+
+dash-dev:
+	$(MAKE) build-css
+	DASH_USE_CACHE=true DASH_DEBUG=true \
+	DASH_LOG_LEVEL=DEBUG \
+	DASH_LOG_DATA_VIZ=DEBUG \
+	DASH_LOG_CALLBACKS=DEBUG \
+	DASH_LOG_SELECTION=DEBUG \
+	DASH_LOG_LAYOUT=DEBUG \
+	python dash/data_visualization.py
 
 dash-nocache:
-	DASH_USE_CACHE=false python dash/data_visualization.py
+	DASH_USE_CACHE=false DASH_DEBUG=false python dash/data_visualization.py
 
 build-dash:
 	@echo "Building $(component)..."

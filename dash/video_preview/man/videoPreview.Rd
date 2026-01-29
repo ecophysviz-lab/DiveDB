@@ -11,8 +11,9 @@
 
 \usage{
 videoPreview(id=NULL, datasetStartTime=NULL, isPlaying=NULL,
-playheadTime=NULL, showControls=NULL, style=NULL,
-timeOffset=NULL, videoMetadata=NULL, videoSrc=NULL)
+playbackRate=NULL, playheadTime=NULL, showControls=NULL,
+style=NULL, timeOffset=NULL, videoMetadata=NULL,
+videoSrc=NULL)
 }
 
 \arguments{
@@ -21,6 +22,8 @@ timeOffset=NULL, videoMetadata=NULL, videoSrc=NULL)
 \item{datasetStartTime}{Numeric. }
 
 \item{isPlaying}{Logical. }
+
+\item{playbackRate}{Numeric. }
 
 \item{playheadTime}{Numeric. }
 

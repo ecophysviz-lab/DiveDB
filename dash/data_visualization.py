@@ -76,10 +76,13 @@ def create_app_stores(dff):
     return [
         # Location for triggering callbacks on page load
         dcc.Location(id="url", refresh=False),
-        # Existing stores for playback
+        # Interval for polling the client-side playback manager
+        # The JS playback manager handles smooth timing via requestAnimationFrame,
+        # and this interval triggers Dash callbacks to read the current time.
+        # 100ms = 10 updates/second for smooth UI while keeping callback overhead low.
         dcc.Interval(
             id="interval-component",
-            interval=1 * 1000,  # Base interval of 1 second
+            interval=100,  # Poll playback manager every 100ms (10 fps)
             n_intervals=0,
             disabled=True,  # Start with the interval disabled
         ),
@@ -123,6 +126,13 @@ def create_app_stores(dff):
         # Hidden input for arrow key navigation (updated by JS, triggers callback)
         dcc.Input(
             id="arrow-key-input",
+            type="hidden",
+            value="",
+            style={"display": "none"},
+        ),
+        # Hidden input for client-side playback manager (updates playhead-time)
+        dcc.Input(
+            id="playhead-update-input",
             type="hidden",
             value="",
             style={"display": "none"},
@@ -231,4 +241,5 @@ logger.info("All callbacks registered! App ready.")
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8054)
+    debug_mode = os.environ.get("DASH_DEBUG", "false").lower() == "true"
+    app.run(debug=debug_mode, port=8054)

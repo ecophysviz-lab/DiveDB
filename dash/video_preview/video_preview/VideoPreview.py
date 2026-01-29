@@ -30,6 +30,8 @@ class VideoPreview(Component):
 
     - isPlaying (boolean; default False)
 
+    - playbackRate (number; default 1)
+
     - playheadTime (number; optional)
 
     - showControls (boolean; default True)
@@ -54,6 +56,7 @@ class VideoPreview(Component):
         style: typing.Optional[typing.Any] = None,
         playheadTime: typing.Optional[NumberType] = None,
         isPlaying: typing.Optional[bool] = None,
+        playbackRate: typing.Optional[NumberType] = None,
         showControls: typing.Optional[bool] = None,
         timeOffset: typing.Optional[NumberType] = None,
         **kwargs,
@@ -62,6 +65,7 @@ class VideoPreview(Component):
             "id",
             "datasetStartTime",
             "isPlaying",
+            "playbackRate",
             "playheadTime",
             "showControls",
             "style",
@@ -74,6 +78,7 @@ class VideoPreview(Component):
             "id",
             "datasetStartTime",
             "isPlaying",
+            "playbackRate",
             "playheadTime",
             "showControls",
             "style",

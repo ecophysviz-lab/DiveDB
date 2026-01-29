@@ -85,6 +85,12 @@ const ThreeJsOrientation = ({
   // Add a ref to store the target quaternion
   const targetQuaternionRef = useRef(new THREE.Quaternion());
 
+  // Performance optimization refs
+  const cachedDataRef = useRef(null); // Cache parsed JSON data
+  const cachedTimestampsRef = useRef(null); // Cache computed timestamps array
+  const lastDataStringRef = useRef(null); // Track if data prop changed
+  const lastAppliedPRHRef = useRef({ pitch: null, roll: null, heading: null }); // Skip unchanged updates
+
   // Sprites for cardinal direction labels
   const directionLabelsRef = useRef([]);
 
@@ -484,80 +490,99 @@ const ThreeJsOrientation = ({
   }, [modelFile, textureFile]);
 
   // Update the model's rotation whenever data or activeTime changes
+  // Optimized with: binary search, data caching, and early exit for unchanged values
   useEffect(() => {
-    console.log("3D Model - useEffect triggered. Data length:", data?.length || 0, "activeTime:", activeTime);
     const updateModel = () => {
+      // === OPTIMIZATION 1: Cache parsed JSON data ===
+      // Only re-parse if the data string has changed
       let dataframe;
-      try {
-        dataframe = JSON.parse(data);
-        console.log("3D Model - Parsed dataframe structure:", {
-          hasIndex: !!dataframe.index,
-          hasData: !!dataframe.data,
-          hasColumns: !!dataframe.columns,
-          indexLength: dataframe.index?.length || 0,
-          dataLength: dataframe.data?.length || 0,
-          columns: dataframe.columns,
-          firstIndexValue: dataframe.index?.[0],
-          firstDataRow: dataframe.data?.[0],
-        });
-      } catch (e) {
-        console.error("Invalid data format:", e);
-        setHasOrientationData(false);
-        return;
+      if (data !== lastDataStringRef.current) {
+        try {
+          dataframe = JSON.parse(data);
+          cachedDataRef.current = dataframe;
+          lastDataStringRef.current = data;
+          // Recompute timestamps when data changes
+          if (dataframe.index && dataframe.index.length > 0) {
+            cachedTimestampsRef.current = dataframe.index.map((t) => new Date(t).getTime());
+          } else {
+            cachedTimestampsRef.current = null;
+          }
+        } catch (e) {
+          console.error("Invalid data format:", e);
+          setHasOrientationData(false);
+          return;
+        }
+      } else {
+        dataframe = cachedDataRef.current;
       }
 
       // Check if dataframe has data
       if (
+        !dataframe ||
         !dataframe.index ||
         !dataframe.data ||
         dataframe.index.length === 0 ||
         dataframe.data.length === 0
       ) {
-        console.warn("Empty dataframe provided to 3D orientation component", {
-          hasIndex: !!dataframe.index,
-          hasData: !!dataframe.data,
-          indexLength: dataframe.index?.length || 0,
-          dataLength: dataframe.data?.length || 0,
-        });
         setHasOrientationData(false);
         setCurrentPRH({ pitch: 0, roll: 0, heading: 0 });
         return;
       }
 
-      const timestamps = dataframe.index.map((t) => new Date(t).getTime());
+      const timestamps = cachedTimestampsRef.current;
+      if (!timestamps || timestamps.length === 0) {
+        setHasOrientationData(false);
+        return;
+      }
+
       const activeTimestamp = activeTime;
 
-      console.log("3D Model Update Debug:");
-      console.log("  - activeTime received:", activeTime);
-      console.log("  - First timestamp in data:", timestamps[0]);
-      console.log("  - Last timestamp in data:", timestamps[timestamps.length - 1]);
-      console.log("  - Number of timestamps:", timestamps.length);
-
-      // Find the nearest timestamp
-      let nearestIndex = 0;
-      let minDiff = Math.abs(timestamps[0] - activeTimestamp);
-
-      for (let i = 1; i < timestamps.length; i++) {
-        const diff = Math.abs(timestamps[i] - activeTimestamp);
-        if (diff < minDiff) {
-          minDiff = diff;
-          nearestIndex = i;
+      // === OPTIMIZATION 2: Binary search for nearest timestamp - O(log n) ===
+      let nearestIndex;
+      const n = timestamps.length;
+      
+      // Handle edge cases
+      if (activeTimestamp <= timestamps[0]) {
+        nearestIndex = 0;
+      } else if (activeTimestamp >= timestamps[n - 1]) {
+        nearestIndex = n - 1;
+      } else {
+        // Binary search for insertion point
+        let lo = 0, hi = n - 1;
+        while (lo < hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          if (timestamps[mid] < activeTimestamp) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        }
+        
+        // Check which neighbor is closer
+        if (lo === 0) {
+          nearestIndex = 0;
+        } else {
+          const before = timestamps[lo - 1];
+          const after = timestamps[lo];
+          nearestIndex = (activeTimestamp - before) <= (after - activeTimestamp) ? lo - 1 : lo;
         }
       }
 
-      // Map columns to indices
-      // Check if columns exist and is an array
+      // Map columns to indices (cached in dataframe structure)
       if (!dataframe.columns || !Array.isArray(dataframe.columns)) {
-        console.warn("Invalid or missing columns in dataframe");
         setHasOrientationData(false);
         setCurrentPRH({ pitch: 0, roll: 0, heading: 0 });
         return;
       }
 
-      const columnIndices = dataframe.columns.reduce((acc, col, idx) => {
-        acc[col] = idx;
-        return acc;
-      }, {});
+      // Cache column indices if not already done
+      if (!dataframe._columnIndices) {
+        dataframe._columnIndices = dataframe.columns.reduce((acc, col, idx) => {
+          acc[col] = idx;
+          return acc;
+        }, {});
+      }
+      const columnIndices = dataframe._columnIndices;
 
       // Check if required orientation columns exist
       if (
@@ -565,9 +590,6 @@ const ThreeJsOrientation = ({
         !("roll" in columnIndices) ||
         !("heading" in columnIndices)
       ) {
-        console.warn(
-          "Missing orientation data (pitch/roll/heading). Showing neutral orientation."
-        );
         setHasOrientationData(false);
         setCurrentPRH({ pitch: 0, roll: 0, heading: 0 });
         // Reset to neutral quaternion
@@ -577,14 +599,27 @@ const ThreeJsOrientation = ({
         return;
       }
 
-      setHasOrientationData(true);
-
       // Get the pitch, roll, and heading from the nearest timestamp
       const rowData = dataframe.data[nearestIndex];
       const pitch = rowData[columnIndices.pitch] ?? 0;
       const roll = rowData[columnIndices.roll] ?? 0;
       const heading = rowData[columnIndices.heading] ?? 0;
 
+      // === OPTIMIZATION 3: Skip update if PRH values haven't changed ===
+      const lastPRH = lastAppliedPRHRef.current;
+      if (
+        pitch === lastPRH.pitch &&
+        roll === lastPRH.roll &&
+        heading === lastPRH.heading
+      ) {
+        // Values unchanged, skip quaternion calculation
+        return;
+      }
+      
+      // Update cached values
+      lastAppliedPRHRef.current = { pitch, roll, heading };
+
+      setHasOrientationData(true);
       setCurrentPRH({ pitch, roll, heading });
 
       // Convert to radians

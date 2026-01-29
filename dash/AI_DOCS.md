@@ -20,6 +20,21 @@
 User Action → Callback → Store Update → UI Update → Next Callback
 ```
 
+### Playback Architecture
+
+**Client-Side Playback** (zero server round-trips during playback):
+```
+Play Click → DiveDBPlayback.start() → requestAnimationFrame loop (30fps)
+                                              ↓
+                              Updates DiveDBPlayback.currentTime
+                                              ↓
+            dcc.Interval (100ms) polls currentTime → playhead-time store
+                                              ↓
+                    Clientside callbacks update: slider, video, 3D model, overlay
+```
+
+Key files: `assets/playback-manager.js`, `clientside_callbacks.py`
+
 ### State Management
 
 - Uses `dcc.Store` components for persistent state
@@ -38,9 +53,9 @@ User Action → Callback → Store Update → UI Update → Next Callback
 | File | Purpose | Key Exports | Lines |
 |------|---------|-------------|-------|
 | `data_visualization.py` | App entry point, service initialization | `app`, `server` | ~209 |
-| `callbacks.py` | Server-side callbacks (playback, video, rate cycling, skip) | `register_callbacks()` | ~1008 |
+| `callbacks.py` | Server-side callbacks (video player, rate cycling, skip, channels) | `register_callbacks()` | ~1250 |
 | `selection_callbacks.py` | Dataset/deployment selection, events | `register_selection_callbacks()`, `DataPkl`, `generate_graph_from_channels()`, `transform_events_for_graph()` | ~1775 |
-| `clientside_callbacks.py` | Client-side callbacks (fullscreen, slider sync, arrow keys) | `register_clientside_callbacks()` | ~240 |
+| `clientside_callbacks.py` | Client-side callbacks (playback, video selection, slider sync, arrow keys) | `register_clientside_callbacks()` | ~800 |
 | `graph_utils.py` | Plotly visualization utilities | `plot_tag_data_interactive()` | ~361 |
 | `layout/core.py` | Main layout assembly | `create_header()`, `create_main_content()`, `create_layout()` | ~283 |
 | `layout/sidebar.py` | Left/right sidebars | `create_left_sidebar()`, `create_right_sidebar()`, `create_dataset_accordion_item()` | 284 |
@@ -52,6 +67,7 @@ User Action → Callback → Store Update → UI Update → Next Callback
 | `assets/arrow-key-navigation.js` | Global arrow key playhead navigation | - | ~130 |
 | `assets/b-key-bookmark.js` | Global B key handler for event creation | - | ~120 |
 | `assets/spacebar-play-pause.js` | Global spacebar play/pause toggle | - | ~120 |
+| `assets/playback-manager.js` | Client-side playback timing via requestAnimationFrame | `window.DiveDBPlayback` | ~200 |
 | `assets/tooltip.js` | Slider tooltip timestamp formatter | `formatTimestamp()` | ~19 |
 
 ## Module Reference
@@ -76,29 +92,24 @@ User Action → Callback → Store Update → UI Update → Next Callback
 
 ### callbacks.py
 
-**Purpose**: Server-side callbacks for playback, video selection, UI toggles
+**Purpose**: Server-side callbacks for video player, channel management, and components requiring React elements
 
 **Key Functions**:
 - `register_callbacks(app, dff, video_options, channel_options)` - Registers all standard callbacks
 - `parse_video_duration(duration_str)` → float - Parses HH:MM:SS.mmm to seconds
 - `parse_video_created_time(created_at_str)` → float - ISO timestamp to Unix timestamp
-- `calculate_video_overlap(video, playhead_time, time_offset)` → dict - Video overlap calculation
-- `find_best_overlapping_video(video_options, playhead_time, time_offset)` → dict - Selects best video
+- `find_nearest_timestamp(timestamps, target)` → float - Binary search for nearest timestamp
 
 **Key Callbacks**:
-- `toggle_play_pause()`: `play-button.n_clicks` → `is-playing.data`, `play-button.children`, `play-button.className`
-- `cycle_playback_rate()`: `forward-button.n_clicks` + `rewind-button.n_clicks` → `playback-rate.data`, tooltip updates (cycles 0.1×→0.5×→1×→5×→10×→100×)
-- `update_playback_rate_display()`: `playback-rate.data` → `playback-rate-display.children`, `playback-rate-tooltip.children`
-- `skip_navigation()`: `previous-button.n_clicks` + `next-button.n_clicks` → `playhead-time.data` (skips ±10×rate seconds)
-- `update_playhead_from_interval()`: `interval-component.n_intervals` + `playback-rate.data` → `playhead-time.data` (rate-aware)
-- `video_selection_manager()`: `playhead-time.data` + `video-indicator.n_clicks` → `selected-video.data`, `manual-video-override.data`
-- `update_video_preview()`: `playhead-time.data` + `is-playing.data` + `playback-rate.data` → `video-trimmer.playheadTime`, `video-trimmer.isPlaying`, `video-trimmer.playbackRate`
+- `update_playback_rate_display()`: `playback-rate.data` → `playback-rate-display.children` (requires `html.Img`, so stays server-side)
+- `video_manual_selection()`: `video-indicator.n_clicks` → `selected-video.data`, `manual-video-override.data` (manual clicks only)
 - `update_video_player()`: `selected-video.data` → `video-trimmer.videoSrc`, `video-trimmer.videoMetadata`, `video-trimmer.datasetStartTime`
 - `add_new_channel()`: `add-graph-btn.n_clicks` → `graph-channel-list.children`
 - `remove_channel()`: `channel-remove.n_clicks` → `graph-channel-list.children`
-- Clientside callback: `update-graph-btn.n_clicks` → `channel-order-from-dom.data` (reads DOM order)
 - `handle_event_modal_open()`: `bookmark-trigger.value` + `cancel-event-btn.n_clicks` → `event-modal.is_open`, `event-start-time.value`, `event-type-select.options/value`, `pending-event-time.data`
 - `toggle_new_event_type_input()`: `event-type-select.value` → `new-event-type-container.style` (show/hide new event type input)
+
+**NOTE**: Playback controls (play/pause, rate cycling, skip navigation, all tooltips) are clientside callbacks for zero round-trips (see `clientside_callbacks.py`)
 
 **Channel Management**:
 - Channels stored as pattern-matching IDs: `{"type": "channel-select", "index": N}`
@@ -153,23 +164,35 @@ User Action → Callback → Store Update → UI Update → Next Callback
 
 ### clientside_callbacks.py
 
-**Purpose**: Client-side JavaScript callbacks for UI interactions
+**Purpose**: Client-side JavaScript callbacks for playback and UI interactions (zero server round-trips)
 
 **Key Functions**:
 - `register_clientside_callbacks(app)` - Registers all clientside callbacks
 
-**Key Callbacks**:
-- Fullscreen toggle: `fullscreen-button.n_clicks` → `fullscreen-button.className`, `fullscreen-tooltip.children`
-- Playhead slider sync (bidirectional):
-  - `playhead-time.data` → `playhead-slider.value`
-  - `playhead-slider.value` → `playhead-time.data`
-- Playhead tracking line: `playhead-time.data` → `graph-content.figure` (adds vertical line)
-- Arrow key navigation: `arrow-key-input.value` → `playhead-time.data` (fixed ±0.1s steps for precise frame-by-frame navigation, works with `assets/arrow-key-navigation.js`)
-- Event modal Enter key: `event-modal.is_open` → clicks `save-event-btn` (enables B → Enter quick workflow)
-- Reset zoom button enable/disable: `timeline-bounds.data` + `original-bounds.data` → `reset-zoom-button.disabled` (enabled when zoomed)
-- Indicator zoom sync: `timeline-bounds.data` → Updates CSS variables on `event-indicators-container` and `video-indicators-container` (repositions indicators on zoom)
+**Playback Callbacks** (moved from server-side for performance):
+- Play/pause toggle: `play-button.n_clicks` → `is-playing.data`, button UI (initializes/controls `DiveDBPlayback` manager)
+- Interval enable/disable: `is-playing.data` → `interval-component.disabled`
+- Play button tooltip: `is-playing.data` + `playback-rate.data` → `play-button-tooltip.children` (shows "Play (1×)" or "Pause (5×)")
+- Playhead update: `interval-component.n_intervals` → `playhead-time.data` (reads from `DiveDBPlayback.currentTime`)
+- Playback rate cycling: `forward-button.n_clicks` + `rewind-button.n_clicks` → `playback-rate.data` (cycles 0.1×↔0.5×↔1×↔5×↔10×↔100×)
+- Rate button tooltips: `playback-rate.data` → `rewind-button-tooltip.children`, `forward-button-tooltip.children` (show NEXT speed: "Slower: 0.5×", "Faster: 10×")
+- Rate display tooltip: `playback-rate.data` → `playback-rate-tooltip.children` (shows "Current Speed: 5×")
+- Skip navigation: `previous-button.n_clicks` + `next-button.n_clicks` → `playhead-time.data` (skips ±10×rate seconds with binary search)
+- Skip button tooltips: Updated by skip callback (shows "Skip Back (10s)", "Skip Forward (10s)")
+- Playback rate sync: `playback-rate.data` → syncs to `DiveDBPlayback` manager
+- Playhead time sync: `playhead-time.data` → syncs to `DiveDBPlayback` manager (for skip/arrow key changes)
+- Video preview update: `playhead-time.data` + `is-playing.data` → `video-trimmer.playheadTime`, `video-trimmer.isPlaying`, `video-trimmer.playbackRate`
+- Video auto-selection: `playhead-time.data` → `selected-video.data` (only updates when video changes, respects manual override)
 
-**Note**: Uses `allow_duplicate=True` to avoid conflicts with server-side callbacks
+**UI Callbacks**:
+- Fullscreen toggle: `fullscreen-button.n_clicks` → `fullscreen-button.className`, `fullscreen-tooltip.children`
+- Playhead slider sync (bidirectional): `playhead-time.data` ↔ `playhead-slider.value`
+- Playhead tracking line: `playhead-time.data` + `timeline-bounds.data` → `playhead-overlay.style`
+- Arrow key navigation: `arrow-key-input.value` → `playhead-time.data` (fixed ±0.1s steps)
+- Reset zoom button: `timeline-bounds.data` + `original-bounds.data` → `reset-zoom-button.disabled`
+- Indicator zoom sync: `timeline-bounds.data` → Updates CSS variables for indicator positioning
+
+**Note**: Uses `allow_duplicate=True` for stores written by multiple callbacks
 
 **Indicator Zoom Sync Architecture**:
 - Indicators store absolute timestamps as CSS variables (`--event-start-ts`, `--event-end-ts`, `--video-start-ts`, `--video-end-ts`)
@@ -350,54 +373,53 @@ User Action → Callback → Store Update → UI Update → Next Callback
 
 ### Playback Flow
 
-1. **Toggle Play/Pause** (`toggle_play_pause`)
+**Architecture**: Client-side playback using `requestAnimationFrame` + `dcc.Interval` hybrid for zero server round-trips during playback.
+
+1. **Toggle Play/Pause** (clientside)
    - Trigger: `play-button.n_clicks`
-   - Output: `is-playing.data`, `play-button.children`, `play-button.className`
-   - Action: Toggle play state, update button UI
+   - Action: Initialize `DiveDBPlayback` manager with timestamps/rate/time, call `start()` or `stop()`
+   - Output: `is-playing.data`, button UI
 
-2. **Spacebar Toggle** (`spacebar-play-pause.js`)
-   - Trigger: Spacebar key press → `play-button.click()`
-   - Output: Same as play button click
-   - Action: Toggle play/pause without touching input fields or modals
-3. **Cycle Playback Rate** (`cycle_playback_rate`)
-   - Trigger: `forward-button.n_clicks` or `rewind-button.n_clicks`
-   - Output: `playback-rate.data`, tooltip updates
-   - Action: Forward cycles up (1→5→10→100→1), Rewind cycles down
-
-4. **Skip Navigation** (`skip_navigation`)
-   - Trigger: `previous-button.n_clicks` or `next-button.n_clicks`
-   - Output: `playhead-time.data`, tooltip updates
-   - Action: Jump ±(10 × playback_rate) seconds
-
-5. **Arrow Key Navigation** (clientside + `arrow-key-navigation.js`)
-   - Trigger: Left/Right arrow keys → `arrow-key-input.value`
-   - Output: `playhead-time.data`
-   - Action: Move playhead ±0.1 seconds (fixed step for precise frame-by-frame analysis)
-
-6. **Enable Interval** (`update_interval_component`)
+2. **Enable Interval** (clientside)
    - Trigger: `is-playing.data`
    - Output: `interval-component.disabled`
-   - Action: Enable/disable interval based on play state
+   - Action: Enable interval when playing (100ms poll rate)
 
-7. **Update Playhead** (`update_playhead_from_interval`)
-   - Trigger: `interval-component.n_intervals`
-   - State: `playback-rate.data`
-   - Output: `playhead-time.data`
-   - Action: Advance playhead by `playback_rate` seconds per tick
+3. **JS Playback Manager** (`assets/playback-manager.js`)
+   - Runs via `requestAnimationFrame` at ~30fps
+   - Maintains `currentTime` using binary search for nearest timestamp
+   - Handles playback rate, bounds checking, looping
 
-8. **Sync Slider** (clientside)
-   - Trigger: `playhead-time.data` → `playhead-slider.value`
-   - Action: Update slider position
+4. **Playhead Update** (clientside)
+   - Trigger: `interval-component.n_intervals` (every 100ms)
+   - Action: Read `DiveDBPlayback.currentTime`, update `playhead-time.data`
+   - Downstream: All components react to `playhead-time` changes
 
-9. **Update Video** (`video_selection_manager`)
+5. **Spacebar Toggle** (`spacebar-play-pause.js`)
+   - Trigger: Spacebar key press → `play-button.click()`
+
+6. **Cycle Playback Rate** (clientside)
+   - Trigger: `forward-button.n_clicks` or `rewind-button.n_clicks`
+   - Output: `playback-rate.data` → synced to JS playback manager
+   - Tooltips show NEXT speed ("Slower: 0.5×", "Faster: 10×")
+
+7. **Skip Navigation** (clientside)
+   - Trigger: `previous-button.n_clicks` or `next-button.n_clicks`
+   - Output: `playhead-time.data` → synced to JS playback manager
+   - Uses binary search for nearest timestamp
+
+8. **Arrow Key Navigation** (clientside + `arrow-key-navigation.js`)
+   - Trigger: Left/Right arrow keys
+   - Output: `playhead-time.data` (±0.1s fixed steps)
+
+9. **Video Auto-Selection** (clientside)
    - Trigger: `playhead-time.data`
-   - Output: `selected-video.data`
-   - Action: Auto-select overlapping video
+   - Output: `selected-video.data` (only when video changes)
+   - Note: Compares by ID to prevent redundant server calls
 
-10. **Update 3D Model** (`update_active_time`)
-   - Trigger: `playhead-time.data`
-   - Output: `three-d-model.activeTime`
-   - Action: Update 3D model orientation
+10. **Video/3D/Slider Updates** (clientside)
+    - Trigger: `playhead-time.data`
+    - Output: `video-trimmer.playheadTime`, `three-d-model.activeTime`, `playhead-slider.value`
 
 ### B-Key Event Bookmark Flow
 
