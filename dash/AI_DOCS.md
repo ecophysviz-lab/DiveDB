@@ -51,6 +51,7 @@ User Action → Callback → Store Update → UI Update → Next Callback
 | `assets/channel-drag-drop.js` | Channel drag-and-drop reordering | `initializeDragDrop()` | ~237 |
 | `assets/arrow-key-navigation.js` | Global arrow key playhead navigation | - | ~130 |
 | `assets/b-key-bookmark.js` | Global B key handler for event creation | - | ~120 |
+| `assets/spacebar-play-pause.js` | Global spacebar play/pause toggle | - | ~120 |
 | `assets/tooltip.js` | Slider tooltip timestamp formatter | `formatTimestamp()` | ~19 |
 
 ## Module Reference
@@ -354,42 +355,46 @@ User Action → Callback → Store Update → UI Update → Next Callback
    - Output: `is-playing.data`, `play-button.children`, `play-button.className`
    - Action: Toggle play state, update button UI
 
-2. **Cycle Playback Rate** (`cycle_playback_rate`)
+2. **Spacebar Toggle** (`spacebar-play-pause.js`)
+   - Trigger: Spacebar key press → `play-button.click()`
+   - Output: Same as play button click
+   - Action: Toggle play/pause without touching input fields or modals
+3. **Cycle Playback Rate** (`cycle_playback_rate`)
    - Trigger: `forward-button.n_clicks` or `rewind-button.n_clicks`
    - Output: `playback-rate.data`, tooltip updates
    - Action: Forward cycles up (1→5→10→100→1), Rewind cycles down
 
-3. **Skip Navigation** (`skip_navigation`)
+4. **Skip Navigation** (`skip_navigation`)
    - Trigger: `previous-button.n_clicks` or `next-button.n_clicks`
    - Output: `playhead-time.data`, tooltip updates
    - Action: Jump ±(10 × playback_rate) seconds
 
-4. **Arrow Key Navigation** (clientside + `arrow-key-navigation.js`)
+5. **Arrow Key Navigation** (clientside + `arrow-key-navigation.js`)
    - Trigger: Left/Right arrow keys → `arrow-key-input.value`
    - Output: `playhead-time.data`
    - Action: Move playhead ±0.1 seconds (fixed step for precise frame-by-frame analysis)
 
-5. **Enable Interval** (`update_interval_component`)
+6. **Enable Interval** (`update_interval_component`)
    - Trigger: `is-playing.data`
    - Output: `interval-component.disabled`
    - Action: Enable/disable interval based on play state
 
-6. **Update Playhead** (`update_playhead_from_interval`)
+7. **Update Playhead** (`update_playhead_from_interval`)
    - Trigger: `interval-component.n_intervals`
    - State: `playback-rate.data`
    - Output: `playhead-time.data`
    - Action: Advance playhead by `playback_rate` seconds per tick
 
-7. **Sync Slider** (clientside)
+8. **Sync Slider** (clientside)
    - Trigger: `playhead-time.data` → `playhead-slider.value`
    - Action: Update slider position
 
-8. **Update Video** (`video_selection_manager`)
+9. **Update Video** (`video_selection_manager`)
    - Trigger: `playhead-time.data`
    - Output: `selected-video.data`
    - Action: Auto-select overlapping video
 
-9. **Update 3D Model** (`update_active_time`)
+10. **Update 3D Model** (`update_active_time`)
    - Trigger: `playhead-time.data`
    - Output: `three-d-model.activeTime`
    - Action: Update 3D model orientation
