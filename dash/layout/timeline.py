@@ -358,7 +358,7 @@ def create_footer_empty():
                                                         [
                                                             "Skip Back",
                                                             html.Img(
-                                                                src="/assets/images/skip-prev-bold.svg",
+                                                                src="/assets/images/skip-backward-circular.svg",
                                                             ),
                                                         ],
                                                         className="btn btn-icon-only btn-icon-skip-back",
@@ -461,7 +461,7 @@ def create_footer_empty():
                                                         [
                                                             "Skip Forward",
                                                             html.Img(
-                                                                src="/assets/images/skip-next-bold.svg",
+                                                                src="/assets/images/skip-forward-circular.svg",
                                                             ),
                                                         ],
                                                         className="btn btn-icon-only btn-icon-skip-forward",
@@ -638,7 +638,7 @@ def create_footer(dff, video_options=None, events_df=None):
                                                         [
                                                             "Skip Back",
                                                             html.Img(
-                                                                src="/assets/images/skip-prev-bold.svg",
+                                                                src="/assets/images/skip-backward-circular.svg",
                                                             ),
                                                         ],
                                                         className="btn btn-icon-only btn-icon-skip-back",
@@ -737,7 +737,7 @@ def create_footer(dff, video_options=None, events_df=None):
                                                         [
                                                             "Skip Forward",
                                                             html.Img(
-                                                                src="/assets/images/skip-next-bold.svg",
+                                                                src="/assets/images/skip-forward-circular.svg",
                                                             ),
                                                         ],
                                                         className="btn btn-icon-only btn-icon-skip-forward",
