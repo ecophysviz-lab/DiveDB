@@ -456,6 +456,11 @@ hr {
     }
 }
 
+/* Semi-transparent backdrop for modals */
+.modal-backdrop.show {
+    opacity: 0.5 !important;
+}
+
 /* Dark theme Event Modal styling */
 .event-modal-dark {
     .modal-content {
@@ -487,7 +492,7 @@ hr {
         
         // Placeholder and value text
         > div > div {
-            color: var(--white) !important;
+            color: #ffffff !important;
         }
         
         // Dropdown indicator arrow
@@ -506,7 +511,7 @@ hr {
         
         // Options
         > div > div {
-            color: var(--white) !important;
+            color: #ffffff !important;
             background-color: var(--blueDark) !important;
             
             &:hover {
@@ -520,13 +525,15 @@ hr {
         color: var(--blueLight) !important;
     }
     
-    // Selected value
-    div[class*="singleValue"] {
-        color: var(--white) !important;
+    // Selected value - target all possible React Select class patterns
+    div[class*="singleValue"],
+    .Select-value-label,
+    span[class*="singleValue"] {
+        color: #ffffff !important;
     }
     
     // Input text when typing
     input {
-        color: var(--white) !important;
+        color: #ffffff !important;
     }
 }

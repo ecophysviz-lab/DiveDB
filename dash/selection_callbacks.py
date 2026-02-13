@@ -14,7 +14,7 @@ from layout import (
     create_timeline_section,
     create_deployment_info_display,
 )
-from layout.indicators import assign_event_colors
+from layout.indicators import assign_event_colors, generate_event_indicators_row
 from graph_utils import plot_tag_data_interactive
 from plotly_resampler import FigureResampler
 
@@ -1245,7 +1245,6 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
         Output("update-graph-btn", "disabled", allow_duplicate=True),
         Output("update-graph-btn", "children", allow_duplicate=True),
         Input("channel-order-from-dom", "data"),  # Triggered by clientside callback
-        Input("event-refresh-trigger", "data"),  # Triggered after event creation
         State({"type": "event-checkbox", "key": ALL}, "value"),
         State({"type": "event-checkbox", "key": ALL}, "id"),
         State({"type": "event-signal", "key": ALL}, "value"),
@@ -1255,12 +1254,10 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
         State("available-channels", "data"),
         State("all-datasets-deployments", "data"),
         State("timeline-bounds", "data"),
-        State("selected-channels", "data"),  # For event refresh: use current channels
         prevent_initial_call=True,
     )
     def update_graph_from_channels(
-        channel_values_from_dom,  # From DOM order store (Update Graph button)
-        event_refresh_trigger,  # Counter incremented after event creation
+        channel_values_from_dom,
         event_checkbox_values,
         event_checkbox_ids,
         event_signal_values,
@@ -1270,28 +1267,13 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
         available_channels,
         datasets_with_deployments,
         timeline_bounds,
-        selected_channels_state,  # Current selected channels (for event refresh)
     ):
-        """Update graph when user clicks Update Graph button or after event creation.
+        """Update graph when user clicks Update Graph button.
 
         Channel values come from channel-order-from-dom store which is populated
         by a clientside callback reading the visual DOM order (supports drag-drop reorder).
-        When triggered by event-refresh-trigger, uses selected-channels state instead.
         """
-        # Determine what triggered this callback
-        ctx = dash.callback_context
-        triggered_id = (
-            ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
-        )
-
-        # Choose channel values based on trigger source
-        if triggered_id == "event-refresh-trigger":
-            # Event refresh: use current selected channels from state
-            channel_values = selected_channels_state
-            logger.info("Graph refresh triggered by event creation")
-        else:
-            # Update Graph button: use DOM order
-            channel_values = channel_values_from_dom
+        channel_values = channel_values_from_dom
 
         if not channel_values or not dataset or not deployment_data:
             raise dash.exceptions.PreventUpdate
@@ -1394,6 +1376,77 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
         logger.info(f"Graph updated successfully with {len(channel_values)} channels")
         # Return: fig, cached fig, timestamps, close popover, enable button, restore button text
         return fig, Serverside(fig), timestamps, False, False, "Update Graph"
+
+    @app.callback(
+        Output("event-indicators-container", "children", allow_duplicate=True),
+        Input("event-refresh-trigger", "data"),
+        State("selected-dataset", "data"),
+        State("selected-deployment", "data"),
+        State("playback-timestamps", "data"),
+        prevent_initial_call=True,
+    )
+    def refresh_event_indicators(
+        event_refresh_trigger,
+        dataset,
+        deployment_data,
+        playback_timestamps,
+    ):
+        """Lightweight callback to rebuild event timeline indicators after event creation.
+
+        Only fetches events and rebuilds the indicator rows -- does NOT regenerate
+        the graph or reload signal data.
+        """
+        if not event_refresh_trigger or not dataset or not deployment_data:
+            raise dash.exceptions.PreventUpdate
+
+        logger.info("Refreshing event timeline indicators after event creation")
+
+        deployment_id = deployment_data["deployment"]
+        animal_id = deployment_data["animal"]
+
+        # Get timezone offset (cached)
+        timezone_offset = duck_pond.get_deployment_timezone_offset(
+            deployment_id, use_cache=use_cache
+        )
+
+        # Build date range from deployment metadata
+        min_dt = pd.to_datetime(deployment_data["min_date"])
+        max_dt = pd.to_datetime(deployment_data["max_date"])
+        date_range_start = min_dt.isoformat()
+        date_range_end = max_dt.isoformat()
+
+        # Fetch fresh events (cache was invalidated by save_event)
+        try:
+            events_df = duck_pond.get_events(
+                dataset=dataset,
+                animal_ids=animal_id,
+                date_range=(date_range_start, date_range_end),
+                apply_timezone_offset=timezone_offset,
+                add_timestamp_columns=True,
+                use_cache=use_cache,
+            )
+        except Exception as e:
+            logger.error(f"Error fetching events for indicator refresh: {e}")
+            raise dash.exceptions.PreventUpdate
+
+        # Get timestamp bounds from existing playback timestamps
+        if playback_timestamps:
+            timestamp_min = min(playback_timestamps)
+            timestamp_max = max(playback_timestamps)
+        else:
+            raise dash.exceptions.PreventUpdate
+
+        # Generate only the event indicator rows (lightweight HTML)
+        event_indicator_rows = generate_event_indicators_row(
+            events_df, timestamp_min, timestamp_max
+        )
+
+        event_count = (
+            len(events_df) if events_df is not None and not events_df.empty else 0
+        )
+        logger.info(f"Event indicators refreshed ({event_count} events)")
+
+        return event_indicator_rows
 
     @app.callback(
         Output("graph-channel-list", "children", allow_duplicate=True),
@@ -2137,6 +2190,9 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
             logger.info(
                 f"Successfully created event '{event_key}' at {datetime_start} (UTC)"
             )
+
+            # Invalidate cached event data so the graph refresh fetches fresh results
+            duck_pond.invalidate_events_cache(selected_dataset)
         except Exception as e:
             logger.error(f"Failed to write event to Iceberg: {e}")
             raise dash.exceptions.PreventUpdate

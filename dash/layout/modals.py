@@ -14,12 +14,10 @@ def create_event_modal():
     - Creating new event types
     - Auto-fill of last used event type for rapid repeated annotations
     """
-    # Dark theme styles matching the Manage Channels popover
-    modal_style = {
-        "backgroundColor": "#041827",  # blueExtraDark
-        "border": "2px solid #73a9c4",  # blueLight border
-        "borderRadius": "8px",
-    }
+    # Note: modal content styling (background, border, border-radius) is handled
+    # by the .event-modal-dark .modal-content rule in _components.scss.
+    # Do NOT set backgroundColor here — it applies to the full-screen .modal
+    # overlay wrapper, not the dialog box, and would hide the backdrop.
     header_style = {
         "backgroundColor": "#041827",  # blueExtraDark
         "borderBottom": "1px solid #0e3551",  # blueDark
@@ -206,7 +204,6 @@ def create_event_modal():
         id="event-modal",
         is_open=False,
         centered=True,
-        style=modal_style,
         class_name="event-modal-dark",
     )
 
