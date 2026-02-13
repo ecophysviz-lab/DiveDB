@@ -22,6 +22,7 @@ from DiveDB.services.utils.cache_utils import (
     generate_cache_key,
     load_from_cache,
     save_to_cache,
+    clear_cache,
 )
 
 
@@ -40,6 +41,7 @@ class DuckPond:
         s3_secret_key: Optional[str] = None,
         s3_bucket: Optional[str] = None,
         s3_region: Optional[str] = "us-east-1",  # Default region
+        catalog_type: str = "auto",
         # Dataset-specific initialization
         datasets: Optional[List[str]] = None,  # List of dataset IDs to initialize
         # Notion load parallelism
@@ -53,7 +55,17 @@ class DuckPond:
             s3_secret_key=s3_secret_key,
             s3_bucket=s3_bucket,
             s3_region=s3_region,
+            catalog_type=catalog_type,
         )
+
+        # Honour the caller's explicit warehouse_path even if from_parameters
+        # defaulted to a different S3 prefix.
+        if warehouse_path and self.config.warehouse_path != warehouse_path:
+            logging.warning(
+                f"warehouse_path was overridden by from_parameters: "
+                f"{self.config.warehouse_path!r} → correcting to {warehouse_path!r}"
+            )
+            self.config.warehouse_path = warehouse_path
 
         # Create catalog manager
         self.catalog_manager = CatalogManager(self.config)
@@ -602,6 +614,26 @@ class DuckPond:
         logging.info(
             f"Created event '{event_key}' at {datetime_start} for deployment {deployment}"
         )
+
+    def invalidate_events_cache(self, dataset: str) -> int:
+        """
+        Invalidate all cached get_events results after writing a new event.
+
+        Clears the DuckPond file cache so that subsequent get_events calls
+        return fresh data from Iceberg instead of stale cached results.
+
+        Args:
+            dataset: Dataset identifier (logged for debugging)
+
+        Returns:
+            Number of cache files removed
+        """
+        removed = clear_cache(".cache/duckpond")
+        if removed:
+            logging.info(
+                f"Invalidated DuckPond cache ({removed} files) after event write for '{dataset}'"
+            )
+        return removed
 
     def read_from_delta(self, query: str):
         """Read data using SQL query (backward compatibility)"""
