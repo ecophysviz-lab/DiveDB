@@ -88,17 +88,14 @@ def create_timeline_section(dff, video_options=None, events_df=None):
 
     # Wrap event indicator rows in a container with view bounds CSS variables
     # This enables client-side repositioning when timeline is zoomed
-    event_indicators_container = (
-        html.Div(
-            event_indicator_rows,
-            id="event-indicators-container",
-            style={
-                "--view-min": timestamp_min,
-                "--view-max": timestamp_max,
-            },
-        )
-        if event_indicator_rows
-        else None
+    # Always render the container (even empty) so callbacks can update it after event creation
+    event_indicators_container = html.Div(
+        event_indicator_rows,
+        id="event-indicators-container",
+        style={
+            "--view-min": timestamp_min,
+            "--view-max": timestamp_max,
+        },
     )
 
     # Return the timeline section HTML
