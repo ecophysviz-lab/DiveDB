@@ -830,27 +830,40 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         return new_children
 
     # Client-side callback to handle drag and drop reordering
+    # Re-run setup when the popover opens because Bootstrap/Dash can remount
+    # popover content, which strips JS-added listeners/attributes.
     app.clientside_callback(
         """
-        function(children) {
-            // Initialize drag and drop whenever the channel list changes
-            setTimeout(function() {
+        function(children, isOpen) {
+            const runInit = function() {
                 if (typeof initializeDragDrop === 'function') {
                     initializeDragDrop();
-                } else {
-                    // If function not loaded yet, try again
-                    setTimeout(function() {
-                        if (typeof initializeDragDrop === 'function') {
-                            initializeDragDrop();
-                        }
-                    }, 500);
+                    return;
                 }
-            }, 100);
+                // If function not loaded yet, try again shortly.
+                setTimeout(function() {
+                    if (typeof initializeDragDrop === 'function') {
+                        initializeDragDrop();
+                    }
+                }, 250);
+            };
+
+            // While popover is closed, avoid noisy retries against missing DOM.
+            if (!isOpen) {
+                return window.dash_clientside.no_update;
+            }
+
+            // First-open timing can race with popover mount/remount. Run staged
+            // re-inits so the live node always gets handlers.
+            runInit();                         // immediate
+            setTimeout(runInit, 120);          // after mount/animation start
+            setTimeout(runInit, 350);          // after full popover paint
             return window.dash_clientside.no_update;
         }
         """,
         Output("graph-channel-list", "id"),  # Dummy output to trigger callback
         Input("graph-channel-list", "children"),
+        Input("graph-channels", "is_open"),
         prevent_initial_call=False,
     )
 

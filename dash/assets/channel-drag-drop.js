@@ -8,46 +8,129 @@ let draggedIndex = null;
 let placeholder = null;
 let isInitialized = false;
 let lastPlacementInfo = null;  // Track last placement to prevent stuttering
+let isDragging = false;
+let observer = null;
+let observedElement = null;
+let reinitializeTimer = null;
+let initRetryTimer = null;
+let initRetryCount = 0;
+
+const MAX_INIT_RETRIES = 10;
+const INIT_RETRY_DELAY_MS = 150;
 
 // Dead zone threshold - mouse must be this many pixels past center to trigger swap
 const DRAG_THRESHOLD = 15;
 
+function handleDragHandleMouseDown(e) {
+    e.currentTarget.style.cursor = 'grabbing';
+}
+
+function handleDragHandleMouseUp(e) {
+    e.currentTarget.style.cursor = 'grab';
+}
+
+function handleDragHandleMouseLeave(e) {
+    e.currentTarget.style.cursor = 'grab';
+}
+
+function isPlaceholderNode(node) {
+    return Boolean(
+        node &&
+        node.nodeType === Node.ELEMENT_NODE &&
+        node.classList &&
+        node.classList.contains('drag-placeholder')
+    );
+}
+
+function shouldReinitializeForMutation(mutation) {
+    if (mutation.type !== 'childList') {
+        return false;
+    }
+
+    const addedNonPlaceholder = Array.from(mutation.addedNodes || []).some(
+        (node) => !isPlaceholderNode(node)
+    );
+    if (addedNonPlaceholder) {
+        return true;
+    }
+
+    return Array.from(mutation.removedNodes || []).some(
+        (node) => !isPlaceholderNode(node)
+    );
+}
+
+function scheduleDragHandlerSetup(channelList) {
+    if (reinitializeTimer) {
+        clearTimeout(reinitializeTimer);
+    }
+
+    reinitializeTimer = setTimeout(() => {
+        reinitializeTimer = null;
+        if (isDragging || !channelList || !document.body.contains(channelList)) {
+            return;
+        }
+        setupDragHandlers(channelList);
+    }, 100);
+}
+
 function initializeDragDrop() {
     const channelList = document.getElementById('graph-channel-list');
     if (!channelList) {
-        console.log('Channel list not found, retrying...');
-        setTimeout(initializeDragDrop, 1000);
+        // Channel list only exists while the popover is rendered/open.
+        // Retry a bounded number of times for mount/animation timing, then stop.
+        if (!initRetryTimer && initRetryCount < MAX_INIT_RETRIES) {
+            initRetryCount += 1;
+            initRetryTimer = setTimeout(() => {
+                initRetryTimer = null;
+                initializeDragDrop();
+            }, INIT_RETRY_DELAY_MS);
+        }
         return;
     }
-    
+
+    initRetryCount = 0;
+    if (initRetryTimer) {
+        clearTimeout(initRetryTimer);
+        initRetryTimer = null;
+    }
+
     console.log('Initializing drag and drop for channel list');
     setupDragHandlers(channelList);
+
+    // If popover was closed/reopened, graph-channel-list may be a new DOM node.
+    // Recreate observer for the new node and reset initialization state.
+    if (observedElement && observedElement !== channelList) {
+        if (observer) {
+            observer.disconnect();
+            observer = null;
+        }
+        isInitialized = false;
+    }
     
     // Use MutationObserver to handle dynamically added channels
     if (!isInitialized) {
-        const observer = new MutationObserver((mutations) => {
-            let shouldReinitialize = false;
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'childList') {
-                    shouldReinitialize = true;
-                }
-            });
-            
+        observer = new MutationObserver((mutations) => {
+            const shouldReinitialize = mutations.some(shouldReinitializeForMutation);
             if (shouldReinitialize) {
-                setTimeout(() => setupDragHandlers(channelList), 100);
+                scheduleDragHandlerSetup(channelList);
             }
         });
         
         observer.observe(channelList, {
             childList: true,
-            subtree: true
+            subtree: false
         });
         
+        observedElement = channelList;
         isInitialized = true;
     }
 }
 
 function setupDragHandlers(channelList) {
+    if (isDragging) {
+        return;
+    }
+
     // Remove existing event listeners to prevent duplicates
     channelList.removeEventListener('dragstart', handleDragStart);
     channelList.removeEventListener('dragover', handleDragOver);
@@ -78,15 +161,12 @@ function setupDragHandlers(channelList) {
             
             // Add drag handle styling
             dragHandle.style.cursor = 'grab';
-            dragHandle.addEventListener('mousedown', () => {
-                dragHandle.style.cursor = 'grabbing';
-            });
-            dragHandle.addEventListener('mouseup', () => {
-                dragHandle.style.cursor = 'grab';
-            });
-            dragHandle.addEventListener('mouseleave', () => {
-                dragHandle.style.cursor = 'grab';
-            });
+            if (!dragHandle.dataset.dragCursorListenersAttached) {
+                dragHandle.addEventListener('mousedown', handleDragHandleMouseDown);
+                dragHandle.addEventListener('mouseup', handleDragHandleMouseUp);
+                dragHandle.addEventListener('mouseleave', handleDragHandleMouseLeave);
+                dragHandle.dataset.dragCursorListenersAttached = 'true';
+            }
         } else {
             item.setAttribute('draggable', 'false');
         }
@@ -101,6 +181,12 @@ function handleDragStart(e) {
     }
     
     draggedElement = e.target.closest('.list-group-item');
+    if (!draggedElement) {
+        e.preventDefault();
+        return;
+    }
+
+    isDragging = true;
     draggedIndex = parseInt(draggedElement.getAttribute('data-index'));
     lastPlacementInfo = null;  // Reset placement tracking
     
@@ -227,6 +313,17 @@ function handleDragEnd(e) {
     draggedElement = null;
     draggedIndex = null;
     lastPlacementInfo = null;  // Reset placement tracking
+    isDragging = false;
+
+    // If mutations were queued while dragging, safely re-run setup now.
+    if (reinitializeTimer) {
+        clearTimeout(reinitializeTimer);
+        reinitializeTimer = null;
+        const channelList = document.getElementById('graph-channel-list');
+        if (channelList) {
+            setupDragHandlers(channelList);
+        }
+    }
 }
 
 // Initialize when DOM is loaded
