@@ -250,6 +250,7 @@ def create_event_indicator(
     timestamp_min,
     timestamp_max,
     color=None,
+    is_point_event=False,
 ):
     """Create an event indicator for the timeline.
 
@@ -257,14 +258,6 @@ def create_event_indicator(
     repositioned client-side when timeline bounds change (zoom).
     """
     timestamp_range = timestamp_max - timestamp_min
-
-    # Ensure minimum width for very short events
-    min_width_ratio = 0.005  # 0.5% of timeline
-    if end_ratio - start_ratio < min_width_ratio:
-        # Expand event to minimum width, centered on original position
-        center = (start_ratio + end_ratio) / 2
-        start_ratio = max(0, center - min_width_ratio / 2)
-        end_ratio = min(1, center + min_width_ratio / 2)
 
     # Calculate absolute timestamps for client-side repositioning on zoom
     event_start_ts = timestamp_min + (timestamp_range * start_ratio)
@@ -277,6 +270,10 @@ def create_event_indicator(
     }
     if color:
         style["--event-color"] = color
+
+    indicator_class = (
+        "saved_indicator point_event" if is_point_event else "saved_indicator"
+    )
 
     return html.Div(
         [
@@ -295,7 +292,7 @@ def create_event_indicator(
                 autohide=True,
             ),
         ],
-        className="saved_indicator",
+        className=indicator_class,
         style=style,
     )
 
@@ -389,6 +386,7 @@ def generate_event_indicators_row(
             # Calculate position using pre-computed timestamp columns
             start_ts = event["timestamp_start"]
             end_ts = event["timestamp_end"]
+            is_point_event = start_ts == end_ts
 
             start_ratio = (start_ts - timestamp_min) / (timestamp_max - timestamp_min)
             end_ratio = (end_ts - timestamp_min) / (timestamp_max - timestamp_min)
@@ -444,6 +442,7 @@ def generate_event_indicators_row(
                     timestamp_min,
                     timestamp_max,
                     color=event_color,
+                    is_point_event=is_point_event,
                 )
             )
 

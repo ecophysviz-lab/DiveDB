@@ -621,8 +621,22 @@ body {
             // --view-min, --view-max inherited from #event-indicators-container
             left: calc((var(--event-start-ts) - var(--view-min)) / (var(--view-max) - var(--view-min)) * 100%);
             width: calc((var(--event-end-ts) - var(--event-start-ts)) / (var(--view-max) - var(--view-min)) * 100%);
+            min-width: 3px;
             height: 100%;
             transition: all 0.3s ease-out;
+
+            &.point_event {
+                width: 6px;
+                min-width: 6px;
+                max-width: 6px;
+                transform: translateX(-50%);
+
+                > button {
+                    &::before {
+                        border-radius: 50%;
+                    }
+                }
+            }
 
             &:hover {
                 > button {
