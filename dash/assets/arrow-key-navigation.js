@@ -49,6 +49,64 @@
         // Update the hidden input to trigger the Dash callback
         updateArrowKeyInput(direction);
     }
+
+    function findNearestTimestamp(timestamps, target) {
+        if (!Array.isArray(timestamps) || timestamps.length === 0) {
+            return target;
+        }
+        if (target <= timestamps[0]) return timestamps[0];
+        if (target >= timestamps[timestamps.length - 1]) return timestamps[timestamps.length - 1];
+
+        let lo = 0;
+        let hi = timestamps.length - 1;
+        while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            if (timestamps[mid] < target) lo = mid + 1;
+            else hi = mid;
+        }
+
+        if (lo === 0) return timestamps[0];
+        const before = timestamps[lo - 1];
+        const after = timestamps[lo];
+        return (target - before) <= (after - target) ? before : after;
+    }
+
+    function getCurrentTimeAndBounds() {
+        const mgr = window.DiveDBPlayback;
+        const slider = document.getElementById('playhead-slider');
+
+        let currentTime = null;
+        if (mgr && Number.isFinite(mgr.currentTime)) {
+            currentTime = mgr.currentTime;
+        } else if (slider) {
+            const sliderNow = parseFloat(slider.getAttribute('aria-valuenow'));
+            if (Number.isFinite(sliderNow)) {
+                currentTime = sliderNow;
+            }
+        }
+
+        // Prefer slider bounds when available after zoom operations.
+        let minTime = null;
+        let maxTime = null;
+        if (slider) {
+            const sliderMin = parseFloat(slider.getAttribute('min') || slider.dataset.min || slider.getAttribute('aria-valuemin'));
+            const sliderMax = parseFloat(slider.getAttribute('max') || slider.dataset.max || slider.getAttribute('aria-valuemax'));
+            if (Number.isFinite(sliderMin)) minTime = sliderMin;
+            if (Number.isFinite(sliderMax)) maxTime = sliderMax;
+        }
+
+        if (!Number.isFinite(minTime) || !Number.isFinite(maxTime)) {
+            if (mgr && Number.isFinite(mgr.minTime) && Number.isFinite(mgr.maxTime)) {
+                minTime = mgr.minTime;
+                maxTime = mgr.maxTime;
+            } else if (mgr && Array.isArray(mgr.timestamps) && mgr.timestamps.length > 0) {
+                minTime = mgr.timestamps[0];
+                maxTime = mgr.timestamps[mgr.timestamps.length - 1];
+            }
+        }
+
+        return { currentTime, minTime, maxTime, mgr };
+    }
     
     function updateArrowKeyInput(direction) {
         // Find the hidden input element
@@ -57,10 +115,32 @@
             console.warn('Arrow key input element not found - waiting for Dash to render');
             return;
         }
-        
-        // Create a unique value that includes direction and timestamp
-        // This ensures the callback fires even for repeated key presses
-        const value = direction + ':' + Date.now();
+
+        const STEP = 0.1;
+        const { currentTime, minTime, maxTime, mgr } = getCurrentTimeAndBounds();
+        if (!Number.isFinite(currentTime)) {
+            console.warn('Arrow key navigation skipped - no current playhead time available');
+            return;
+        }
+
+        let newTime = currentTime + (direction * STEP);
+        if (Number.isFinite(minTime) && Number.isFinite(maxTime)) {
+            newTime = Math.max(minTime, Math.min(maxTime, newTime));
+        }
+
+        // Keep arrow key behavior aligned with skip buttons: snap to nearest timestamp.
+        if (mgr && Array.isArray(mgr.timestamps) && mgr.timestamps.length > 0) {
+            newTime = findNearestTimestamp(mgr.timestamps, newTime);
+        }
+
+        // Sync manager immediately so rapid key repeat computes from latest time.
+        if (mgr) {
+            if (typeof mgr.syncTime === 'function') mgr.syncTime(newTime);
+            else mgr.currentTime = newTime;
+        }
+
+        // Include unique suffix so callback always fires, even for repeated values.
+        const value = newTime + ':' + Date.now();
         
         // Try to find the React component and use setProps
         const reactKey = Object.keys(hiddenInput).find(key => 
@@ -75,7 +155,7 @@
                     if (fiber.memoizedProps && typeof fiber.memoizedProps.setProps === 'function') {
                         // Found the Dash component - update the value
                         fiber.memoizedProps.setProps({ value: value });
-                        console.log('Arrow key:', direction > 0 ? '→ +0.1s' : '← -0.1s');
+                        console.log('Arrow key:', direction > 0 ? '→ +0.1s' : '← -0.1s', 'new time:', newTime.toFixed(3));
                         return;
                     }
                     fiber = fiber.return;
@@ -101,7 +181,7 @@
             const changeEvent = new Event('change', { bubbles: true });
             hiddenInput.dispatchEvent(changeEvent);
             
-            console.log('Arrow key (fallback):', direction > 0 ? '→ +0.1s' : '← -0.1s');
+            console.log('Arrow key (fallback):', direction > 0 ? '→ +0.1s' : '← -0.1s', 'new time:', newTime.toFixed(3));
         } catch (err) {
             console.warn('Fallback input update failed:', err);
         }

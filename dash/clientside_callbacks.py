@@ -738,61 +738,37 @@ def register_clientside_callbacks(app):
         prevent_initial_call=True,
     )
 
-    # Arrow key navigation (rate-aware steps)
-    # The arrow-key-navigation.js file updates the hidden arrow-key-input with direction
-    # This callback responds to that input and updates playhead-time accordingly
-    # Step size scales with playback rate for sub-second precision at slow rates
+    # Arrow key navigation (absolute time pass-through)
+    # The arrow-key-navigation.js file computes the new playhead timestamp and writes
+    # "absoluteTime:uniqueTimestamp" to arrow-key-input. This callback only forwards
+    # that absolute time to playhead-time to avoid stale State race conditions.
     app.clientside_callback(
         """
-        function(arrowInput, playhead_time, timestamps, slider_min, slider_max, playback_rate) {
+        function(arrowInput) {
             // Check if this is a valid arrow key input
             if (!arrowInput || arrowInput === '') {
                 return window.dash_clientside.no_update;
             }
 
-            // Parse the input - format is "direction:timestamp" (e.g., "1:1699123456.789")
+            // Parse the input - format is "absoluteTime:timestamp"
             const parts = arrowInput.split(':');
             if (parts.length !== 2) {
                 return window.dash_clientside.no_update;
             }
 
-            const direction = parseInt(parts[0]);
+            const absoluteTime = parseFloat(parts[0]);
             const inputTimestamp = parseFloat(parts[1]);
 
             // Verify this is a new input (not a stale one)
-            if (isNaN(direction) || isNaN(inputTimestamp)) {
+            if (isNaN(absoluteTime) || isNaN(inputTimestamp)) {
                 return window.dash_clientside.no_update;
             }
 
-            // Fixed 0.1 second step for precise frame-by-frame navigation
-            const STEP = 0.1;
-
-            // Get bounds
-            const minTime = slider_min || (timestamps && timestamps.length > 0 ? Math.min(...timestamps) : 0);
-            const maxTime = slider_max || (timestamps && timestamps.length > 0 ? Math.max(...timestamps) : Infinity);
-
-            // Calculate new time
-            let newTime = playhead_time + (direction * STEP);
-
-            // Clamp to bounds
-            newTime = Math.max(minTime, Math.min(maxTime, newTime));
-
-            console.log('Arrow key navigation:', direction > 0 ? 'forward' : 'backward',
-                        'step=' + STEP + 's',
-                        playhead_time.toFixed(3), '->', newTime.toFixed(3));
-
-            return newTime;
+            return absoluteTime;
         }
         """,
         Output("playhead-time", "data", allow_duplicate=True),
         [Input("arrow-key-input", "value")],
-        [
-            State("playhead-time", "data"),
-            State("playback-timestamps", "data"),
-            State("playhead-slider", "min"),
-            State("playhead-slider", "max"),
-            State("playback-rate", "data"),
-        ],
         prevent_initial_call=True,
     )
 
