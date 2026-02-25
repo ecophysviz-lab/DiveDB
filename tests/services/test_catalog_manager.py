@@ -78,6 +78,7 @@ def test_catalog_manager_resolve_catalog_type_auto_and_explicit():
 
 
 def test_catalog_manager_populates_inmemory_catalog_from_s3(monkeypatch):
+    """version-hint.text present — the hint is used to pick the preferred metadata file."""
     fake_s3_files = {
         "bucket/published-iceberg-warehouse/demo.db/data/metadata/version-hint.text": "3",
         "bucket/published-iceberg-warehouse/demo.db/data/metadata/00003-abc.metadata.json": "",
@@ -113,4 +114,44 @@ def test_catalog_manager_populates_inmemory_catalog_from_s3(monkeypatch):
     assert (
         "demo.events",
         "s3://bucket/published-iceberg-warehouse/demo.db/events/metadata/00007-def.metadata.json",
+    ) in fake_catalog.tables
+
+
+def test_catalog_manager_discovers_tables_without_version_hint(monkeypatch):
+    """PyIceberg SqlCatalog never writes version-hint.text — discovery must
+    still work by scanning for *.metadata.json directly."""
+    fake_s3_files = {
+        "bucket/warehouse/ds1.db/data/metadata/00000-aaa.metadata.json": "",
+        "bucket/warehouse/ds1.db/data/metadata/00001-bbb.metadata.json": "",
+        "bucket/warehouse/ds1.db/events/metadata/00000-ccc.metadata.json": "",
+    }
+
+    config = WarehouseConfig.from_parameters(
+        warehouse_path="s3://bucket/warehouse",
+        s3_endpoint="http://localhost:9000",
+        s3_access_key="access",
+        s3_secret_key="secret",
+        s3_bucket="bucket",
+        catalog_type="in-memory",
+    )
+
+    fake_catalog = FakeCatalog()
+    fake_fs = FakeS3FS(fake_s3_files)
+
+    monkeypatch.setattr(
+        CatalogManager, "_create_s3_inmemory_catalog", lambda self: fake_catalog
+    )
+    monkeypatch.setattr(CatalogManager, "_get_s3_filesystem", lambda self: fake_fs)
+
+    manager = CatalogManager(config)
+
+    assert manager.catalog is fake_catalog
+    assert "ds1" in fake_catalog.namespaces
+    assert (
+        "ds1.data",
+        "s3://bucket/warehouse/ds1.db/data/metadata/00001-bbb.metadata.json",
+    ) in fake_catalog.tables
+    assert (
+        "ds1.events",
+        "s3://bucket/warehouse/ds1.db/events/metadata/00000-ccc.metadata.json",
     ) in fake_catalog.tables

@@ -144,10 +144,14 @@ class CatalogManager:
             logging.debug("Failed listing metadata files in %s: %s", metadata_dir, e)
         return None
 
-    def _parse_table_from_hint_path(
-        self, prefix: str, hint_path: str
+    def _parse_table_from_path(
+        self, prefix: str, path: str
     ) -> Optional[Tuple[str, str]]:
-        relative = hint_path.removeprefix(prefix).lstrip("/")
+        """Extract (dataset_name, lake_name) from an S3 path under the warehouse prefix.
+
+        Works for any file under ``{prefix}/{dataset}.db/{lake}/metadata/…``.
+        """
+        relative = path.removeprefix(prefix).lstrip("/")
         parts = relative.split("/")
         if len(parts) < 4:
             return None
@@ -157,30 +161,54 @@ class CatalogManager:
         return dataset_db[:-3], lake_name
 
     def _populate_catalog_from_s3(self) -> None:
-        """Discover Iceberg tables in S3 and register them into the in-memory catalog."""
+        """Discover Iceberg tables in S3 and register them into the in-memory catalog.
+
+        Scans for ``*.metadata.json`` files directly rather than requiring
+        ``version-hint.text`` — PyIceberg's SqlCatalog never writes the latter.
+        When a version-hint IS present it is used to select the preferred
+        metadata version; otherwise the highest-numbered metadata file wins.
+        """
         fs = self._get_s3_filesystem()
         warehouse_prefix = self.config.warehouse_path.removeprefix("s3://").rstrip("/")
-        hint_glob = f"{warehouse_prefix}/*.db/*/metadata/version-hint.text"
 
+        # Read any version-hint.text files that happen to exist (e.g. Java Iceberg).
+        version_hints: Dict[Tuple[str, str], int] = {}
         try:
-            hint_files = sorted(fs.glob(hint_glob))
+            for hint_path in fs.glob(
+                f"{warehouse_prefix}/*.db/*/metadata/version-hint.text"
+            ):
+                parsed = self._parse_table_from_path(warehouse_prefix, hint_path)
+                if parsed:
+                    version = self._read_version_hint(fs, hint_path)
+                    if version is not None:
+                        version_hints[parsed] = version
+        except Exception:
+            pass
+
+        # Primary discovery: scan for metadata.json files.
+        metadata_glob = f"{warehouse_prefix}/*.db/*/metadata/*.metadata.json"
+        try:
+            all_metadata_files = sorted(fs.glob(metadata_glob))
         except Exception as e:
             logging.warning(
                 "Could not list metadata in warehouse '%s': %s", warehouse_prefix, e
             )
             return
 
+        tables: Dict[Tuple[str, str], list] = {}
+        for meta_path in all_metadata_files:
+            parsed = self._parse_table_from_path(warehouse_prefix, meta_path)
+            if parsed:
+                tables.setdefault(parsed, []).append(meta_path)
+
         registered = 0
-        for hint_path in hint_files:
-            parsed = self._parse_table_from_hint_path(warehouse_prefix, hint_path)
-            if not parsed:
-                continue
-            dataset_name, lake_name = parsed
-            metadata_dir = hint_path.rsplit("/", 1)[0]
-            version = self._read_version_hint(fs, hint_path)
+        for (dataset_name, lake_name), meta_files in tables.items():
+            key = (dataset_name, lake_name)
+            metadata_dir = meta_files[0].rsplit("/", 1)[0]
+            version = version_hints.get(key)
             metadata_path = self._resolve_metadata_file(fs, metadata_dir, version)
             if not metadata_path:
-                logging.debug("No metadata file found for hint path: %s", hint_path)
+                logging.debug("No usable metadata file in %s", metadata_dir)
                 continue
 
             metadata_location = f"s3://{metadata_path}"
@@ -193,7 +221,6 @@ class CatalogManager:
                     "Registered table %s from %s", identifier, metadata_location
                 )
             except Exception as e:
-                # Safe to ignore duplicates when re-registering.
                 logging.debug(
                     "Could not register table %s from %s: %s",
                     identifier,
