@@ -226,9 +226,28 @@ def create_video_indicator(
                 id=video_id,
                 style=button_style,
             ),
+            html.Button(
+                [],
+                className="video-pin-dot",
+                id={"type": "video-pin-dot", "id": video_id["id"]},
+            ),
             dbc.Tooltip(
                 tooltip_content,
                 target=video_id,
+                placement="top",
+                delay={"show": 100, "hide": 0},
+                autohide=True,
+            ),
+            dbc.Tooltip(
+                [
+                    (
+                        tooltip_content[0]
+                        if isinstance(tooltip_content, list) and tooltip_content
+                        else html.Div("Video")
+                    ),
+                    html.Div("Jump to start", className="video-status"),
+                ],
+                target={"type": "video-pin-dot", "id": video_id["id"]},
                 placement="top",
                 delay={"show": 100, "hide": 0},
                 autohide=True,

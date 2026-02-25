@@ -371,26 +371,32 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         Output("manual-video-override", "data", allow_duplicate=True),
         [
             Input({"type": "video-indicator", "id": ALL}, "n_clicks"),
+            Input({"type": "video-pin-dot", "id": ALL}, "n_clicks"),
         ],
         [
             State("current-video-options", "data"),
             State({"type": "video-indicator", "id": ALL}, "id"),
+            State({"type": "video-pin-dot", "id": ALL}, "id"),
         ],
         prevent_initial_call=True,
     )
     def video_manual_selection(
-        n_clicks_list,
+        indicator_clicks,
+        pin_dot_clicks,
         video_options,
         video_ids,
+        pin_dot_ids,
     ):
-        """Handle manual video selection when user clicks a video indicator."""
+        """Handle manual video selection when user clicks a timeline video control."""
         ctx = callback_context
 
         # Debug: Log callback entry
         logger.debug("video_manual_selection triggered:")
         logger.debug(f"  - ctx.triggered: {ctx.triggered}")
-        logger.debug(f"  - n_clicks_list: {n_clicks_list}")
+        logger.debug(f"  - indicator_clicks: {indicator_clicks}")
+        logger.debug(f"  - pin_dot_clicks: {pin_dot_clicks}")
         logger.debug(f"  - video_ids: {video_ids}")
+        logger.debug(f"  - pin_dot_ids: {pin_dot_ids}")
         logger.debug(
             f"  - video_options count: {len(video_options) if video_options else 0}"
         )
@@ -403,7 +409,10 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         clicked_video = None
 
         for trigger in ctx.triggered:
-            if "video-indicator" in trigger["prop_id"] and trigger.get("value"):
+            if (
+                "video-indicator" in trigger["prop_id"]
+                or "video-pin-dot" in trigger["prop_id"]
+            ) and trigger.get("value"):
                 # Extract the clicked video ID from the trigger
                 import json
 
@@ -438,28 +447,34 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
         Output("play-button", "className", allow_duplicate=True),
         [
             Input({"type": "video-indicator", "id": ALL}, "n_clicks"),
+            Input({"type": "video-pin-dot", "id": ALL}, "n_clicks"),
         ],
         [
             State("current-video-options", "data"),
             State({"type": "video-indicator", "id": ALL}, "id"),
+            State({"type": "video-pin-dot", "id": ALL}, "id"),
             State("video-time-offset", "data"),
         ],
         prevent_initial_call=True,
     )
     def jump_to_video_on_click(
-        n_clicks_list,
+        indicator_clicks,
+        pin_dot_clicks,
         video_options,
         video_ids,
+        pin_dot_ids,
         time_offset,
     ):
-        """Jump playhead to video start time and start playback when video indicator is clicked."""
+        """Jump playhead to video start and play when segment or pin dot is clicked."""
         ctx = callback_context
 
         # Debug: Log callback entry
         logger.debug("jump_to_video_on_click triggered:")
         logger.debug(f"  - ctx.triggered: {ctx.triggered}")
-        logger.debug(f"  - n_clicks_list: {n_clicks_list}")
+        logger.debug(f"  - indicator_clicks: {indicator_clicks}")
+        logger.debug(f"  - pin_dot_clicks: {pin_dot_clicks}")
         logger.debug(f"  - video_ids: {video_ids}")
+        logger.debug(f"  - pin_dot_ids: {pin_dot_ids}")
         logger.debug(
             f"  - video_options count: {len(video_options) if video_options else 0}"
         )
@@ -470,11 +485,14 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
 
         time_offset = time_offset or 0
 
-        # Check if this was triggered by a video indicator click
+        # Check if this was triggered by a video indicator or pin dot click
         clicked_video = None
         for trigger in ctx.triggered:
             logger.debug(f"  - Checking trigger: {trigger}")
-            if "video-indicator" in trigger["prop_id"] and trigger.get("value"):
+            if (
+                "video-indicator" in trigger["prop_id"]
+                or "video-pin-dot" in trigger["prop_id"]
+            ) and trigger.get("value"):
                 # Extract the clicked video ID from the trigger
                 import json
 
@@ -497,9 +515,7 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
                 if clicked_video:
                     break
             else:
-                logger.debug(
-                    "  - Trigger not a video-indicator click or value is falsy"
-                )
+                logger.debug("  - Trigger not a timeline video click or value is falsy")
 
         if not clicked_video:
             logger.debug("  - PreventUpdate: no clicked_video found")

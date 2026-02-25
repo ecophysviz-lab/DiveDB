@@ -557,8 +557,11 @@ body {
         border-radius: 3px;
         z-index: 10;
         position: relative;
-        margin: 4px 0;
-        overflow: hidden; // Clip indicators that extend beyond view bounds on zoom
+        margin: 10px 0;
+        // overflow:visible lets pin dots render above the thin track.
+        // Horizontal clipping for off-screen segments is handled by
+        // clip-path on the segment buttons themselves.
+        overflow: visible;
 
         .video_available_indicator {
             // Each indicator overlays on the same track (no stacking)
@@ -569,12 +572,11 @@ body {
             height: 100%;
             pointer-events: none; // Let clicks pass through to buttons
 
-            > button {
+            .video-indicator-btn {
                 display: block;
                 position: absolute;
-                overflow-y: visible;
                 top: 50%;
-                pointer-events: auto; // Re-enable clicks on buttons
+                pointer-events: auto;
                 // Use absolute timestamps and view bounds for zoom-aware positioning
                 // --video-start-ts, --video-end-ts set on indicator element
                 // --view-min, --view-max inherited from #video-indicators-container
@@ -605,6 +607,44 @@ body {
                         background-color: var(--blueLight);
                         transform: scaleY(1.5);
                     }
+                }
+            }
+
+            .video-pin-dot {
+                position: absolute;
+                top: 50%;
+                left: calc((var(--video-start-ts) - var(--view-min)) / (var(--view-max) - var(--view-min)) * 100%);
+                width: 10px;
+                height: 10px;
+                transform: translate(-50%, -50%);
+                border-radius: 50%;
+                border: 2px solid var(--white);
+                background-color: var(--blueLight);
+                cursor: pointer;
+                pointer-events: auto;
+                z-index: 4;
+                padding: 0;
+                outline: none;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+                transition: transform 0.2s ease-out, background-color 0.2s ease-out, box-shadow 0.2s ease-out;
+
+                &::after {
+                    content: '';
+                    position: absolute;
+                    width: 22px;
+                    height: 22px;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    border-radius: 50%;
+                    background: transparent;
+                }
+
+                &:hover,
+                &:focus-visible {
+                    background-color: var(--white);
+                    transform: translate(-50%, -50%) scale(1.25);
+                    box-shadow: 0 0 0 3px rgba(var(--blueLight-rgb), 0.6);
                 }
             }
         }

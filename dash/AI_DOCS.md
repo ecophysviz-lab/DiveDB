@@ -102,7 +102,8 @@ Key files: `assets/playback-manager.js`, `clientside_callbacks.py`
 
 **Key Callbacks**:
 - `update_playback_rate_display()`: `playback-rate.data` → `playback-rate-display.children` (requires `html.Img`, so stays server-side)
-- `video_manual_selection()`: `video-indicator.n_clicks` → `selected-video.data`, `manual-video-override.data` (manual clicks only)
+- `video_manual_selection()`: `video-indicator.n_clicks` + `video-pin-dot.n_clicks` → `selected-video.data`, `manual-video-override.data` (manual timeline video clicks)
+- `jump_to_video_on_click()`: `video-indicator.n_clicks` + `video-pin-dot.n_clicks` → `playhead-time.data`, `is-playing.data`, `play-button` UI
 - `update_video_player()`: `selected-video.data` → `video-trimmer.videoSrc`, `video-trimmer.videoMetadata`, `video-trimmer.datasetStartTime`
 - `add_new_channel()`: `add-graph-btn.n_clicks` → `graph-channel-list.children`
 - `remove_channel()`: `channel-remove.n_clicks` → `graph-channel-list.children`
@@ -199,7 +200,7 @@ Key files: `assets/playback-manager.js`, `clientside_callbacks.py`
 **Indicator Zoom Sync Architecture**:
 - Indicators store absolute timestamps as CSS variables (`--event-start-ts`, `--event-end-ts`, `--video-start-ts`, `--video-end-ts`)
 - Container elements (`#event-indicators-container`, `#video-indicators-container`) provide view bounds (`--view-min`, `--view-max`)
-- CSS uses calc() to position indicators relative to current view bounds
+- CSS uses calc() to position indicators relative to current view bounds (including fixed-size video pin dots at `--video-start-ts`)
 - Clientside callback updates container CSS variables when `timeline-bounds` changes, triggering instant repositioning
 
 ### graph_utils.py
@@ -277,7 +278,7 @@ Key files: `assets/playback-manager.js`, `clientside_callbacks.py`
 
 **Key Functions**:
 - `create_event_indicator(event_id, tooltip_content, start_ratio, end_ratio, timestamp_min, timestamp_max, color)` → html.Div - Single event indicator
-- `create_video_indicator(video_id, tooltip_content, position_data, timestamp_min, timestamp_max)` → html.Div - Single video indicator
+- `create_video_indicator(video_id, tooltip_content, position_data, timestamp_min, timestamp_max)` → html.Div - Video segment indicator + start pin dot
 - `create_saved_indicator(saved_id, timestamp_display, notes, start_ratio, end_ratio, timestamp_min, timestamp_max)` → html.Div - Saved bookmark indicator
 - `calculate_video_timeline_position(video, timeline_start_ts, timeline_end_ts)` → dict - Calculates video position ratios
 - `generate_event_indicators_row(events_df, timestamp_min, timestamp_max)` → List[html.Div] - Generates all event indicator rows
