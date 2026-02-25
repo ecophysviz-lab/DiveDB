@@ -187,7 +187,9 @@ Key files: `assets/playback-manager.js`, `clientside_callbacks.py`
 **UI Callbacks**:
 - Fullscreen toggle: `fullscreen-button.n_clicks` → `fullscreen-button.className`, `fullscreen-tooltip.children`
 - Playhead slider sync (bidirectional): `playhead-time.data` ↔ `playhead-slider.value`
-- Playhead tracking line: `playhead-time.data` + `timeline-bounds.data` → `playhead-overlay.style`
+- Timeline bounds sync on zoom: `graph-content.relayoutData` + `original-bounds.data` → `timeline-bounds.data` (clientside, no server round-trip)
+- Playhead tracking line: `playhead-time.data` + `timeline-bounds.data` → `playhead-line-overlay.style`
+- Playhead stale affordance clear: `graph-content.figure` → clear `.stale` on `#playhead-line-overlay`
 - Arrow key navigation: `arrow-key-input.value` → `playhead-time.data` (fixed ±0.1s steps)
 - Reset zoom button: `timeline-bounds.data` + `original-bounds.data` → `reset-zoom-button.disabled`
 - Indicator zoom sync: `timeline-bounds.data` → Updates CSS variables for indicator positioning
@@ -370,6 +372,28 @@ Key files: `assets/playback-manager.js`, `clientside_callbacks.py`
    - State: `timeline-bounds.data` (for zoom preservation)
    - Outputs: `graph-content.figure`, `playback-timestamps.data`, `update-graph-btn.disabled`, `update-graph-btn.children`
    - Action: Regenerate graph with channels in DOM order; preserve current zoom range via `timeline-bounds`; restore button state
+
+### Zoom Flow
+
+1. **User Zoom/Pan** (Plotly)
+   - Trigger: `graph-content.relayoutData`
+   - Action: Plotly emits `xaxis.range[0/1]` (or `xaxis.autorange` on reset)
+
+2. **Clientside Timeline Bounds Sync**
+   - Trigger: `graph-content.relayoutData`
+   - State: `original-bounds.data`
+   - Output: `timeline-bounds.data`
+   - Action: Parse range to unix timestamps and update bounds immediately (single source of truth for footer + playhead)
+
+3. **Server Resampling Patch**
+   - Trigger: `graph-content.relayoutData`
+   - State: `figure-store.data`
+   - Output: `graph-content.figure`
+   - Action: `update_graph_on_zoom()` applies `FigureResampler` patch for visible range
+
+4. **Playhead Accuracy Affordance**
+   - Mark stale: add `.stale` on `#playhead-line-overlay` when zoom relayout is processed
+   - Clear stale: remove `.stale` on `graph-content.figure` update (with timeout fallback)
 
 ### Playback Flow
 
@@ -697,12 +721,14 @@ video_preview.VideoPreview(
 **Implementation**:
 1. `graph_utils.py` creates `FigureResampler` objects (not standard `go.Figure`)
 2. Callbacks that generate graphs cache the `FigureResampler` via `Serverside(fig)`
-3. `update_graph_on_zoom()` callback listens to `relayoutData` and calls `fig.construct_update_data_patch()`
-4. All high-resolution data loaded once; resampler dynamically adjusts resolution based on zoom level
+3. A clientside callback listens to `relayoutData` and updates `timeline-bounds` immediately for playhead/timeline sync
+4. `update_graph_on_zoom()` callback listens to `relayoutData` and calls `fig.construct_update_data_patch()`
+5. All high-resolution data loaded once; resampler dynamically adjusts resolution based on zoom level
 
 **Key Points**:
 - App uses `DashProxy` instead of `dash.Dash` (required for `Serverside` caching)
 - `figure-store` holds cached `FigureResampler` per session
+- `timeline-bounds` is updated clientside on zoom to avoid server-lagged playhead repositioning
 - No manual high-res button needed - automatic on zoom/pan
 - `memoize=True` on zoom callback prevents redundant updates
 
@@ -739,6 +765,8 @@ video_preview.VideoPreview(
 **SASS**: `dash/assets/sass/_app.scss` → Compile with `npm run build-css` before testing
 
 **Timeline Indicators**: Use CSS variables (`--start`, `--end`, `--length`) for positioning. Don't use inline styles on indicator buttons.
+
+**Playhead Stale State**: `.playhead-line-overlay.stale` dims/grays the playhead while zoom-triggered data alignment is pending.
 
 ## Maintenance Guidelines
 

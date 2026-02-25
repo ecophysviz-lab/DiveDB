@@ -776,6 +776,89 @@ def register_clientside_callbacks(app):
     # Timeline Zoom Sync Callbacks
     # =========================================================================
 
+    # Update timeline bounds directly on the client when graph zoom changes.
+    # This avoids a server round-trip and keeps playhead/slider in sync with zoom immediately.
+    app.clientside_callback(
+        """
+        function(relayoutdata, original_bounds) {
+            if (!relayoutdata) {
+                return window.dash_clientside.no_update;
+            }
+
+            const markPlayheadStale = () => {
+                const overlay = document.getElementById('playhead-line-overlay');
+                if (!overlay) {
+                    return;
+                }
+                overlay.classList.add('stale');
+
+                if (window._playheadStaleTimeout) {
+                    clearTimeout(window._playheadStaleTimeout);
+                }
+                window._playheadStaleTimeout = setTimeout(function() {
+                    const currentOverlay = document.getElementById('playhead-line-overlay');
+                    if (currentOverlay) {
+                        currentOverlay.classList.remove('stale');
+                    }
+                    window._playheadStaleTimeout = null;
+                }, 3000);
+            };
+
+            const hasRange =
+                relayoutdata.hasOwnProperty('xaxis.range[0]') &&
+                relayoutdata.hasOwnProperty('xaxis.range[1]');
+            const isReset =
+                relayoutdata.hasOwnProperty('xaxis.autorange') ||
+                relayoutdata.hasOwnProperty('xaxis.showspikes');
+
+            if (!hasRange && !isReset) {
+                return window.dash_clientside.no_update;
+            }
+
+            markPlayheadStale();
+
+            if (isReset) {
+                if (!original_bounds || original_bounds.min === null || original_bounds.max === null) {
+                    return window.dash_clientside.no_update;
+                }
+                return {min: original_bounds.min, max: original_bounds.max};
+            }
+
+            const x0 = relayoutdata['xaxis.range[0]'];
+            const x1 = relayoutdata['xaxis.range[1]'];
+
+            const toUnixSeconds = (value) => {
+                if (typeof value === 'number') {
+                    return value;
+                }
+                if (typeof value !== 'string') {
+                    return null;
+                }
+
+                const hasTimezone = /([zZ]|[+-]\\d{2}:\\d{2})$/.test(value);
+                const isoValue = hasTimezone ? value : value + 'Z';
+                const parsedMs = Date.parse(isoValue);
+                if (!Number.isFinite(parsedMs)) {
+                    return null;
+                }
+                return parsedMs / 1000;
+            };
+
+            const newMin = toUnixSeconds(x0);
+            const newMax = toUnixSeconds(x1);
+            if (newMin === null || newMax === null || newMax <= newMin) {
+                return window.dash_clientside.no_update;
+            }
+
+            return {min: newMin, max: newMax};
+        }
+        """,
+        Output("timeline-bounds", "data", allow_duplicate=True),
+        Input("graph-content", "relayoutData"),
+        State("original-bounds", "data"),
+        prevent_initial_call=True,
+    )
+
     # Update slider bounds when timeline-bounds changes (from graph zoom)
     app.clientside_callback(
         """
@@ -820,6 +903,32 @@ def register_clientside_callbacks(app):
         Output("timeline-start-label", "children"),
         Output("timeline-end-label", "children"),
         Input("timeline-bounds", "data"),
+        prevent_initial_call=True,
+    )
+
+    # Clear stale playhead affordance when the graph figure finishes updating.
+    app.clientside_callback(
+        """
+        function(figure) {
+            if (!figure) {
+                return window.dash_clientside.no_update;
+            }
+
+            const overlay = document.getElementById('playhead-line-overlay');
+            if (overlay) {
+                overlay.classList.remove('stale');
+            }
+
+            if (window._playheadStaleTimeout) {
+                clearTimeout(window._playheadStaleTimeout);
+                window._playheadStaleTimeout = null;
+            }
+
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("timeline-container", "className", allow_duplicate=True),
+        Input("graph-content", "figure"),
         prevent_initial_call=True,
     )
 

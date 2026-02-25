@@ -441,6 +441,8 @@ body {
     bottom: 0;
     width: 2px;
     background-color: #73a9c4;
+    opacity: 1;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
     pointer-events: none;
     z-index: 100;
     display: none;  // Hidden until playhead position is set
@@ -448,6 +450,11 @@ body {
     // Offset to align with the Plotly graph area (accounting for y-axis labels)
     // These values are set dynamically by the clientside callback
     // Default: left is percentage-based within the plot area
+
+    &.stale {
+        opacity: 0.3;
+        background-color: #999;
+    }
 }
 
 .video-container {
