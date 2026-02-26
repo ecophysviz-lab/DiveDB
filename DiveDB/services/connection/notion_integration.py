@@ -99,8 +99,17 @@ class NotionIntegration:
             {cid.lower() for cid in channel_ids} if channel_ids else None
         )
 
+        def _isna(val):
+            """Check for any flavour of missing: None, float NaN, pd.NA, etc."""
+            if val is None:
+                return True
+            try:
+                return bool(pd.isna(val))
+            except (ValueError, TypeError):
+                return False
+
         def parse_relation_id(raw):
-            if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+            if _isna(raw):
                 return None
             raw = str(raw)
             if raw.startswith("["):
@@ -110,13 +119,13 @@ class NotionIntegration:
             return None
 
         def parse_color(val):
-            if val is None or (isinstance(val, float) and pd.isna(val)):
+            if _isna(val):
                 return None
             m = re.search(r"#([0-9a-fA-F]{6})", str(val))
             return m.group(0).lower() if m else None
 
         def parse_icon(val):
-            if val is None or (isinstance(val, float) and pd.isna(val)):
+            if _isna(val):
                 return None
             s = str(val).strip()
             return None if s in ("", "nan", "None", "<NA>") else s
@@ -125,7 +134,7 @@ class NotionIntegration:
             for n in names:
                 if n in row.index:
                     v = row[n]
-                    if v is not None and not (isinstance(v, float) and pd.isna(v)):
+                    if not _isna(v):
                         return v
             return None
 
