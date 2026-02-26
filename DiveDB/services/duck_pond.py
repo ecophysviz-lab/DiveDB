@@ -1137,14 +1137,14 @@ class DuckPond:
             for label in labels:
                 pivot_expressions.append(
                     f"""
-                    FIRST(CASE WHEN label = '{label}' THEN
+                    MAX(CASE WHEN label = '{label}' THEN
                         CASE data_type
                             WHEN 'double' THEN float_value
                             WHEN 'int' THEN CAST(int_value AS DOUBLE)
                             WHEN 'bool' THEN CAST(boolean_value AS DOUBLE)
                             ELSE TRY_CAST(string_value AS DOUBLE)
                         END
-                    END ORDER BY datetime) AS "{label}"
+                    END) AS "{label}"
                 """
                 )
 
