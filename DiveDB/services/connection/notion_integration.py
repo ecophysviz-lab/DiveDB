@@ -73,6 +73,111 @@ class NotionIntegration:
             logging.debug(f"Failed to load Standardized Channel DB via Notion: {e}")
             return None
 
+    def _build_metadata_from_duckdb(
+        self, channel_ids: Optional[List[str]] = None
+    ) -> Optional[Dict[str, Dict]]:
+        """Build channel->metadata map from DuckDB tables instead of N+1 API calls.
+
+        Returns None if the required DuckDB tables aren't loaded yet,
+        signalling the caller to fall back to the ORM traversal path.
+        """
+        if not self.duckdb_connection:
+            return None
+        if "Signals" not in self._notion_table_names:
+            return None
+        if "Standardized Channels" not in self._notion_table_names:
+            return None
+
+        channels_df = self.duckdb_connection.sql(
+            'SELECT * FROM "Standardized Channels"'
+        ).df()
+        signals_df = self.duckdb_connection.sql('SELECT * FROM "Signals"').df()
+
+        signals_by_id = {row["id"]: row for _, row in signals_df.iterrows()}
+
+        normalized_filter = (
+            {cid.lower() for cid in channel_ids} if channel_ids else None
+        )
+
+        def parse_relation_id(raw):
+            if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+                return None
+            raw = str(raw)
+            if raw.startswith("["):
+                parsed = ast.literal_eval(raw)
+                if isinstance(parsed, list) and parsed:
+                    return parsed[0].get("id")
+            return None
+
+        def parse_color(val):
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return None
+            m = re.search(r"#([0-9a-fA-F]{6})", str(val))
+            return m.group(0).lower() if m else None
+
+        def parse_icon(val):
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return None
+            s = str(val).strip()
+            return None if s in ("", "nan", "None", "<NA>") else s
+
+        def col(row, *names):
+            for n in names:
+                if n in row.index:
+                    v = row[n]
+                    if v is not None and not (isinstance(v, float) and pd.isna(v)):
+                        return v
+            return None
+
+        mapping: Dict[str, Dict] = {}
+
+        for _, ch in channels_df.iterrows():
+            channel_id = col(ch, "channel_id")
+            if not channel_id:
+                continue
+            if normalized_filter and channel_id.lower() not in normalized_filter:
+                continue
+
+            parent_id = parse_relation_id(col(ch, "parent_signal"))
+            parent = signals_by_id.get(parent_id) if parent_id else None
+
+            if parent is not None:
+                parent_desc = col(parent, "description") or ""
+                suffix = col(ch, "description_suffix") or ""
+                combined = f"{parent_desc} {suffix}".strip() or None
+
+                ch_icon = parse_icon(ch.get("icon"))
+                p_icon = parse_icon(parent.get("icon"))
+
+                metadata = {
+                    "name": col(parent, "label", "name"),
+                    "description": combined,
+                    "label": col(parent, "label"),
+                    "standardized_unit": col(ch, "unit_override")
+                    or col(parent, "unit"),
+                    "type": col(parent, "type"),
+                    "color": parse_color(col(ch, "color_override"))
+                    or parse_color(col(parent, "color")),
+                    "icon": ch_icon or p_icon,
+                }
+            else:
+                metadata = {
+                    "name": col(ch, "label", "name"),
+                    "description": col(ch, "description_suffix", "description"),
+                    "label": col(ch, "label"),
+                    "standardized_unit": col(ch, "unit_override", "unit"),
+                    "type": col(ch, "type"),
+                    "color": parse_color(col(ch, "color_override", "color")),
+                    "icon": parse_icon(ch.get("icon")),
+                }
+
+            mapping[channel_id] = metadata
+
+        logging.info(
+            f"Built metadata for {len(mapping)} channels from DuckDB (0 API calls)"
+        )
+        return mapping
+
     def load_signal_metadata_map(
         self, channel_ids: Optional[List[str]] = None
     ) -> Dict[str, Dict]:
@@ -92,6 +197,14 @@ class NotionIntegration:
         if channel_ids is None and self._signal_metadata_cache:
             return self._signal_metadata_cache
 
+        # Fast path: use DuckDB tables if available (0 API calls)
+        duckdb_result = self._build_metadata_from_duckdb(channel_ids)
+        if duckdb_result is not None:
+            if channel_ids is None:
+                self._signal_metadata_cache = duckdb_result
+            return duckdb_result
+
+        # Slow path: fall back to ORM traversal (N+1 API calls)
         mapping: Dict[str, Dict] = {}
 
         if not self.notion_manager:
