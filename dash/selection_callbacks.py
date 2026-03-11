@@ -722,8 +722,26 @@ def generate_graph_from_channels(
         except Exception as e:
             logger.warning(f"Server-side resampling failed: {e}", exc_info=True)
 
-    # Extract timestamps for playback
-    timestamps = dff["timestamp"].tolist() if "timestamp" in dff.columns else []
+    # Extract timestamps for playback — downsample to reduce payload size.
+    # The full timestamp list can be 1M+ floats (~8 MB JSON). Binary search
+    # consumers (playback manager, skip nav, 3D model) work fine with a
+    # uniformly-spaced subset; we always keep the first and last values.
+    MAX_PLAYBACK_TIMESTAMPS = 10_000
+    if "timestamp" in dff.columns:
+        all_ts = dff["timestamp"].values
+        n = len(all_ts)
+        if n > MAX_PLAYBACK_TIMESTAMPS:
+            step = n // MAX_PLAYBACK_TIMESTAMPS
+            sampled = all_ts[::step].tolist()
+            # Ensure the very last timestamp is included for correct bounds
+            if sampled[-1] != all_ts[-1]:
+                sampled.append(float(all_ts[-1]))
+            timestamps = sampled
+            logger.debug(f"Downsampled playback timestamps: {n} → {len(timestamps)}")
+        else:
+            timestamps = all_ts.tolist()
+    else:
+        timestamps = []
 
     return fig, dff, timestamps
 
@@ -1430,9 +1448,10 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
             raise dash.exceptions.PreventUpdate
 
         # Get timestamp bounds from existing playback timestamps
+        # The list is sorted and always includes the first/last real values.
         if playback_timestamps:
-            timestamp_min = min(playback_timestamps)
-            timestamp_max = max(playback_timestamps)
+            timestamp_min = playback_timestamps[0]
+            timestamp_max = playback_timestamps[-1]
         else:
             raise dash.exceptions.PreventUpdate
 
@@ -1595,15 +1614,25 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
         # Build events section
         events_section = []
         if available_events:
-            # Create signal dropdown options from currently selected channels
-            # Use shorter display labels for the dropdown
+            # Create signal dropdown options from ALL available channel groups
+            # so that newly added channels are always selectable for events
             signal_options = []
-            for ch in selected_channels:
-                # Create shorter label by removing common prefixes
-                short_label = ch.replace("signal_data_", "").replace(
-                    "derived_data_", ""
-                )
-                signal_options.append({"label": short_label, "value": ch})
+            if available_channels:
+                for option in available_channels:
+                    if isinstance(option, dict) and option.get("kind") == "group":
+                        group_name = option.get("group")
+                        short_label = group_name.replace("signal_data_", "").replace(
+                            "derived_data_", ""
+                        )
+                        signal_options.append(
+                            {"label": short_label, "value": group_name}
+                        )
+            if not signal_options:
+                for ch in selected_channels:
+                    short_label = ch.replace("signal_data_", "").replace(
+                        "derived_data_", ""
+                    )
+                    signal_options.append({"label": short_label, "value": ch})
 
             # Build a lookup for selected events state
             selected_events_lookup = {}
@@ -1789,26 +1818,27 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
 
         return [channels_header] + channel_rows + events_section + [update_button_row]
 
-    @app.callback(
-        Output("graph-channels-toggle", "disabled"),
-        Input("selected-dataset", "data"),
-    )
-    def toggle_manage_channels_button(selected_dataset):
-        """Enable/disable the Manage Channels button based on dataset selection."""
-        # Enable button when a dataset is selected, disable when None
-        return selected_dataset is None
+    # NOTE: toggle_manage_channels_button moved to clientside callback for zero round-trips
+    # See clientside_callbacks.py - eliminates server round-trip on dataset selection
+    # @app.callback(
+    #     Output("graph-channels-toggle", "disabled"),
+    #     Input("selected-dataset", "data"),
+    # )
+    # def toggle_manage_channels_button(selected_dataset):
+    #     return selected_dataset is None
 
-    @app.callback(
-        Output("graph-channels", "is_open", allow_duplicate=True),
-        Input("graph-channels-toggle", "n_clicks"),
-        State("graph-channels", "is_open"),
-        prevent_initial_call=True,
-    )
-    def toggle_manage_channels_popover(n_clicks, is_open):
-        """Toggle the Manage Channels popover open/closed when button is clicked."""
-        if n_clicks:
-            return not is_open
-        return is_open
+    # NOTE: toggle_manage_channels_popover moved to clientside callback for zero round-trips
+    # See clientside_callbacks.py - eliminates server round-trip on popover toggle
+    # @app.callback(
+    #     Output("graph-channels", "is_open", allow_duplicate=True),
+    #     Input("graph-channels-toggle", "n_clicks"),
+    #     State("graph-channels", "is_open"),
+    #     prevent_initial_call=True,
+    # )
+    # def toggle_manage_channels_popover(n_clicks, is_open):
+    #     if n_clicks:
+    #         return not is_open
+    #     return is_open
 
     @app.callback(
         Output("loading-overlay", "style"),
@@ -1850,28 +1880,20 @@ def register_selection_callbacks(app, duck_pond, immich_service, use_cache=False
         }
         return style, True
 
-    @app.callback(
-        Output("loading-overlay", "style", allow_duplicate=True),
-        Input("is-loading-data", "data"),
-        prevent_initial_call=True,
-    )
-    def hide_loading_overlay(is_loading):
-        """Hide loading overlay when data loading is complete."""
-        if is_loading:
-            return no_update
-
-        # Hide the overlay
-        style = {
-            "position": "fixed",
-            "top": "0",
-            "left": "0",
-            "width": "100%",
-            "height": "100%",
-            "backgroundColor": "rgba(0, 0, 0, 0.7)",
-            "zIndex": "10000",
-            "display": "none",
-        }
-        return style
+    # NOTE: hide_loading_overlay moved to clientside callback for zero round-trips
+    # See clientside_callbacks.py - eliminates server round-trip when loading completes
+    # show_loading_overlay stays server-side (uses pattern-matching ALL inputs)
+    # @app.callback(
+    #     Output("loading-overlay", "style", allow_duplicate=True),
+    #     Input("is-loading-data", "data"),
+    #     prevent_initial_call=True,
+    # )
+    # def hide_loading_overlay(is_loading):
+    #     if is_loading:
+    #         return no_update
+    #     return {"position": "fixed", "top": "0", "left": "0", "width": "100%",
+    #             "height": "100%", "backgroundColor": "rgba(0, 0, 0, 0.7)",
+    #             "zIndex": "10000", "display": "none"}
 
     # Handle zoom/pan events with plotly-resampler
     @app.callback(

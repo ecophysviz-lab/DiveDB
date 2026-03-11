@@ -62,6 +62,7 @@ app = DashProxy(
         "/assets/styles.css",  # Custom SASS-compiled CSS
     ],
     transforms=[ServersideOutputTransform()],
+    update_title=None,
 )
 
 # Initialize services (will be passed to callbacks)
@@ -106,7 +107,6 @@ def create_app_stores(dff):
         ),  # All datasets with deployments
         dcc.Store(id="selected-timezone", data=0),
         dcc.Store(id="is-loading-data", data=False),  # Track data loading state
-        dcc.Store(id="channel-order", data=[]),  # Track channel order
         # Stores for channel management
         dcc.Store(id="available-channels", data=[]),  # Channel options from DuckPond
         dcc.Store(id="selected-channels", data=[]),  # User-selected channels to display
@@ -229,7 +229,7 @@ app.layout = create_layout(
 # Register all callbacks
 logger = get_logger(__name__)
 logger.info("Starting callback registration...")
-register_callbacks(app, initial_dff, video_options=[], channel_options=None)
+register_callbacks(app, video_options=[], channel_options=None)
 logger.debug("Standard callbacks registered")
 # Register selection callbacks BEFORE clientside to establish primary outputs
 register_selection_callbacks(app, duck_pond, immich_service, use_cache=USE_CACHE)

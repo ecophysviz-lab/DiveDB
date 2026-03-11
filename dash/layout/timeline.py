@@ -522,7 +522,10 @@ def create_footer_empty():
                                                                 [
                                                                     dbc.Button(
                                                                         [
-                                                                            "1×",
+                                                                            html.Span(
+                                                                                "1×",
+                                                                                id="playback-rate-text",
+                                                                            ),
                                                                             html.Img(
                                                                                 src="/assets/images/speed.svg",
                                                                             ),
@@ -796,7 +799,10 @@ def create_footer(dff, video_options=None, events_df=None):
                                                                 [
                                                                     dbc.Button(
                                                                         [
-                                                                            "1×",
+                                                                            html.Span(
+                                                                                "1×",
+                                                                                id="playback-rate-text",
+                                                                            ),
                                                                             html.Img(
                                                                                 src="/assets/images/speed.svg",
                                                                             ),

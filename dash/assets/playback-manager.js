@@ -103,7 +103,10 @@
             // Convert to seconds and apply playback rate
             const deltaSeconds = (deltaMs / 1000) * this.playbackRate;
             
-            // Advance playhead
+            // Advance playhead linearly — no snap-to-timestamp here.
+            // Playback timestamps may be downsampled for payload size, so snapping
+            // would freeze the playhead between sparse samples. Downstream consumers
+            // (slider, video, 3D model) handle their own nearest-timestamp lookups.
             let newTime = this.currentTime + deltaSeconds;
 
             // Handle bounds - loop back to start if past end
@@ -113,18 +116,7 @@
                 newTime = this.minTime;
             }
 
-            // Find nearest timestamp using binary search
-            if (this.timestamps.length > 0) {
-                newTime = this.findNearestTimestamp(newTime);
-            }
-
-            // Only update if time actually changed
-            if (newTime !== this.currentTime) {
-                this.currentTime = newTime;
-                // NOTE: We no longer call updatePlayheadStore() directly.
-                // Instead, dcc.Interval polls this.currentTime every 100ms
-                // and a clientside callback updates the Dash store.
-            }
+            this.currentTime = newTime;
 
             // Schedule next tick
             this.animationId = requestAnimationFrame(() => this.tick());

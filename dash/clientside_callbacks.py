@@ -683,52 +683,50 @@ def register_clientside_callbacks(app):
 
     # 3D Model time update (clientside for performance)
     # This eliminates a server round-trip on every playhead tick
-    # Uses binary search for O(log n) nearest timestamp lookup
+    # Throttled: only updates when playhead moves >= 0.5s to avoid expensive
+    # Three.js re-renders on every 100ms interval tick during playback.
     app.clientside_callback(
         """
         function(playhead_time, timestamps) {
-            // Prevent update if no valid data
             if (!playhead_time || !timestamps || timestamps.length === 0) {
                 return window.dash_clientside.no_update;
             }
-            
-            // Binary search for nearest timestamp - O(log n)
-            const target = playhead_time;
-            const ts = timestamps;
-            const n = ts.length;
-            
-            // Handle edge cases
+
+            // Throttle: skip update if time changed less than 0.25s since last render
+            var lastT = window._divedb_lastModelTime;
+            if (lastT !== undefined && Math.abs(playhead_time - lastT) < 0.25) {
+                return window.dash_clientside.no_update;
+            }
+
+            var target = playhead_time;
+            var ts = timestamps;
+            var n = ts.length;
+
             if (target <= ts[0]) {
+                window._divedb_lastModelTime = ts[0];
                 return ts[0] * 1000;
             }
             if (target >= ts[n - 1]) {
+                window._divedb_lastModelTime = ts[n - 1];
                 return ts[n - 1] * 1000;
             }
-            
-            // Binary search for insertion point
-            let lo = 0, hi = n - 1;
+
+            var lo = 0, hi = n - 1;
             while (lo < hi) {
-                const mid = Math.floor((lo + hi) / 2);
-                if (ts[mid] < target) {
-                    lo = mid + 1;
-                } else {
-                    hi = mid;
-                }
+                var mid = Math.floor((lo + hi) / 2);
+                if (ts[mid] < target) lo = mid + 1;
+                else hi = mid;
             }
-            
-            // Check which neighbor is closer
-            let nearest;
-            if (lo === 0) {
-                nearest = ts[0];
-            } else if (lo === n) {
-                nearest = ts[n - 1];
-            } else {
-                const before = ts[lo - 1];
-                const after = ts[lo];
+
+            var nearest;
+            if (lo === 0) nearest = ts[0];
+            else {
+                var before = ts[lo - 1];
+                var after = ts[lo];
                 nearest = (target - before) <= (after - target) ? before : after;
             }
-            
-            // Return timestamp in milliseconds for the 3D model component
+
+            window._divedb_lastModelTime = nearest;
             return nearest * 1000;
         }
         """,
@@ -1079,5 +1077,319 @@ def register_clientside_callbacks(app):
         """,
         Output("event-modal", "id"),  # Dummy output
         Input("event-modal", "is_open"),
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
+    # Layout Panel Toggles (moved from server-side for zero round-trips)
+    # =========================================================================
+    # Toggles CSS classes on main-layout to show/hide sidebars and expand panels.
+    app.clientside_callback(
+        """
+        function(rightTopClicks, rightBottomClicks, leftClicks, rightClicks, currentClassName) {
+            const ctx = window.dash_clientside.callback_context;
+            if (!ctx || !ctx.triggered || ctx.triggered.length === 0) {
+                return currentClassName || 'default-layout';
+            }
+
+            const classes = (currentClassName || 'default-layout').split(' ').filter(Boolean);
+            if (!classes.includes('default-layout')) {
+                classes.push('default-layout');
+            }
+
+            const triggeredId = ctx.triggered[0].prop_id.split('.')[0];
+            const targetMap = {
+                'right-top-toggle': 'right-top-expanded',
+                'right-bottom-toggle': 'right-bottom-expanded',
+                'left-toggle': 'left-sidebar-hidden',
+                'right-toggle': 'right-sidebar-hidden'
+            };
+            const target = targetMap[triggeredId];
+            if (target) {
+                const idx = classes.indexOf(target);
+                if (idx >= 0) {
+                    classes.splice(idx, 1);
+                } else {
+                    classes.push(target);
+                }
+            }
+
+            return classes.join(' ');
+        }
+        """,
+        Output("main-layout", "className"),
+        Input("right-top-toggle", "n_clicks"),
+        Input("right-bottom-toggle", "n_clicks"),
+        Input("left-toggle", "n_clicks"),
+        Input("right-toggle", "n_clicks"),
+        State("main-layout", "className"),
+        prevent_initial_call=False,
+    )
+
+    # =========================================================================
+    # Video Time Offset Store (moved from server-side for zero round-trips)
+    # =========================================================================
+    app.clientside_callback(
+        """
+        function(timeOffset) {
+            return timeOffset || 0;
+        }
+        """,
+        Output("video-time-offset", "data"),
+        Input("video-trimmer", "timeOffset"),
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
+    # New Event Type Input Show/Hide (moved from server-side for zero round-trips)
+    # =========================================================================
+    app.clientside_callback(
+        """
+        function(selectedValue) {
+            return selectedValue === '__create_new__'
+                ? {display: 'block'}
+                : {display: 'none'};
+        }
+        """,
+        Output("new-event-type-container", "style", allow_duplicate=True),
+        Input("event-type-select", "value"),
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
+    # Manage Channels Button Enable/Disable (moved from server-side)
+    # =========================================================================
+    app.clientside_callback(
+        """
+        function(selectedDataset) {
+            return selectedDataset === null || selectedDataset === undefined;
+        }
+        """,
+        Output("graph-channels-toggle", "disabled"),
+        Input("selected-dataset", "data"),
+        prevent_initial_call=False,
+    )
+
+    # =========================================================================
+    # Manage Channels Popover Toggle (moved from server-side)
+    # =========================================================================
+    app.clientside_callback(
+        """
+        function(n_clicks, isOpen) {
+            if (!n_clicks) {
+                return window.dash_clientside.no_update;
+            }
+            return !isOpen;
+        }
+        """,
+        Output("graph-channels", "is_open", allow_duplicate=True),
+        Input("graph-channels-toggle", "n_clicks"),
+        State("graph-channels", "is_open"),
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
+    # Hide Loading Overlay (moved from server-side for zero round-trips)
+    # =========================================================================
+    # show_loading_overlay stays server-side (uses pattern-matching ALL inputs).
+    app.clientside_callback(
+        """
+        function(isLoading) {
+            if (isLoading) {
+                return window.dash_clientside.no_update;
+            }
+            return {
+                position: 'fixed',
+                top: '0',
+                left: '0',
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                zIndex: '10000',
+                display: 'none'
+            };
+        }
+        """,
+        Output("loading-overlay", "style", allow_duplicate=True),
+        Input("is-loading-data", "data"),
+        prevent_initial_call=True,
+    )
+
+    # =========================================================================
+    # Playback Rate Display Text (moved from server-side for zero round-trips)
+    # =========================================================================
+    # The html.Img is now static in layout (timeline.py). This callback only
+    # updates the text span, so it no longer needs to create html.Img server-side.
+    app.clientside_callback(
+        """
+        function(playbackRate) {
+            const rate = playbackRate || 1;
+            return rate < 1 ? rate + '\u00d7' : Math.floor(rate) + '\u00d7';
+        }
+        """,
+        Output("playback-rate-text", "children"),
+        Input("playback-rate", "data"),
+        prevent_initial_call=False,
+    )
+
+    # =========================================================================
+    # Video Player Update (moved from server-side for zero round-trips)
+    # =========================================================================
+    # Fires when selected-video changes (auto-selection or manual timeline click).
+    # Uses playback-timestamps[0] for datasetStartTime instead of the server-side
+    # dff closure, which captured an empty DataFrame at startup anyway.
+    app.clientside_callback(
+        """
+        function(selectedVideo, timestamps) {
+            const datasetStartTime = (timestamps && timestamps.length > 0)
+                ? timestamps[0]
+                : null;
+
+            if (!selectedVideo) {
+                return ['', null, datasetStartTime];
+            }
+
+            const videoSrc = selectedVideo.shareUrl || selectedVideo.originalUrl || '';
+            const videoMetadata = {
+                fileCreatedAt: selectedVideo.fileCreatedAt || null,
+                duration: (selectedVideo.metadata && selectedVideo.metadata.duration)
+                    ? selectedVideo.metadata.duration
+                    : null,
+                filename: selectedVideo.filename || null
+            };
+
+            return [videoSrc, videoMetadata, datasetStartTime];
+        }
+        """,
+        Output("video-trimmer", "videoSrc"),
+        Output("video-trimmer", "videoMetadata"),
+        Output("video-trimmer", "datasetStartTime"),
+        Input("selected-video", "data"),
+        State("playback-timestamps", "data"),
+        prevent_initial_call=False,
+    )
+
+    # =========================================================================
+    # Event Modal Open/Close (moved from server-side for zero round-trips)
+    # =========================================================================
+    # Handles B-key press, save-button click, and cancel. All data is available
+    # in client stores: available-events, playhead-time, last-event-type,
+    # selected-deployment. Timestamp formatting uses UTC methods to match the
+    # Python datetime.utcfromtimestamp() behavior.
+    app.clientside_callback(
+        """
+        function(
+            bookmarkTrigger, saveButtonClicks, cancelClicks,
+            playheadTime, lastEventType, availableEvents, selectedDeployment
+        ) {
+            const nu = window.dash_clientside.no_update;
+            const noChange = [nu, nu, nu, nu, nu, nu, nu, nu, nu, nu];
+
+            const ctx = window.dash_clientside.callback_context;
+            if (!ctx || !ctx.triggered || ctx.triggered.length === 0) {
+                return noChange;
+            }
+
+            const triggeredId = ctx.triggered[0].prop_id.split('.')[0];
+
+            // Handle cancel
+            if (triggeredId === 'cancel-event-btn') {
+                return [
+                    false,          // close modal
+                    '',             // clear start time
+                    nu,             // keep options
+                    nu,             // keep selected value
+                    null,           // clear pending time
+                    {display: 'none'},  // hide new event type input
+                    '',             // clear new event type input
+                    '',             // clear end time
+                    '',             // clear short description
+                    ''              // clear long description
+                ];
+            }
+
+            // Handle B-key or save-button
+            const isBookmark = triggeredId === 'bookmark-trigger' && bookmarkTrigger;
+            const isSaveButton = triggeredId === 'save-button' && saveButtonClicks;
+
+            if (!isBookmark && !isSaveButton) {
+                return noChange;
+            }
+
+            // Guard: no deployment selected
+            if (!selectedDeployment) {
+                return noChange;
+            }
+
+            // Build dropdown options from available events
+            const options = [];
+            if (availableEvents) {
+                for (const ev of availableEvents) {
+                    const key = ev.event_key || '';
+                    if (key) {
+                        options.push({label: key, value: key});
+                    }
+                }
+            }
+            options.push({label: '\\u2795 Create new event type...', value: '__create_new__'});
+
+            // Determine pre-selected value
+            let selectedValue = null;
+            if (lastEventType && options.some(o => o.value === lastEventType)) {
+                selectedValue = lastEventType;
+            } else if (options.length > 1) {
+                selectedValue = options[0].value;
+            }
+
+            // Format timestamp as "YYYY-MM-DD HH:MM:SS.mmm" using UTC
+            let formattedTime = 'Unknown';
+            if (playheadTime) {
+                try {
+                    const d = new Date(playheadTime * 1000);
+                    const pad2 = n => String(n).padStart(2, '0');
+                    const ms = String(d.getUTCMilliseconds()).padStart(3, '0');
+                    formattedTime = d.getUTCFullYear() + '-'
+                        + pad2(d.getUTCMonth() + 1) + '-'
+                        + pad2(d.getUTCDate()) + ' '
+                        + pad2(d.getUTCHours()) + ':'
+                        + pad2(d.getUTCMinutes()) + ':'
+                        + pad2(d.getUTCSeconds()) + '.'
+                        + ms;
+                } catch(e) {
+                    formattedTime = String(playheadTime);
+                }
+            }
+
+            return [
+                true,               // open modal
+                formattedTime,      // start time display
+                options,            // dropdown options
+                selectedValue,      // pre-selected value
+                playheadTime,       // store pending time
+                {display: 'none'},  // hide new event type input initially
+                '',                 // clear new event type input
+                '',                 // clear end time
+                '',                 // clear short description
+                ''                  // clear long description
+            ];
+        }
+        """,
+        Output("event-modal", "is_open"),
+        Output("event-start-time", "value"),
+        Output("event-type-select", "options"),
+        Output("event-type-select", "value"),
+        Output("pending-event-time", "data"),
+        Output("new-event-type-container", "style"),
+        Output("new-event-type-input", "value"),
+        Output("event-end-time", "value"),
+        Output("event-short-description", "value"),
+        Output("event-long-description", "value"),
+        Input("bookmark-trigger", "value"),
+        Input("save-button", "n_clicks"),
+        Input("cancel-event-btn", "n_clicks"),
+        State("playhead-time", "data"),
+        State("last-event-type", "data"),
+        State("available-events", "data"),
+        State("selected-deployment", "data"),
         prevent_initial_call=True,
     )

@@ -340,7 +340,7 @@ def plot_tag_data_interactive(
                     dict(step="all", label="All"),
                 ]
             ),
-            rangeslider=dict(visible=True, thickness=0.15),
+            rangeslider=dict(visible=False),
             type="date",
         ),
         height=600 + 50 * (len(signals_sorted) + extra_rows),

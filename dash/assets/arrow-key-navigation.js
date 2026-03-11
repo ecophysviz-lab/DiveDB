@@ -50,27 +50,6 @@
         updateArrowKeyInput(direction);
     }
 
-    function findNearestTimestamp(timestamps, target) {
-        if (!Array.isArray(timestamps) || timestamps.length === 0) {
-            return target;
-        }
-        if (target <= timestamps[0]) return timestamps[0];
-        if (target >= timestamps[timestamps.length - 1]) return timestamps[timestamps.length - 1];
-
-        let lo = 0;
-        let hi = timestamps.length - 1;
-        while (lo < hi) {
-            const mid = Math.floor((lo + hi) / 2);
-            if (timestamps[mid] < target) lo = mid + 1;
-            else hi = mid;
-        }
-
-        if (lo === 0) return timestamps[0];
-        const before = timestamps[lo - 1];
-        const after = timestamps[lo];
-        return (target - before) <= (after - target) ? before : after;
-    }
-
     function getCurrentTimeAndBounds() {
         const mgr = window.DiveDBPlayback;
         const slider = document.getElementById('playhead-slider');
@@ -126,11 +105,6 @@
         let newTime = currentTime + (direction * STEP);
         if (Number.isFinite(minTime) && Number.isFinite(maxTime)) {
             newTime = Math.max(minTime, Math.min(maxTime, newTime));
-        }
-
-        // Keep arrow key behavior aligned with skip buttons: snap to nearest timestamp.
-        if (mgr && Array.isArray(mgr.timestamps) && mgr.timestamps.length > 0) {
-            newTime = findNearestTimestamp(mgr.timestamps, newTime);
         }
 
         // Sync manager immediately so rapid key repeat computes from latest time.

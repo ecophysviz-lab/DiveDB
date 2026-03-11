@@ -158,62 +158,24 @@ def find_best_overlapping_video(video_options, playhead_time, time_offset=0):
     return overlapping_videos[0][0]  # Return the video (not the tuple)
 
 
-def register_callbacks(app, dff, video_options=None, channel_options=None):
+def register_callbacks(app, video_options=None, channel_options=None):
     """Register all server-side callbacks with the given app instance."""
 
-    @app.callback(
-        Output("main-layout", "className"),
-        Input("right-top-toggle", "n_clicks"),
-        Input("right-bottom-toggle", "n_clicks"),
-        Input("left-toggle", "n_clicks"),
-        Input("right-toggle", "n_clicks"),
-        State("main-layout", "className"),
-    )
-    def toggle_layout_panels(
-        right_top_clicks,
-        right_bottom_clicks,
-        left_clicks,
-        right_clicks,
-        current_className,
-    ):
-        """Toggle various layout panels (sidebars, expanded views)."""
-        if not callback_context.triggered:
-            return current_className or "default-layout"
-
-        changed_id = [p["prop_id"] for p in callback_context.triggered][0]
-
-        # Parse current class states
-        current_classes = (
-            (current_className or "default-layout").split()
-            if current_className
-            else ["default-layout"]
-        )
-
-        # Ensure base class is always present
-        if "default-layout" not in current_classes:
-            current_classes.append("default-layout")
-
-        # Determine which layout to toggle
-        target_layout = None
-        if "right-top-toggle" in changed_id:
-            target_layout = "right-top-expanded"
-        elif "right-bottom-toggle" in changed_id:
-            target_layout = "right-bottom-expanded"
-        elif "left-toggle" in changed_id:
-            target_layout = "left-sidebar-hidden"
-        elif "right-toggle" in changed_id:
-            target_layout = "right-sidebar-hidden"
-
-        # Toggle the specific layout class independently
-        if target_layout:
-            if target_layout in current_classes:
-                # Remove the class (toggle off)
-                current_classes.remove(target_layout)
-            else:
-                # Add the class (toggle on)
-                current_classes.append(target_layout)
-
-        return " ".join(current_classes)
+    # NOTE: toggle_layout_panels moved to clientside callback for zero round-trips
+    # See clientside_callbacks.py - eliminates server round-trip on every sidebar toggle
+    # @app.callback(
+    #     Output("main-layout", "className"),
+    #     Input("right-top-toggle", "n_clicks"),
+    #     Input("right-bottom-toggle", "n_clicks"),
+    #     Input("left-toggle", "n_clicks"),
+    #     Input("right-toggle", "n_clicks"),
+    #     State("main-layout", "className"),
+    # )
+    # def toggle_layout_panels(
+    #     right_top_clicks, right_bottom_clicks, left_clicks, right_clicks, current_className
+    # ):
+    #     """Toggle various layout panels (sidebars, expanded views)."""
+    #     ...
 
     # NOTE: update_video_preview moved to clientside callback for performance
     # See clientside_callbacks.py - eliminates server round-trip on every playhead tick
@@ -282,26 +244,17 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
 
     # NOTE: Playback rate cycling, skip navigation, and tooltips have been moved to
     # clientside callbacks for zero server round-trips. See clientside_callbacks.py.
-    # Only the display button content remains server-side (requires html.Img component).
 
-    # Update playback rate display button when rate changes
-    # This remains server-side because it needs to create html.Img components
-    # The tooltip is handled by a separate clientside callback
-    @app.callback(
-        Output("playback-rate-display", "children"),
-        Input("playback-rate", "data"),
-    )
-    def update_playback_rate_display(playback_rate):
-        """Update the playback rate display button text."""
-        from dash import html
-
-        rate = playback_rate or 1
-        # Format rate display: show decimal for fractional rates, integer for whole numbers
-        rate_str = f"{rate}×" if rate < 1 else f"{int(rate)}×"
-        return [
-            rate_str,
-            html.Img(src="/assets/images/speed.svg"),
-        ]
+    # NOTE: update_playback_rate_display moved to clientside callback for zero round-trips
+    # See clientside_callbacks.py - now targets playback-rate-text.children (static img in layout)
+    # @app.callback(
+    #     Output("playback-rate-display", "children"),
+    #     Input("playback-rate", "data"),
+    # )
+    # def update_playback_rate_display(playback_rate):
+    #     rate = playback_rate or 1
+    #     rate_str = f"{rate}×" if rate < 1 else f"{int(rate)}×"
+    #     return [rate_str, html.Img(src="/assets/images/speed.svg")]
 
     # NOTE: The playhead update is now handled by a clientside callback that reads
     # from the JavaScript playback manager (window.DiveDBPlayback). This is registered
@@ -539,41 +492,36 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
             "btn btn-primary btn-round btn-pause btn-lg",
         )
 
-    @app.callback(
-        Output("video-trimmer", "videoSrc"),
-        Output("video-trimmer", "videoMetadata"),
-        Output("video-trimmer", "datasetStartTime"),
-        Input("selected-video", "data"),
-    )
-    def update_video_player(selected_video):
-        """Update VideoPreview component with selected video and metadata."""
-        # Always provide dataset start time for temporal alignment
-        dataset_start_time = dff["timestamp"].min()
+    # NOTE: update_video_player moved to clientside callback for zero round-trips
+    # See clientside_callbacks.py - uses playback-timestamps[0] for datasetStartTime
+    # (the dff closure captured initial_dff which was empty at startup anyway)
+    # @app.callback(
+    #     Output("video-trimmer", "videoSrc"),
+    #     Output("video-trimmer", "videoMetadata"),
+    #     Output("video-trimmer", "datasetStartTime"),
+    #     Input("selected-video", "data"),
+    # )
+    # def update_video_player(selected_video):
+    #     dataset_start_time = dff["timestamp"].min()
+    #     if selected_video:
+    #         video_url = selected_video.get("shareUrl") or selected_video.get("originalUrl")
+    #         video_metadata = {
+    #             "fileCreatedAt": selected_video.get("fileCreatedAt"),
+    #             "duration": selected_video.get("metadata", {}).get("duration"),
+    #             "filename": selected_video.get("filename"),
+    #         }
+    #         return video_url, video_metadata, dataset_start_time
+    #     return "", None, dataset_start_time
 
-        if selected_video:
-            video_url = selected_video.get("shareUrl") or selected_video.get(
-                "originalUrl"
-            )
-
-            # Extract relevant metadata for temporal alignment
-            video_metadata = {
-                "fileCreatedAt": selected_video.get("fileCreatedAt"),
-                "duration": selected_video.get("metadata", {}).get("duration"),
-                "filename": selected_video.get("filename"),
-            }
-
-            return video_url, video_metadata, dataset_start_time
-
-        return "", None, dataset_start_time
-
-    @app.callback(
-        Output("video-time-offset", "data"),
-        Input("video-trimmer", "timeOffset"),
-        prevent_initial_call=True,
-    )
-    def update_video_offset_store(time_offset):
-        """Update the video time offset store when component changes."""
-        return time_offset or 0
+    # NOTE: update_video_offset_store moved to clientside callback for zero round-trips
+    # See clientside_callbacks.py - eliminates server round-trip on video offset adjust
+    # @app.callback(
+    #     Output("video-time-offset", "data"),
+    #     Input("video-trimmer", "timeOffset"),
+    #     prevent_initial_call=True,
+    # )
+    # def update_video_offset_store(time_offset):
+    #     return time_offset or 0
 
     @app.callback(
         Output("graph-channel-list", "children"),
@@ -924,228 +872,43 @@ def register_callbacks(app, dff, video_options=None, channel_options=None):
     # Event Modal Callbacks (B-key bookmark feature)
     # =========================================================================
 
-    @app.callback(
-        Output("event-modal", "is_open"),
-        Output("event-start-time", "value"),
-        Output("event-type-select", "options"),
-        Output("event-type-select", "value"),
-        Output("pending-event-time", "data"),
-        Output("new-event-type-container", "style"),
-        Output("new-event-type-input", "value"),
-        Output("event-end-time", "value"),
-        Output("event-short-description", "value"),
-        Output("event-long-description", "value"),
-        Input("bookmark-trigger", "value"),
-        Input("save-button", "n_clicks"),  # Bookmark button in timeline
-        Input("cancel-event-btn", "n_clicks"),
-        State("playhead-time", "data"),
-        State("last-event-type", "data"),
-        State("available-events", "data"),
-        State("selected-deployment", "data"),
-        State("event-modal", "is_open"),
-        prevent_initial_call=True,
-    )
-    def handle_event_modal_open(
-        bookmark_trigger,
-        save_button_clicks,
-        cancel_clicks,
-        playhead_time,
-        last_event_type,
-        available_events,
-        selected_deployment,
-        is_open,
-    ):
-        """Handle opening/closing the event modal on B key press, save button click, or cancel."""
-        ctx = callback_context
-        if not ctx.triggered:
-            return (
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-            )
+    # NOTE: handle_event_modal_open moved to clientside callback for zero round-trips
+    # See clientside_callbacks.py - all data available in stores; JS UTC timestamp formatting
+    # matches Python datetime.utcfromtimestamp() behavior exactly.
+    # @app.callback(
+    #     Output("event-modal", "is_open"),
+    #     Output("event-start-time", "value"),
+    #     Output("event-type-select", "options"),
+    #     Output("event-type-select", "value"),
+    #     Output("pending-event-time", "data"),
+    #     Output("new-event-type-container", "style"),
+    #     Output("new-event-type-input", "value"),
+    #     Output("event-end-time", "value"),
+    #     Output("event-short-description", "value"),
+    #     Output("event-long-description", "value"),
+    #     Input("bookmark-trigger", "value"),
+    #     Input("save-button", "n_clicks"),
+    #     Input("cancel-event-btn", "n_clicks"),
+    #     State("playhead-time", "data"),
+    #     State("last-event-type", "data"),
+    #     State("available-events", "data"),
+    #     State("selected-deployment", "data"),
+    #     State("event-modal", "is_open"),
+    #     prevent_initial_call=True,
+    # )
+    # def handle_event_modal_open(...): ...
 
-        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    # NOTE: toggle_new_event_type_input moved to clientside callback for zero round-trips
+    # See clientside_callbacks.py - eliminates server round-trip on event type dropdown change
+    # @app.callback(
+    #     Output("new-event-type-container", "style", allow_duplicate=True),
+    #     Input("event-type-select", "value"),
+    #     prevent_initial_call=True,
+    # )
+    # def toggle_new_event_type_input(selected_value):
+    #     if selected_value == "__create_new__":
+    #         return {"display": "block"}
+    #     return {"display": "none"}
 
-        # Handle cancel button
-        if triggered_id == "cancel-event-btn":
-            return (
-                False,  # Close modal
-                "",  # Clear start time
-                dash.no_update,  # Keep options
-                dash.no_update,  # Keep selected value
-                None,  # Clear pending time
-                {"display": "none"},  # Hide new event type input
-                "",  # Clear new event type input
-                "",  # Clear end time
-                "",  # Clear short description
-                "",  # Clear long description
-            )
-
-        # Handle B key press (bookmark-trigger) or save button click
-        if (triggered_id == "bookmark-trigger" and bookmark_trigger) or (
-            triggered_id == "save-button" and save_button_clicks
-        ):
-            # Don't open if no deployment selected
-            if not selected_deployment:
-                logger.warning("Cannot create event: no deployment selected")
-                return (
-                    dash.no_update,
-                    dash.no_update,
-                    dash.no_update,
-                    dash.no_update,
-                    dash.no_update,
-                    dash.no_update,
-                    dash.no_update,
-                    dash.no_update,
-                    dash.no_update,
-                    dash.no_update,
-                )
-
-            # Build dropdown options from available events
-            options = []
-            if available_events:
-                for event in available_events:
-                    event_key = event.get("event_key", "")
-                    if event_key:
-                        options.append({"label": event_key, "value": event_key})
-
-            # Add "Create new..." option at the end
-            options.append(
-                {"label": "➕ Create new event type...", "value": "__create_new__"}
-            )
-
-            # Determine which value to pre-select
-            selected_value = None
-            if last_event_type and any(
-                opt["value"] == last_event_type for opt in options
-            ):
-                selected_value = last_event_type
-            elif options and len(options) > 1:
-                # Select first actual event type (not "Create new")
-                selected_value = options[0]["value"]
-
-            # Format the start time for display
-            # Use utcfromtimestamp because the timestamp was created from a datetime
-            # that already had the timezone offset applied (for display purposes).
-            # Using fromtimestamp would incorrectly apply the server's local timezone.
-            if playhead_time:
-                try:
-                    dt = datetime.utcfromtimestamp(playhead_time)
-                    formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                except Exception:
-                    formatted_time = str(playhead_time)
-            else:
-                formatted_time = "Unknown"
-
-            return (
-                True,  # Open modal
-                formatted_time,  # Start time display
-                options,  # Dropdown options
-                selected_value,  # Pre-selected value
-                playhead_time,  # Store pending time
-                {"display": "none"},  # Hide new event type input initially
-                "",  # Clear new event type input
-                "",  # Clear end time
-                "",  # Clear short description
-                "",  # Clear long description
-            )
-
-        return (
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-        )
-
-    @app.callback(
-        Output("new-event-type-container", "style", allow_duplicate=True),
-        Input("event-type-select", "value"),
-        prevent_initial_call=True,
-    )
-    def toggle_new_event_type_input(selected_value):
-        """Show/hide the new event type input based on dropdown selection."""
-        if selected_value == "__create_new__":
-            return {"display": "block"}
-        return {"display": "none"}
-
-    @app.callback(
-        Output("channel-order", "data"),
-        Input("graph-channel-list", "children"),
-        prevent_initial_call=True,
-    )
-    def update_channel_order(children):
-        """Update the channel order store when the channel list changes."""
-        if not children:
-            return []
-
-        def get_props(obj):
-            """Get props from either a dict or a Dash component."""
-            if isinstance(obj, dict):
-                return obj.get("props", {})
-            elif hasattr(obj, "props"):
-                return obj.props
-            return {}
-
-        order = []
-        for i, child in enumerate(children):
-            try:
-                props = get_props(child)
-                row_children = props.get("children")
-                if row_children is None:
-                    continue
-
-                row_props = get_props(row_children)
-                cols = row_props.get("children", [])
-                if not isinstance(cols, list):
-                    cols = [cols]
-
-                for col in cols:
-                    col_props = get_props(col)
-                    col_children = col_props.get("children")
-                    if col_children is None:
-                        continue
-
-                    element_props = get_props(col_children)
-                    element_id = element_props.get("id")
-
-                    # Handle dict pattern-matching IDs
-                    if (
-                        isinstance(element_id, dict)
-                        and element_id.get("type") == "channel-select"
-                    ):
-                        order.append(
-                            {
-                                "id": element_id.get("index"),
-                                "index": i,
-                                "value": element_props.get("value", ""),
-                            }
-                        )
-                        break
-                    # Legacy: handle string IDs (fallback)
-                    elif isinstance(element_id, str) and "-select" in element_id:
-                        channel_id = element_id.replace("-select", "")
-                        order.append(
-                            {
-                                "id": channel_id,
-                                "index": i,
-                                "value": element_props.get("value", ""),
-                            }
-                        )
-                        break
-            except (TypeError, AttributeError, KeyError):
-                continue
-
-        return order
+    # (update_channel_order removed - dead code replaced by channel-order-from-dom
+    #  clientside callback which reads DOM order directly when Update Graph is clicked)

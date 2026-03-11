@@ -95,22 +95,18 @@ Key files: `assets/playback-manager.js`, `clientside_callbacks.py`
 **Purpose**: Server-side callbacks for video player, channel management, and components requiring React elements
 
 **Key Functions**:
-- `register_callbacks(app, dff, video_options, channel_options)` - Registers all standard callbacks
+- `register_callbacks(app, video_options, channel_options)` - Registers all standard callbacks
 - `parse_video_duration(duration_str)` → float - Parses HH:MM:SS.mmm to seconds
 - `parse_video_created_time(created_at_str)` → float - ISO timestamp to Unix timestamp
 - `find_nearest_timestamp(timestamps, target)` → float - Binary search for nearest timestamp
 
 **Key Callbacks**:
-- `update_playback_rate_display()`: `playback-rate.data` → `playback-rate-display.children` (requires `html.Img`, so stays server-side)
 - `video_manual_selection()`: `video-indicator.n_clicks` + `video-pin-dot.n_clicks` → `selected-video.data`, `manual-video-override.data` (manual timeline video clicks)
 - `jump_to_video_on_click()`: `video-indicator.n_clicks` + `video-pin-dot.n_clicks` → `playhead-time.data`, `is-playing.data`, `play-button` UI
-- `update_video_player()`: `selected-video.data` → `video-trimmer.videoSrc`, `video-trimmer.videoMetadata`, `video-trimmer.datasetStartTime`
 - `add_new_channel()`: `add-graph-btn.n_clicks` → `graph-channel-list.children`
 - `remove_channel()`: `channel-remove.n_clicks` → `graph-channel-list.children`
-- `handle_event_modal_open()`: `bookmark-trigger.value` + `cancel-event-btn.n_clicks` → `event-modal.is_open`, `event-start-time.value`, `event-type-select.options/value`, `pending-event-time.data`
-- `toggle_new_event_type_input()`: `event-type-select.value` → `new-event-type-container.style` (show/hide new event type input)
 
-**NOTE**: Playback controls (play/pause, rate cycling, skip navigation, all tooltips) are clientside callbacks for zero round-trips (see `clientside_callbacks.py`)
+**NOTE**: Playback controls, rate display, video player, event modal open/close, sidebar toggles, loading overlay hide, and channel popover are all clientside callbacks (see `clientside_callbacks.py`)
 
 **Channel Management**:
 - Channels stored as pattern-matching IDs: `{"type": "channel-select", "index": N}`
@@ -147,7 +143,7 @@ Key files: `assets/playback-manager.js`, `clientside_callbacks.py`
   - `available-events.data`, `selected-events.data` (event types with colors)
 - `update_graph_from_channels()`: `channel-order-from-dom.data` (triggered by clientside) + event selections → `graph-content.figure`, `figure-store.data`, `playback-timestamps.data`, `graph-channels.is_open`
 - `populate_channel_list_from_selection()`: `selected-channels.data` + `available-events.data` → `graph-channel-list.children` (includes Events section)
-- `show_loading_overlay()`: `deployment-button.n_clicks` → `loading-overlay.style`, `is-loading-data.data`
+- `show_loading_overlay()`: `deployment-button.n_clicks` → `loading-overlay.style`, `is-loading-data.data` (hide is clientside)
 - `update_graph_on_zoom()`: `graph-content.relayoutData` + `figure-store.data` → `graph-content.figure` (plotly-resampler dynamic resampling)
 - `reset_zoom_to_original()`: `reset-zoom-button.n_clicks` + `original-bounds.data` → `timeline-bounds.data`, `graph-content.figure` (resets zoom to original dataset bounds)
 - `save_event()`: `save-event-btn.n_clicks` → `event-modal.is_open`, `last-event-type.data`, `available-events.data` (writes event to Iceberg via `duck_pond.write_event()`)
@@ -194,6 +190,15 @@ Key files: `assets/playback-manager.js`, `clientside_callbacks.py`
 - Arrow key navigation: `arrow-key-input.value` → `playhead-time.data` (fixed ±0.1s steps)
 - Reset zoom button: `timeline-bounds.data` + `original-bounds.data` → `reset-zoom-button.disabled`
 - Indicator zoom sync: `timeline-bounds.data` → Updates CSS variables for indicator positioning
+- Layout panel toggles: sidebar/panel toggle clicks → `main-layout.className` (CSS class toggling)
+- Rate display text: `playback-rate.data` → `playback-rate-text.children` (img is static in layout)
+- Video player update: `selected-video.data` + `playback-timestamps.data` → `video-trimmer.videoSrc`, `videoMetadata`, `datasetStartTime`
+- Video offset store: `video-trimmer.timeOffset` → `video-time-offset.data`
+- Event modal open/close: `bookmark-trigger` + `save-button` + `cancel-event-btn` → modal state + all field resets (10 outputs)
+- New event type show/hide: `event-type-select.value` → `new-event-type-container.style`
+- Manage channels button: `selected-dataset.data` → `graph-channels-toggle.disabled`
+- Manage channels popover: `graph-channels-toggle.n_clicks` → `graph-channels.is_open`
+- Hide loading overlay: `is-loading-data.data` → `loading-overlay.style` (show stays server-side)
 
 **Note**: Uses `allow_duplicate=True` for stores written by multiple callbacks
 
@@ -491,7 +496,6 @@ Key files: `assets/playback-manager.js`, `clientside_callbacks.py`
 | `current-video-options` | List[dict] | Available videos for current deployment | `[{...}, ...]` |
 | `available-channels` | List[dict] | Channel metadata from DuckPond | `[{"kind": "group", "group": "depth", ...}, ...]` |
 | `selected-channels` | List[str] | User-selected channel groups | `["depth", "prh", "temperature"]` |
-| `channel-order` | List[dict] | Channel display order (from children) | `[{"id": 1, "index": 0, "value": "depth"}, ...]` |
 | `channel-order-from-dom` | List[str] | Channel values in DOM order (for drag-drop) | `["depth", "prh", "temperature"]` |
 | `is-loading-data` | bool | Data loading state | `False` |
 | `selected-timezone` | float | Timezone offset in hours | `-10.0` |

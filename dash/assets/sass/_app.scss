@@ -558,10 +558,12 @@ body {
         z-index: 10;
         position: relative;
         margin: 10px 0;
-        // overflow:visible lets pin dots render above the thin track.
-        // Horizontal clipping for off-screen segments is handled by
-        // clip-path on the segment buttons themselves.
+        // overflow:visible is required so clip-path can be applied.
+        // clip-path clips horizontally at the track edges (hiding pins outside
+        // the timeline range) while the negative top/bottom values allow the
+        // pin dots to extend vertically beyond the 4px track height.
         overflow: visible;
+        clip-path: inset(-8px 0);
 
         .video_available_indicator {
             // Each indicator overlays on the same track (no stacking)

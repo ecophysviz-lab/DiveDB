@@ -77,6 +77,10 @@ class DataUploader:
         values: Union[np.ndarray, List[Any]],
     ) -> pa.Table:
         """Helper function to create a PyArrow table for signal data without writing."""
+        target_ts_type = pa.timestamp("us")
+        if times.type != target_ts_type:
+            times = times.cast(target_ts_type, safe=False)
+
         # Convert numpy array to list if needed
         if isinstance(values, np.ndarray):
             values = values.tolist()
@@ -174,6 +178,12 @@ class DataUploader:
         long_descriptions: Optional[List[str]] = None,
     ) -> None:
         """Helper function to write event data to DuckPond (Iceberg)."""
+        target_ts_type = pa.timestamp("us")
+        if start_times.type != target_ts_type:
+            start_times = start_times.cast(target_ts_type, safe=False)
+        if end_times.type != target_ts_type:
+            end_times = end_times.cast(target_ts_type, safe=False)
+
         if short_descriptions is None:
             short_descriptions = [None] * len(event_keys)
         if long_descriptions is None:
