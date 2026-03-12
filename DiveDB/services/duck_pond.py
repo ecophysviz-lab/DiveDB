@@ -10,6 +10,7 @@ import pandas as pd
 import pyarrow as pa
 from pyiceberg.partitioning import PartitionSpec, PartitionField
 from pyiceberg.transforms import IdentityTransform
+from pyiceberg.expressions import EqualTo
 
 from DiveDB.services.notion_orm import NotionORMManager
 from DiveDB.services.dive_data import DiveData
@@ -519,6 +520,38 @@ class DuckPond:
         except Exception as e:
             logging.error(f"Failed to write to {table_name}: {e}")
             raise
+
+    def delete_deployment_data(
+        self,
+        dataset: str,
+        animal: str,
+        deployment: str,
+    ) -> None:
+        """Delete all existing data and events for a deployment before re-upload.
+
+        Uses partition-aligned filters so Iceberg drops whole partition files
+        rather than scanning rows, keeping the operation fast.
+        """
+        self.dataset_manager.ensure_dataset_initialized(dataset)
+
+        filter_expr = EqualTo("deployment", deployment)
+
+        for lake_name in ("data", "events"):
+            table_name = f"{dataset}.{lake_name}"
+            try:
+                table = self.catalog.load_table(table_name)
+                if not table.snapshots():
+                    continue
+                table.delete(delete_filter=filter_expr)
+                logging.info(
+                    f"Deleted existing {lake_name} for "
+                    f"animal={animal}, deployment={deployment} in {table_name}"
+                )
+            except Exception as e:
+                logging.warning(
+                    f"Could not delete from {table_name} "
+                    f"(may be empty or first upload): {e}"
+                )
 
     def write_event(
         self,

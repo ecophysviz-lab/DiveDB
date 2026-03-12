@@ -457,6 +457,15 @@ class DataUploader:
             self.validate_netcdf(ds)
         timing["validation"] = time.time() - t0
 
+        # Delete existing data for this deployment to prevent duplicates on re-upload
+        t0 = time.time()
+        self.duck_pond.delete_deployment_data(
+            dataset=dataset,
+            animal=metadata["animal"],
+            deployment=str(metadata["deployment"]),
+        )
+        timing["dedup_delete"] = time.time() - t0
+
         # Apply renaming if rename_map is provided
         t0 = time.time()
         if rename_map:
