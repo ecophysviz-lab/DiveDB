@@ -52,17 +52,19 @@ class DuckDBConnection:
             return
 
         try:
+            endpoint = self.config.s3_endpoint
+            use_ssl = endpoint.startswith("https://")
+            bare_endpoint = endpoint.replace("https://", "").replace("http://", "")
             # Configure DuckDB S3 settings for Ceph compatibility
-            self.conn.execute(
-                f"SET s3_endpoint='{self.config.s3_endpoint.replace('https://', '')}';"
-            )
+            self.conn.execute(f"SET s3_endpoint='{bare_endpoint}';")
+
             self.conn.execute(f"SET s3_access_key_id='{self.config.s3_access_key}';")
             self.conn.execute(
                 f"SET s3_secret_access_key='{self.config.s3_secret_key}';"
             )
             self.conn.execute(f"SET s3_region='{self.config.s3_region}';")
             # Additional settings for Ceph/MinIO compatibility
-            self.conn.execute("SET s3_use_ssl=true;")  # Enable SSL for security
+            self.conn.execute(f"SET s3_use_ssl={'true' if use_ssl else 'false'};")
             self.conn.execute("SET s3_url_style='path';")  # Path-style URLs for Ceph
 
             logging.info(
