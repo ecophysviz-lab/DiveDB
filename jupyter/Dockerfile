@@ -10,7 +10,7 @@ RUN pip3 install jupyter ipykernel
 # Copy the rest of the application
 COPY . /app
 
-COPY jupyter/jupyter_notebook_config.py /root/.jupyter/jupyter_notebook_config.py
+COPY jupyter_notebook_config.py /root/.jupyter/jupyter_notebook_config.py
 
 # Expose the port for Jupyter Notebook
 EXPOSE 8888
