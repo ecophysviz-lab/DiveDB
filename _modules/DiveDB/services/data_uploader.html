@@ -1,0 +1,879 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiveDB.services.data_uploader &mdash; DiveDB 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            DiveDB
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../ai_docs.html">AI Agent Technical Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">DiveDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../terminology.html">Terminology: Organism / Animal Migration</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">DiveDB</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DiveDB.services.data_uploader</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DiveDB.services.data_uploader</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Data Uploader</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">gc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pa</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">DiveDB.services.duck_pond</span><span class="w"> </span><span class="kn">import</span> <span class="n">DuckPond</span>
+
+
+<div class="viewcode-block" id="NetCDFValidationError">
+<a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.data_uploader.NetCDFValidationError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NetCDFValidationError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom exception for NetCDF validation errors.&quot;&quot;&quot;</span>
+
+    <span class="k">pass</span></div>
+
+
+
+<div class="viewcode-block" id="DataUploader">
+<a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.data_uploader.DataUploader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DataUploader</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Data Uploader&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">duck_pond</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DuckPond</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize DataUploader with optional DuckPond instance and Notion configuration.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            duck_pond: DuckPond instance for Iceberg data storage</span>
+<span class="sd">            notion_manager: NotionORMManager instance for database operations</span>
+<span class="sd">            notion_config: Dictionary with &#39;db_map&#39; and &#39;token&#39; keys for Notion ORM (ignored if notion_manager is provided)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">duck_pond</span> <span class="o">=</span> <span class="n">duck_pond</span> <span class="ow">or</span> <span class="n">DuckPond</span><span class="o">.</span><span class="n">from_environment</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_datetime_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time_data_array</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pa</span><span class="o">.</span><span class="n">DataType</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get the datetime type from a PyArrow array.&quot;&quot;&quot;</span>
+        <span class="n">time_dtype</span> <span class="o">=</span> <span class="n">time_data_array</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="k">if</span> <span class="n">time_dtype</span> <span class="o">==</span> <span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;ns&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">time_dtype</span> <span class="o">==</span> <span class="s2">&quot;datetime64[us]&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;us&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported time dtype: </span><span class="si">{</span><span class="n">time_dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Convert ds.attrs to a JSON-serializable dictionary</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_json_serializable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attrs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">serializable_attrs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+                    <span class="n">serializable_attrs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">serializable_attrs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="n">serializable_attrs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="kc">None</span> <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">serializable_attrs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">serializable_attrs</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_data_table</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">times</span><span class="p">:</span> <span class="n">pa</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span>
+        <span class="n">group</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">class_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pa</span><span class="o">.</span><span class="n">Table</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper function to create a PyArrow table for signal data without writing.&quot;&quot;&quot;</span>
+        <span class="n">target_ts_type</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;us&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">times</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">target_ts_type</span><span class="p">:</span>
+            <span class="n">times</span> <span class="o">=</span> <span class="n">times</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">target_ts_type</span><span class="p">,</span> <span class="n">safe</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Convert numpy array to list if needed</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+        <span class="c1"># Transform values using wide format</span>
+        <span class="p">(</span>
+            <span class="n">val_dbl</span><span class="p">,</span>
+            <span class="n">val_int</span><span class="p">,</span>
+            <span class="n">val_bool</span><span class="p">,</span>
+            <span class="n">val_str</span><span class="p">,</span>
+            <span class="n">data_type</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">duck_pond</span><span class="o">.</span><span class="n">_create_wide_values</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+
+        <span class="c1"># Create schema</span>
+        <span class="n">wide_schema</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">schema</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;animal&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;deployment&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;class&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;datetime&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;us&quot;</span><span class="p">),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;val_dbl&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float64</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;val_int&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">int64</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;val_bool&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">bool_</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;val_str&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;data_type&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Create table with dictionary encoding for repeated metadata</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">table</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">dataset</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))</span><span class="o">.</span><span class="n">dictionary_encode</span><span class="p">(),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;animal&quot;</span><span class="p">]]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))</span><span class="o">.</span><span class="n">dictionary_encode</span><span class="p">(),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;deployment&quot;</span><span class="p">])]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">dictionary_encode</span><span class="p">(),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">)]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))</span><span class="o">.</span><span class="n">dictionary_encode</span><span class="p">(),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">group</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))</span><span class="o">.</span><span class="n">dictionary_encode</span><span class="p">(),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">class_name</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))</span><span class="o">.</span><span class="n">dictionary_encode</span><span class="p">(),</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">label</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))</span><span class="o">.</span><span class="n">dictionary_encode</span><span class="p">(),</span>
+                <span class="n">times</span><span class="p">,</span>
+                <span class="n">val_dbl</span><span class="p">,</span>
+                <span class="n">val_int</span><span class="p">,</span>
+                <span class="n">val_bool</span><span class="p">,</span>
+                <span class="n">val_str</span><span class="p">,</span>
+                <span class="n">data_type</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">schema</span><span class="o">=</span><span class="n">wide_schema</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">table</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_write_data_to_duck_pond</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">times</span><span class="p">:</span> <span class="n">pa</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span>
+        <span class="n">group</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">class_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper function to write signal data to DuckPond (Iceberg).&quot;&quot;&quot;</span>
+        <span class="c1"># Convert numpy array to list if needed (DuckPond expects mixed-type lists)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">duck_pond</span><span class="o">.</span><span class="n">write_signal_data</span><span class="p">(</span>
+            <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">times</span><span class="o">=</span><span class="n">times</span><span class="p">,</span>
+            <span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">,</span>
+            <span class="n">class_name</span><span class="o">=</span><span class="n">class_name</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">,</span>
+            <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Clean up memory</span>
+        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_write_events_to_duck_pond</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">start_times</span><span class="p">:</span> <span class="n">pa</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span>
+        <span class="n">end_times</span><span class="p">:</span> <span class="n">pa</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span>
+        <span class="n">group</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">event_keys</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">event_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">short_descriptions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">long_descriptions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper function to write event data to DuckPond (Iceberg).&quot;&quot;&quot;</span>
+        <span class="n">target_ts_type</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;us&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">start_times</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">target_ts_type</span><span class="p">:</span>
+            <span class="n">start_times</span> <span class="o">=</span> <span class="n">start_times</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">target_ts_type</span><span class="p">,</span> <span class="n">safe</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">end_times</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">target_ts_type</span><span class="p">:</span>
+            <span class="n">end_times</span> <span class="o">=</span> <span class="n">end_times</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">target_ts_type</span><span class="p">,</span> <span class="n">safe</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">short_descriptions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">short_descriptions</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">event_keys</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">long_descriptions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">long_descriptions</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">event_keys</span><span class="p">)</span>
+
+        <span class="c1"># Collect all events in a single list</span>
+        <span class="n">events</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">event_keys</span><span class="p">)):</span>
+            <span class="c1"># For point events, end_time equals start_time</span>
+            <span class="c1"># For state events, end_time is different from start_time</span>
+            <span class="n">event</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="n">dataset</span><span class="p">,</span>
+                <span class="s2">&quot;animal&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;animal&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;deployment&quot;</span><span class="p">]),</span>
+                <span class="s2">&quot;recording&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">),</span>  <span class="c1"># Optional field</span>
+                <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="n">group</span><span class="p">,</span>
+                <span class="s2">&quot;event_key&quot;</span><span class="p">:</span> <span class="n">event_keys</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="s2">&quot;datetime_start&quot;</span><span class="p">:</span> <span class="n">start_times</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="s2">&quot;datetime_end&quot;</span><span class="p">:</span> <span class="n">end_times</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="s2">&quot;short_description&quot;</span><span class="p">:</span> <span class="n">short_descriptions</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="s2">&quot;long_description&quot;</span><span class="p">:</span> <span class="n">long_descriptions</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="s2">&quot;event_data&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">event_data</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span>
+            <span class="p">}</span>
+            <span class="n">events</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+
+        <span class="c1"># Write all events using single schema and table</span>
+        <span class="k">if</span> <span class="n">events</span><span class="p">:</span>
+            <span class="c1"># Create unified schema for all events (matching DuckPond events schema)</span>
+            <span class="n">events_schema</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">schema</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;animal&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;deployment&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;event_key&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;datetime_start&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;us&quot;</span><span class="p">),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;datetime_end&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;us&quot;</span><span class="p">),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;short_description&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;long_description&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;event_data&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+
+            <span class="n">batch_table</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">table</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;dataset&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;animal&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;deployment&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;recording&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;group&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;event_key&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;datetime_start&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;datetime_end&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;short_description&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;long_description&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                    <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;event_data&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]),</span>
+                <span class="p">],</span>
+                <span class="n">schema</span><span class="o">=</span><span class="n">events_schema</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">duck_pond</span><span class="o">.</span><span class="n">write_to_iceberg</span><span class="p">(</span>
+                <span class="n">batch_table</span><span class="p">,</span> <span class="s2">&quot;events&quot;</span><span class="p">,</span> <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span> <span class="n">skip_view_refresh</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+
+        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+
+<div class="viewcode-block" id="DataUploader.validate_netcdf">
+<a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.data_uploader.DataUploader.validate_netcdf">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_netcdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ds</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validates netCDF file before upload.</span>
+
+<span class="sd">        Dimensions:</span>
+<span class="sd">            - Sampling: Must have suffix &quot;_samples&quot;. Array of datetime64.</span>
+<span class="sd">            - Labeling: Must have suffix &quot;_variables&quot;. Array of str.</span>
+
+<span class="sd">        Data variables:</span>
+<span class="sd">            - Must be associated with sampling dim, and maybe labeling dim.</span>
+<span class="sd">            - If flat array (ndim=1), should have attribute &quot;variable&quot; with str.</span>
+<span class="sd">            - If nested list (ndim=2), should have attribute &quot;variables&quot; with list of str.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            ds (xr.Dataset): A formatted (no groups) netCDF dataset.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            NetCDFValidationError: Generic exception for validation errors. Provides details in msg.</span>
+
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if dataset passes all checks.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">required_dimensions_suffix</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;_samples&quot;</span><span class="p">,</span> <span class="s2">&quot;_variables&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ds</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NetCDFValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;Dataset does not have any dimensions. This may be due to formatting issues.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ds</span><span class="o">.</span><span class="n">data_vars</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NetCDFValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;Dataset does not have any data variables. This may be due to formatting issues.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">dim</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">suffix</span><span class="p">)</span> <span class="k">for</span> <span class="n">suffix</span> <span class="ow">in</span> <span class="n">required_dimensions_suffix</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">NetCDFValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Dimension &#39;</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">&#39; does not match the required suffixes: </span><span class="si">{</span><span class="n">required_dimensions_suffix</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="n">sample_dimensions</span> <span class="o">=</span> <span class="p">[</span><span class="n">dim</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">dims</span> <span class="k">if</span> <span class="n">dim</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;_samples&quot;</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">sample_dimensions</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">NetCDFValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Dimension &#39;</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">&#39; must contain datetime64 values.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="n">label_dimensions</span> <span class="o">=</span> <span class="p">[</span><span class="n">dim</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">dims</span> <span class="k">if</span> <span class="n">dim</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;_variables&quot;</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">label_dimensions</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">str_</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">NetCDFValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Dimension &#39;</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">&#39; must contain string values.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">var_name</span><span class="p">,</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">data_vars</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">var</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">var</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sample_dimensions</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">NetCDFValidationError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;1D Variable &#39;</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">&#39; must have a dimension in &#39;</span><span class="si">{</span><span class="n">sample_dimensions</span><span class="si">}</span><span class="s2">&#39;, found &#39;</span><span class="si">{</span><span class="n">var</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">if</span> <span class="s2">&quot;variable&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">var</span><span class="o">.</span><span class="n">attrs</span> <span class="ow">and</span> <span class="s2">&quot;variables&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">var</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+                    <span class="n">found</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+                    <span class="k">raise</span> <span class="n">NetCDFValidationError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Variable &#39;</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">&#39; must have a &#39;variable&#39; attribute for flat arrays. Found &#39;</span><span class="si">{</span><span class="n">found</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="k">elif</span> <span class="n">var</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">dim_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+                <span class="c1"># not sure if order will always be sample, label in dims</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+                    <span class="n">dim_set</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">sample_dimensions</span><span class="p">)</span> <span class="ow">and</span> <span class="n">dim_set</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">label_dimensions</span><span class="p">)</span>
+                <span class="p">):</span>
+                    <span class="k">raise</span> <span class="n">NetCDFValidationError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;2D Variable &#39;</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">&#39; must have one dimension in &#39;</span><span class="si">{</span><span class="n">sample_dimensions</span><span class="si">}</span><span class="s2">&#39; and the other in &#39;</span><span class="si">{</span><span class="n">label_dimensions</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Found dimensions: </span><span class="si">{</span><span class="n">var</span><span class="o">.</span><span class="n">dims</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">if</span> <span class="s2">&quot;variables&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">var</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+                    <span class="n">found</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+                    <span class="k">raise</span> <span class="n">NetCDFValidationError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Variable &#39;</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">&#39; must have a &#39;variables&#39; attribute for nested arrays. Found &#39;</span><span class="si">{</span><span class="n">found</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">NetCDFValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Variable &#39;</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">&#39; has an unsupported number of dimensions: </span><span class="si">{</span><span class="n">var</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_model_by_id</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">id_field</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;id&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generic method to get a model by ID from Notion database.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model_name: Name of the model to get</span>
+<span class="sd">            model_id: ID value to search for</span>
+<span class="sd">            id_field: Field name to search by (default: &quot;id&quot;)</span>
+
+<span class="sd">        Returns: Model instance</span>
+
+<span class="sd">        Raises: ValueError: If notion_manager is not configured or model not found</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">duck_pond</span><span class="o">.</span><span class="n">notion_manager</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Notion configuration required for database operations&quot;</span><span class="p">)</span>
+
+        <span class="n">Model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">duck_pond</span><span class="o">.</span><span class="n">notion_manager</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span>
+        <span class="n">filter_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="n">id_field</span><span class="p">:</span> <span class="n">model_id</span><span class="p">}</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="n">Model</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="o">**</span><span class="n">filter_kwargs</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">instance</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="n">id_field</span><span class="si">}</span><span class="s2">=&#39;</span><span class="si">{</span><span class="n">model_id</span><span class="si">}</span><span class="s2">&#39; not found&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">instance</span>
+
+<div class="viewcode-block" id="DataUploader.get_logger">
+<a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.data_uploader.DataUploader.get_logger">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_logger</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">logger_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get logger from Notion database.</span>
+
+<span class="sd">        Args: logger_data: Dict with logger information including &#39;logger_id&#39;</span>
+<span class="sd">        Returns: Logger instance</span>
+<span class="sd">        Raises: ValueError: If logger not found</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_model_by_id</span><span class="p">(</span><span class="s2">&quot;Logger&quot;</span><span class="p">,</span> <span class="n">logger_data</span><span class="p">[</span><span class="s2">&quot;logger_id&quot;</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="DataUploader.get_recording">
+<a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.data_uploader.DataUploader.get_recording">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_recording</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recording_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get recording from Notion database.</span>
+
+<span class="sd">        Args: recording_data: Dict with recording information including &#39;recording_id&#39;</span>
+<span class="sd">        Returns: Recording instance</span>
+<span class="sd">        Raises: ValueError: If recording not found</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_model_by_id</span><span class="p">(</span><span class="s2">&quot;Recording&quot;</span><span class="p">,</span> <span class="n">recording_data</span><span class="p">[</span><span class="s2">&quot;recording_id&quot;</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="DataUploader.get_deployment">
+<a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.data_uploader.DataUploader.get_deployment">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_deployment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deployment_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get deployment from Notion database.</span>
+
+<span class="sd">        Args: deployment_data: Dict with deployment information including &#39;deployment_id&#39;</span>
+<span class="sd">        Returns: Deployment instance</span>
+<span class="sd">        Raises: ValueError: If deployment not found</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_model_by_id</span><span class="p">(</span><span class="s2">&quot;Deployment&quot;</span><span class="p">,</span> <span class="n">deployment_data</span><span class="p">[</span><span class="s2">&quot;deployment_id&quot;</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="DataUploader.get_animal">
+<a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.data_uploader.DataUploader.get_animal">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_animal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">animal_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get animal from Notion database.</span>
+
+<span class="sd">        Args: animal_data: Dict with animal information including &#39;animal_id&#39;</span>
+<span class="sd">        Returns: Animal instance</span>
+<span class="sd">        Raises: ValueError: If animal not found</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_model_by_id</span><span class="p">(</span><span class="s2">&quot;Animal&quot;</span><span class="p">,</span> <span class="n">animal_data</span><span class="p">[</span><span class="s2">&quot;animal_id&quot;</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="DataUploader.upload_netcdf">
+<a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.data_uploader.DataUploader.upload_netcdf">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">upload_netcdf</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">netcdf_file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5_000_000</span><span class="p">,</span>
+        <span class="n">rename_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">skip_validation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Uploads a netCDF file to the database and Ice Pond (Iceberg).</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        netcdf_file_path (str): Path to the netCDF file.</span>
+<span class="sd">        metadata (Dict[str, Any]): Metadata dictionary.</span>
+<span class="sd">            Required keys:</span>
+<span class="sd">                - dataset: Dataset identifier (str)</span>
+<span class="sd">                - animal: Animal ID (int)</span>
+<span class="sd">                - deployment: Deployment Name (str)</span>
+<span class="sd">            Optional key:</span>
+<span class="sd">                - recording: Recording Name (str)</span>
+<span class="sd">        batch_size (int, optional): Size of data batches for processing. Defaults to 5 million which is safe for an 8GB RAM machine.</span>
+<span class="sd">        rename_map (Optional[Dict[str, str]], optional): A dictionary mapping original variable names to new names.</span>
+<span class="sd">        skip_validation (bool, optional): Skip validation of the netCDF file. Defaults to False.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Initialize timing dictionary</span>
+        <span class="n">timing</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">upload_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="c1"># Extract dataset from metadata</span>
+        <span class="k">if</span> <span class="s2">&quot;dataset&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">metadata</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;metadata must contain &#39;dataset&#39; key (string)&quot;</span><span class="p">)</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dataset&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The &#39;dataset&#39; value must be set (string)&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Set default rename_map if None</span>
+        <span class="k">if</span> <span class="n">rename_map</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">rename_map</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># Load dataset</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">netcdf_file_path</span><span class="p">)</span>
+        <span class="n">timing</span><span class="p">[</span><span class="s2">&quot;file_loading&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+        <span class="c1"># validate netcdf file</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">skip_validation</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">validate_netcdf</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
+        <span class="n">timing</span><span class="p">[</span><span class="s2">&quot;validation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+        <span class="c1"># Delete existing data for this deployment to prevent duplicates on re-upload</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">duck_pond</span><span class="o">.</span><span class="n">delete_deployment_data</span><span class="p">(</span>
+            <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span>
+            <span class="n">animal</span><span class="o">=</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;animal&quot;</span><span class="p">],</span>
+            <span class="n">deployment</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;deployment&quot;</span><span class="p">]),</span>
+        <span class="p">)</span>
+        <span class="n">timing</span><span class="p">[</span><span class="s2">&quot;dedup_delete&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+        <span class="c1"># Apply renaming if rename_map is provided</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">rename_map</span><span class="p">:</span>
+            <span class="c1"># Convert all data variable names to lowercase</span>
+            <span class="n">lower_case_rename_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">rename_map</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="n">var</span><span class="p">:</span> <span class="n">lower_case_rename_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">var</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">data_vars</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Normalize prefixes: convert sensor_data_* and derived_data_* to signal_data_*</span>
+        <span class="n">prefix_normalization_map</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">data_vars</span><span class="p">:</span>
+            <span class="n">var_lower</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">var_lower</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;sensor_data_&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">var_lower</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span>
+                <span class="s2">&quot;derived_data_&quot;</span>
+            <span class="p">):</span>
+                <span class="c1"># Extract the part after the prefix</span>
+                <span class="k">if</span> <span class="n">var_lower</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;sensor_data_&quot;</span><span class="p">):</span>
+                    <span class="n">new_name</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="s2">&quot;signal_data_&quot;</span> <span class="o">+</span> <span class="n">var</span><span class="p">[</span><span class="mi">12</span><span class="p">:]</span>
+                    <span class="p">)</span>  <span class="c1"># Keep original case after prefix</span>
+                <span class="k">else</span><span class="p">:</span>  <span class="c1"># derived_data_</span>
+                    <span class="n">new_name</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="s2">&quot;signal_data_&quot;</span> <span class="o">+</span> <span class="n">var</span><span class="p">[</span><span class="mi">13</span><span class="p">:]</span>
+                    <span class="p">)</span>  <span class="c1"># Keep original case after prefix</span>
+                <span class="n">prefix_normalization_map</span><span class="p">[</span><span class="n">var</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_name</span>
+
+        <span class="k">if</span> <span class="n">prefix_normalization_map</span><span class="p">:</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">prefix_normalization_map</span><span class="p">)</span>
+
+        <span class="n">timing</span><span class="p">[</span><span class="s2">&quot;renaming&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+        <span class="c1"># Calculate total work units for progress bar</span>
+        <span class="n">sample_coords</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">coord</span>
+            <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">coords</span>
+            <span class="k">if</span> <span class="s2">&quot;_sample&quot;</span> <span class="ow">in</span> <span class="n">coord</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">and</span> <span class="s2">&quot;event_data&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">coord</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Count total variables to process</span>
+        <span class="n">total_vars</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">sample_coords</span><span class="p">:</span>
+            <span class="n">variables_with_coord</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">var</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">data_vars</span> <span class="k">if</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">ds</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">dims</span>
+            <span class="p">]</span>
+            <span class="k">for</span> <span class="n">var_name</span> <span class="ow">in</span> <span class="n">variables_with_coord</span><span class="p">:</span>
+                <span class="n">var_data</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="n">var_name</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var_data</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">and</span> <span class="n">var_data</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="c1"># Multi-variable data arrays</span>
+                    <span class="n">total_vars</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">var_data</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;variables&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Single-variable data arrays</span>
+                    <span class="n">total_vars</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># Add 1 for event processing if events exist</span>
+        <span class="n">event_data_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">var</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">data_vars</span> <span class="k">if</span> <span class="n">var</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;event_data&quot;</span><span class="p">)]</span>
+        <span class="n">has_events</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">event_data_vars</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">has_events</span><span class="p">:</span>
+            <span class="n">total_vars</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Processing </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sample_coords</span><span class="p">)</span><span class="si">}</span><span class="s2"> coordinate(s) with </span><span class="si">{</span><span class="n">total_vars</span><span class="si">}</span><span class="s2"> total variable(s) in the netCDF file.&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Process event data variables</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">event_data_vars</span><span class="p">:</span>
+            <span class="n">duration_var</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">var</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">event_data_vars</span> <span class="k">if</span> <span class="s2">&quot;duration&quot;</span> <span class="ow">in</span> <span class="n">var</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span> <span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">duration_var</span><span class="p">:</span>
+                <span class="c1"># Get event type information from the netCDF coordinate</span>
+                <span class="n">event_types</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;event_data_type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+                <span class="n">duration_data</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="n">duration_var</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+                <span class="n">duration_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">duration_data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;timedelta64[s]&quot;</span><span class="p">)</span>
+
+                <span class="c1"># Get start times as numpy array (timezone-naive, represents UTC)</span>
+                <span class="n">start_times_np</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;event_data_samples&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+                <span class="n">end_times_np</span> <span class="o">=</span> <span class="n">start_times_np</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+                <span class="c1"># Differentiate between point and state events using explicit event_data_type</span>
+                <span class="c1"># Point events: end_times = start_times</span>
+                <span class="c1"># State events: end_times = start_times + duration</span>
+                <span class="n">is_state_event</span> <span class="o">=</span> <span class="n">event_types</span> <span class="o">==</span> <span class="s2">&quot;state&quot;</span>
+                <span class="n">end_times_np</span><span class="p">[</span><span class="n">is_state_event</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">start_times_np</span><span class="p">[</span><span class="n">is_state_event</span><span class="p">]</span> <span class="o">+</span> <span class="n">duration_array</span><span class="p">[</span><span class="n">is_state_event</span><span class="p">]</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Convert to PyArrow arrays with explicit UTC timezone</span>
+                <span class="n">start_times</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="n">start_times_np</span><span class="p">,</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_datetime_type</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;event_data_samples&quot;</span><span class="p">]),</span>
+                <span class="p">)</span>
+                <span class="n">end_times</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="n">end_times_np</span><span class="p">,</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_datetime_type</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;event_data_samples&quot;</span><span class="p">]),</span>
+                <span class="p">)</span>
+
+                <span class="n">event_keys</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;event_data_key&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+                <span class="n">event_data</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="n">var</span><span class="p">:</span> <span class="n">ds</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                        <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">event_data_vars</span>
+                        <span class="k">if</span> <span class="n">var</span> <span class="o">!=</span> <span class="n">duration_var</span>
+                    <span class="p">}</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">start_times</span><span class="p">))</span>
+                <span class="p">]</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">_write_events_to_duck_pond</span><span class="p">(</span>
+                    <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span>
+                    <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+                    <span class="n">start_times</span><span class="o">=</span><span class="n">start_times</span><span class="p">,</span>
+                    <span class="n">end_times</span><span class="o">=</span><span class="n">end_times</span><span class="p">,</span>
+                    <span class="n">group</span><span class="o">=</span><span class="s2">&quot;events&quot;</span><span class="p">,</span>
+                    <span class="n">event_keys</span><span class="o">=</span><span class="n">event_keys</span><span class="p">,</span>
+                    <span class="n">event_data</span><span class="o">=</span><span class="n">event_data</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="n">timing</span><span class="p">[</span><span class="s2">&quot;event_processing&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+        <span class="c1"># Pre-compute time coordinates (optimization)</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">time_coord_arrays</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">sample_coords</span><span class="p">:</span>
+            <span class="n">time_coord_arrays</span><span class="p">[</span><span class="n">coord</span><span class="p">]</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="n">ds</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">coord</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                <span class="nb">type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_datetime_type</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">coord</span><span class="p">]),</span>
+            <span class="p">)</span>
+        <span class="n">timing</span><span class="p">[</span><span class="s2">&quot;time_coord_precompute&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+        <span class="c1"># Process other data variables with enhanced progress tracking</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="k">with</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">total_vars</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Processing variables&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pbar</span><span class="p">:</span>
+            <span class="c1"># Update progress for events if they were processed</span>
+            <span class="k">if</span> <span class="n">has_events</span><span class="p">:</span>
+                <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">sample_coords</span><span class="p">:</span>
+                <span class="n">variables_with_coord</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+                    <span class="n">var</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">data_vars</span> <span class="k">if</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">ds</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">dims</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Upload data with batched writes per variable</span>
+                <span class="k">for</span> <span class="n">var_name</span><span class="p">,</span> <span class="n">var_data</span> <span class="ow">in</span> <span class="n">ds</span><span class="p">[</span><span class="n">variables_with_coord</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="p">(</span>
+                        <span class="nb">isinstance</span><span class="p">(</span><span class="n">var_data</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+                        <span class="ow">and</span> <span class="n">var_data</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span>
+                    <span class="p">):</span>
+                        <span class="c1"># Handle multi-variable data arrays</span>
+                        <span class="k">for</span> <span class="n">var_index</span><span class="p">,</span> <span class="n">sub_var_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+                            <span class="n">var_data</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;variables&quot;</span><span class="p">,</span> <span class="p">[])</span>
+                        <span class="p">):</span>
+                            <span class="c1"># Collect all batches for this variable</span>
+                            <span class="n">tables_to_write</span> <span class="o">=</span> <span class="p">[]</span>
+
+                            <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">var_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">batch_size</span><span class="p">):</span>
+                                <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">start</span> <span class="o">+</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">var_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+                                <span class="n">time_coord</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">var_data</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+                                <span class="c1"># Slice from pre-computed time array</span>
+                                <span class="n">times</span> <span class="o">=</span> <span class="n">time_coord_arrays</span><span class="p">[</span><span class="n">time_coord</span><span class="p">][</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+
+                                <span class="n">group</span> <span class="o">=</span> <span class="n">var_data</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                                <span class="c1"># Normalize group: convert sensor_data or derived_data to signal_data</span>
+                                <span class="k">if</span> <span class="n">group</span> <span class="o">==</span> <span class="s2">&quot;sensor_data&quot;</span> <span class="ow">or</span> <span class="n">group</span> <span class="o">==</span> <span class="s2">&quot;derived_data&quot;</span><span class="p">:</span>
+                                    <span class="n">group</span> <span class="o">=</span> <span class="s2">&quot;signal_data&quot;</span>
+                                <span class="n">class_name</span> <span class="o">=</span> <span class="n">var_name</span>
+                                <span class="n">label</span> <span class="o">=</span> <span class="n">rename_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                                    <span class="n">sub_var_name</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">sub_var_name</span>
+                                <span class="p">)</span>
+
+                                <span class="n">values</span> <span class="o">=</span> <span class="n">var_data</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">,</span> <span class="n">var_index</span><span class="p">]</span>
+
+                                <span class="c1"># Create table but don&#39;t write yet</span>
+                                <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_data_table</span><span class="p">(</span>
+                                    <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span>
+                                    <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+                                    <span class="n">times</span><span class="o">=</span><span class="n">times</span><span class="p">,</span>
+                                    <span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">,</span>
+                                    <span class="n">class_name</span><span class="o">=</span><span class="n">class_name</span><span class="p">,</span>
+                                    <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+                                    <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+                                <span class="p">)</span>
+                                <span class="n">tables_to_write</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+
+                            <span class="c1"># Write all batches for this variable at once</span>
+                            <span class="k">if</span> <span class="n">tables_to_write</span><span class="p">:</span>
+                                <span class="n">combined_table</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">concat_tables</span><span class="p">(</span><span class="n">tables_to_write</span><span class="p">)</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">duck_pond</span><span class="o">.</span><span class="n">write_to_iceberg</span><span class="p">(</span>
+                                    <span class="n">combined_table</span><span class="p">,</span>
+                                    <span class="s2">&quot;data&quot;</span><span class="p">,</span>
+                                    <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span>
+                                    <span class="n">skip_view_refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                <span class="p">)</span>
+                                <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+
+                            <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># Handle single-variable data arrays</span>
+                        <span class="n">tables_to_write</span> <span class="o">=</span> <span class="p">[]</span>
+
+                        <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">var_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">batch_size</span><span class="p">):</span>
+                            <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">start</span> <span class="o">+</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">var_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+                            <span class="n">time_coord</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">var_data</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+                            <span class="c1"># Slice from pre-computed time array</span>
+                            <span class="n">times</span> <span class="o">=</span> <span class="n">time_coord_arrays</span><span class="p">[</span><span class="n">time_coord</span><span class="p">][</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+
+                            <span class="n">group</span> <span class="o">=</span> <span class="n">var_data</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                            <span class="c1"># Normalize group: convert sensor_data or derived_data to signal_data</span>
+                            <span class="k">if</span> <span class="n">group</span> <span class="o">==</span> <span class="s2">&quot;sensor_data&quot;</span> <span class="ow">or</span> <span class="n">group</span> <span class="o">==</span> <span class="s2">&quot;derived_data&quot;</span><span class="p">:</span>
+                                <span class="n">group</span> <span class="o">=</span> <span class="s2">&quot;signal_data&quot;</span>
+                            <span class="n">class_name</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="n">var_name</span>
+                                <span class="k">if</span> <span class="s2">&quot;variables&quot;</span> <span class="ow">in</span> <span class="n">var_data</span><span class="o">.</span><span class="n">attrs</span>
+                                <span class="k">else</span> <span class="s2">&quot;classless&quot;</span>
+                            <span class="p">)</span>
+                            <span class="n">label</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="n">var_data</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
+                                <span class="k">if</span> <span class="s2">&quot;variable&quot;</span> <span class="ow">in</span> <span class="n">var_data</span><span class="o">.</span><span class="n">attrs</span>
+                                <span class="k">else</span> <span class="p">(</span>
+                                    <span class="n">var_data</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;variables&quot;</span><span class="p">]</span>
+                                    <span class="k">if</span> <span class="s2">&quot;variables&quot;</span> <span class="ow">in</span> <span class="n">var_data</span><span class="o">.</span><span class="n">attrs</span>
+                                    <span class="k">else</span> <span class="n">var_name</span>
+                                <span class="p">)</span>
+                            <span class="p">)</span>
+                            <span class="n">label</span> <span class="o">=</span> <span class="n">rename_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">label</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">label</span><span class="p">)</span>
+
+                            <span class="n">values</span> <span class="o">=</span> <span class="n">var_data</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+
+                            <span class="c1"># Create table but don&#39;t write yet</span>
+                            <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_data_table</span><span class="p">(</span>
+                                <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span>
+                                <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+                                <span class="n">times</span><span class="o">=</span><span class="n">times</span><span class="p">,</span>
+                                <span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">,</span>
+                                <span class="n">class_name</span><span class="o">=</span><span class="n">class_name</span><span class="p">,</span>
+                                <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+                                <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+                            <span class="p">)</span>
+                            <span class="n">tables_to_write</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+
+                        <span class="c1"># Write all batches for this variable at once</span>
+                        <span class="k">if</span> <span class="n">tables_to_write</span><span class="p">:</span>
+                            <span class="n">combined_table</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">concat_tables</span><span class="p">(</span><span class="n">tables_to_write</span><span class="p">)</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">duck_pond</span><span class="o">.</span><span class="n">write_to_iceberg</span><span class="p">(</span>
+                                <span class="n">combined_table</span><span class="p">,</span>
+                                <span class="s2">&quot;data&quot;</span><span class="p">,</span>
+                                <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span>
+                                <span class="n">skip_view_refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="p">)</span>
+                            <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+
+                        <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">timing</span><span class="p">[</span><span class="s2">&quot;variable_processing&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+        <span class="c1"># Refresh views once at the end</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">duck_pond</span><span class="o">.</span><span class="n">dataset_manager</span><span class="o">.</span><span class="n">_create_dataset_views</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
+        <span class="n">timing</span><span class="p">[</span><span class="s2">&quot;view_refresh&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+        <span class="c1"># Calculate total time</span>
+        <span class="n">timing</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">upload_start</span>
+
+        <span class="c1"># Print timing summary</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Upload Performance Summary&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;Step&#39;</span><span class="si">:</span><span class="s2">&lt;30</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Time (s)&#39;</span><span class="si">:</span><span class="s2">&lt;15</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;</span><span class="si">% o</span><span class="s1">f Total&#39;</span><span class="si">:</span><span class="s2">&lt;15</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="n">duration</span> <span class="ow">in</span> <span class="n">timing</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">step</span> <span class="o">!=</span> <span class="s2">&quot;total&quot;</span><span class="p">:</span>
+                <span class="n">percentage</span> <span class="o">=</span> <span class="p">(</span><span class="n">duration</span> <span class="o">/</span> <span class="n">timing</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="mi">100</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">step</span><span class="si">:</span><span class="s2">&lt;30</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">duration</span><span class="si">:</span><span class="s2">&gt;10.2f</span><span class="si">}</span><span class="s2">     </span><span class="si">{</span><span class="n">percentage</span><span class="si">:</span><span class="s2">&gt;10.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;TOTAL&#39;</span><span class="si">:</span><span class="s2">&lt;30</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">timing</span><span class="p">[</span><span class="s1">&#39;total&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;10.2f</span><span class="si">}</span><span class="s2">     </span><span class="si">{</span><span class="mf">100.0</span><span class="si">:</span><span class="s2">&gt;10.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Upload complete.&quot;</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Jessica Kendall-Bar.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

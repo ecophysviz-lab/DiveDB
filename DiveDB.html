@@ -1,0 +1,1249 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiveDB Package &mdash; DiveDB 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Terminology: Organism / Animal Migration" href="terminology.html" />
+    <link rel="prev" title="DiveDB" href="modules.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            DiveDB
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ai_docs.html">AI Agent Technical Reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">DiveDB</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">DiveDB Package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-DiveDB.services.duck_pond">DiveDB.services.duck_pond</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.duck_pond.DuckPond"><code class="docutils literal notranslate"><span class="pre">DuckPond</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-DiveDB.services.notion_orm">DiveDB.services.notion_orm</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.notion_orm.ModelObjects"><code class="docutils literal notranslate"><span class="pre">ModelObjects</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.notion_orm.NotionModel"><code class="docutils literal notranslate"><span class="pre">NotionModel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.notion_orm.NotionORMManager"><code class="docutils literal notranslate"><span class="pre">NotionORMManager</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-DiveDB.services.data_uploader">DiveDB.services.data_uploader</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.data_uploader.NetCDFValidationError"><code class="docutils literal notranslate"><span class="pre">NetCDFValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.data_uploader.DataUploader"><code class="docutils literal notranslate"><span class="pre">DataUploader</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-DiveDB.services.dive_data">DiveDB.services.dive_data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.DiveData"><code class="docutils literal notranslate"><span class="pre">DiveData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.get_metadata"><code class="docutils literal notranslate"><span class="pre">get_metadata()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.make_unique_edf_filename"><code class="docutils literal notranslate"><span class="pre">make_unique_edf_filename()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.export_to_edf"><code class="docutils literal notranslate"><span class="pre">export_to_edf()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.get_sampling_rate"><code class="docutils literal notranslate"><span class="pre">get_sampling_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.get_pad_value_for_signal"><code class="docutils literal notranslate"><span class="pre">get_pad_value_for_signal()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.get_signal_offset_index"><code class="docutils literal notranslate"><span class="pre">get_signal_offset_index()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.get_edf_label_for_signal"><code class="docutils literal notranslate"><span class="pre">get_edf_label_for_signal()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.data_processing_details"><code class="docutils literal notranslate"><span class="pre">data_processing_details()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.get_physical_dimension"><code class="docutils literal notranslate"><span class="pre">get_physical_dimension()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.dive_data.construct_recording_edf"><code class="docutils literal notranslate"><span class="pre">construct_recording_edf()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-DiveDB.services.immich_service">DiveDB.services.immich_service</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.immich_service.ImmichService"><code class="docutils literal notranslate"><span class="pre">ImmichService</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-DiveDB.services.connection.warehouse_config">DiveDB.services.connection.warehouse_config</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig"><code class="docutils literal notranslate"><span class="pre">WarehouseConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-DiveDB.services.connection.catalog_manager">DiveDB.services.connection.catalog_manager</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.connection.catalog_manager.CatalogManager"><code class="docutils literal notranslate"><span class="pre">CatalogManager</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-DiveDB.services.connection.duckdb_connection">DiveDB.services.connection.duckdb_connection</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.connection.duckdb_connection.DuckDBConnection"><code class="docutils literal notranslate"><span class="pre">DuckDBConnection</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-DiveDB.services.connection.dataset_manager">DiveDB.services.connection.dataset_manager</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.connection.dataset_manager.DatasetManager"><code class="docutils literal notranslate"><span class="pre">DatasetManager</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-DiveDB.services.connection.notion_integration">DiveDB.services.connection.notion_integration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#DiveDB.services.connection.notion_integration.NotionIntegration"><code class="docutils literal notranslate"><span class="pre">NotionIntegration</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="terminology.html">Terminology: Organism / Animal Migration</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DiveDB</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">DiveDB</a></li>
+      <li class="breadcrumb-item active">DiveDB Package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/DiveDB.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="divedb-package">
+<h1>DiveDB Package<a class="headerlink" href="#divedb-package" title="Link to this heading"></a></h1>
+<section id="module-DiveDB.services.duck_pond">
+<span id="divedb-services-duck-pond"></span><h2>DiveDB.services.duck_pond<a class="headerlink" href="#module-DiveDB.services.duck_pond" title="Link to this heading"></a></h2>
+<p>DuckPond - Apache Iceberg data lake interface (formerly Delta Lake)</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.duck_pond.</span></span><span class="sig-name descname"><span class="pre">DuckPond</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">warehouse_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">notion_manager</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#DiveDB.services.notion_orm.NotionORMManager" title="DiveDB.services.notion_orm.NotionORMManager"><span class="pre">NotionORMManager</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">notion_db_map</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">notion_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_endpoint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_access_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_secret_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_bucket</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_region</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'us-east-1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datasets</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">notion_parallelism</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>DuckPond - Iceberg-managed data lake with direct Parquet access for optimal query performance</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_available_channels">
+<span class="sig-name descname"><span class="pre">get_available_channels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pack_groups</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_available_channels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_available_channels" title="Link to this definition"></a></dt>
+<dd><p>Discover available channels for a dataset and optionally hydrate metadata from Signal DB.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset</strong> – Dataset identifier</p></li>
+<li><p><strong>include_metadata</strong> – If True, join metadata from Signal DB via Standardized Channel DB lookup</p></li>
+<li><p><strong>pack_groups</strong> – If True, groups are returned as one collection with all standardized children</p></li>
+<li><p><strong>load_metadata</strong> – If False, skip loading metadata from Notion (faster for initial discovery)</p></li>
+<li><p><strong>use_cache</strong> – If True, cache results with 1-hour TTL (default: False)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[Dict] of channels/groups as specified</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_channels_metadata">
+<span class="sig-name descname"><span class="pre">get_channels_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_channels_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_channels_metadata" title="Link to this definition"></a></dt>
+<dd><p>Get metadata for specific channels only (lazy loading).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset</strong> – Dataset identifier</p></li>
+<li><p><strong>channel_ids</strong> – List of channel IDs to load metadata for</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict mapping channel_id -&gt; metadata dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.from_environment">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_environment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.from_environment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.from_environment" title="Link to this definition"></a></dt>
+<dd><p>Create DuckPond instance from environment variables.</p>
+<p>Environment variables:
+- LOCAL_ICEBERG_PATH or CONTAINER_ICEBERG_PATH: Path for local filesystem warehouse
+- S3_ENDPOINT: S3/Ceph endpoint URL
+- S3_ACCESS_KEY: S3 access key
+- S3_SECRET_KEY: S3 secret key
+- S3_BUCKET: S3 bucket name
+- S3_REGION: S3 region (optional, defaults to us-east-1)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.write_to_iceberg">
+<span class="sig-name descname"><span class="pre">write_to_iceberg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pyarrow.Table</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lake</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'data'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'events'</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'append'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_view_refresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.write_to_iceberg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.write_to_iceberg" title="Link to this definition"></a></dt>
+<dd><p>Write data to dataset-specific Iceberg table</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.delete_deployment_data">
+<span class="sig-name descname"><span class="pre">delete_deployment_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">animal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deployment</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.delete_deployment_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.delete_deployment_data" title="Link to this definition"></a></dt>
+<dd><p>Delete all existing data and events for a deployment before re-upload.</p>
+<p>Uses partition-aligned filters so Iceberg drops whole partition files
+rather than scanning rows, keeping the operation fast.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.write_event">
+<span class="sig-name descname"><span class="pre">write_event</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deployment</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">animal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datetime_start</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.Timestamp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datetime_end</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.Timestamp</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recording</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'user_annotations'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">short_description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">long_description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.write_event"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.write_event" title="Link to this definition"></a></dt>
+<dd><p>Write a single event to the Iceberg events table.</p>
+<p>This is a convenience method for creating events from the Dash UI
+(e.g., via the B-key bookmark feature).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset</strong> – Dataset identifier</p></li>
+<li><p><strong>deployment</strong> – Deployment identifier</p></li>
+<li><p><strong>animal</strong> – Animal identifier</p></li>
+<li><p><strong>event_key</strong> – Event type/key (e.g., “breath”, “dive”, “behavior”)</p></li>
+<li><p><strong>datetime_start</strong> – Event start time</p></li>
+<li><p><strong>datetime_end</strong> – Event end time (for duration events). If None, uses datetime_start (point event)</p></li>
+<li><p><strong>recording</strong> – Optional recording identifier</p></li>
+<li><p><strong>group</strong> – Event group (default: “user_annotations”)</p></li>
+<li><p><strong>short_description</strong> – Optional short description</p></li>
+<li><p><strong>long_description</strong> – Optional long description</p></li>
+<li><p><strong>event_data</strong> – Optional additional event data (will be JSON serialized)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.invalidate_events_cache">
+<span class="sig-name descname"><span class="pre">invalidate_events_cache</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.invalidate_events_cache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.invalidate_events_cache" title="Link to this definition"></a></dt>
+<dd><p>Invalidate all cached get_events results after writing a new event.</p>
+<p>Clears the DuckPond file cache so that subsequent get_events calls
+return fresh data from Iceberg instead of stale cached results.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dataset</strong> – Dataset identifier (logged for debugging)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Number of cache files removed</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.read_from_delta">
+<span class="sig-name descname"><span class="pre">read_from_delta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.read_from_delta"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.read_from_delta" title="Link to this definition"></a></dt>
+<dd><p>Read data using SQL query (backward compatibility)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_data">
+<span class="sig-name descname"><span class="pre">get_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">organism_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deployment_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recording_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">classes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">date_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frequency</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_frequency</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pivoted</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_timezone_offset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_timestamp_column</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">animal_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_data" title="Link to this definition"></a></dt>
+<dd><p>Get data from a specific dataset using direct Parquet access (bypassing Iceberg layer).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset</strong> – Dataset identifier (required)</p></li>
+<li><p><strong>labels</strong> – Specific labels to include (if None, gets all distinct labels)</p></li>
+<li><p><strong>organism_ids</strong> – Organism ID filter (use this; animal_ids is a deprecated alias)</p></li>
+<li><p><strong>deployment_ids</strong> – Deployment ID filter</p></li>
+<li><p><strong>recording_ids</strong> – Recording ID filter</p></li>
+<li><p><strong>groups</strong> – Group filter</p></li>
+<li><p><strong>classes</strong> – Class filter</p></li>
+<li><p><strong>date_range</strong> – Date range tuple (start, end)</p></li>
+<li><p><strong>frequency</strong> – Resample frequency in Hz - LEGACY (creates common time grid for all labels)</p></li>
+<li><p><strong>max_frequency</strong> – Maximum frequency cap in Hz - OPTIMIZED (downsamples only high-freq labels)
+Each label maintains native frequency up to this cap.
+Preferred over ‘frequency’ for mixed-frequency data (10-100x faster).</p></li>
+<li><p><strong>limit</strong> – Row limit</p></li>
+<li><p><strong>pivoted</strong> – If True, returns data with labels as columns grouped by datetime</p></li>
+<li><p><strong>apply_timezone_offset</strong> – Optional timezone offset in hours to add to datetime column</p></li>
+<li><p><strong>add_timestamp_column</strong> – If True, adds a ‘timestamp’ column (seconds since epoch)</p></li>
+<li><p><strong>use_cache</strong> – If True, caches DataFrame results to disk (1-day TTL). Only applies when returning DataFrame.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns:
+- If frequency or max_frequency is not None, returns a pd.DataFrame (resampled).
+- If pivoted is True, returns DataFrame with labels as columns.
+- Otherwise, returns a DiveData object with long-format data.</p>
+<dl>
+<dt>Performance Note:</dt><dd><p>For mixed-frequency data (e.g., 400 Hz IMU + 1 Hz depth), use max_frequency
+instead of frequency for 10-100x speedup. Example:</p>
+<blockquote>
+<div><p>max_frequency=20  # IMU at 20 Hz, depth stays at 1 Hz</p>
+</div></blockquote>
+<p>vs. frequency=20     # Forces depth to upsample to 20 Hz (slower)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.estimate_data_size">
+<span class="sig-name descname"><span class="pre">estimate_data_size</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">organism_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deployment_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recording_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">classes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">date_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">animal_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.estimate_data_size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.estimate_data_size" title="Link to this definition"></a></dt>
+<dd><p>Quickly estimate the number of rows that would be returned by get_data.
+Uses COUNT(*) which is much faster than loading actual data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>get_data</strong> (<em>Same as</em>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Estimated row count</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_events">
+<span class="sig-name descname"><span class="pre">get_events</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">organism_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deployment_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recording_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_keys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">date_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_timezone_offset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_timestamp_columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">animal_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_events"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_events" title="Link to this definition"></a></dt>
+<dd><p>Get events from a specific dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset</strong> – Dataset identifier (required)</p></li>
+<li><p><strong>organism_ids</strong> – Organism ID filter (use this; animal_ids is a deprecated alias)</p></li>
+<li><p><strong>deployment_ids</strong> – Deployment ID filter</p></li>
+<li><p><strong>recording_ids</strong> – Recording ID filter</p></li>
+<li><p><strong>event_keys</strong> – Event key filter</p></li>
+<li><p><strong>date_range</strong> – Date range tuple (start, end)</p></li>
+<li><p><strong>limit</strong> – Row limit</p></li>
+<li><p><strong>apply_timezone_offset</strong> – Optional timezone offset in hours to add to datetime columns</p></li>
+<li><p><strong>add_timestamp_columns</strong> – If True, adds ‘timestamp_start’ and ‘timestamp_end’ columns (seconds since epoch)</p></li>
+<li><p><strong>use_cache</strong> – If True, cache results with 5-minute TTL (default: False)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>dataset, animal, deployment, recording,
+group, event_key, datetime_start, datetime_end, short_description,
+long_description, event_data</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame with columns</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.ensure_dataset_initialized">
+<span class="sig-name descname"><span class="pre">ensure_dataset_initialized</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.ensure_dataset_initialized"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.ensure_dataset_initialized" title="Link to this definition"></a></dt>
+<dd><p>Ensure a dataset’s tables and views are initialized</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_all_datasets">
+<span class="sig-name descname"><span class="pre">get_all_datasets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_all_datasets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_all_datasets" title="Link to this definition"></a></dt>
+<dd><p>Get list of all initialized datasets</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_3d_model_for_organism">
+<span class="sig-name descname"><span class="pre">get_3d_model_for_organism</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">organism_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_3d_model_for_organism"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_3d_model_for_organism" title="Link to this definition"></a></dt>
+<dd><p>Fetch 3D model info for an organism via Organism→Asset DB→Best-3D-model chain.</p>
+<p>The Organism DB (formerly Animal DB) has a direct relation to Asset DB, which
+contains the Best-3D-model file property with the 3D model file URL, and
+optionally 3D-Material(s) for textures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>organism_id</strong> – Organism identifier (e.g., “apfo-001a”)</p></li>
+<li><p><strong>use_cache</strong> – If True, cache results with 1-hour TTL (default: False)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>{</dt><dd><p>“model_url”: str,
+“model_filename”: str,
+“filetype”: str,
+“texture_url”: str or None,
+“texture_filename”: str or None</p>
+</dd>
+</dl>
+<p>}
+Returns None values for model if no model found.</p>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict with model info</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_3d_model_for_animal">
+<span class="sig-name descname"><span class="pre">get_3d_model_for_animal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">animal_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_3d_model_for_animal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_3d_model_for_animal" title="Link to this definition"></a></dt>
+<dd><p>Deprecated alias for get_3d_model_for_organism.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_all_datasets_and_deployments">
+<span class="sig-name descname"><span class="pre">get_all_datasets_and_deployments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_all_datasets_and_deployments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_all_datasets_and_deployments" title="Link to this definition"></a></dt>
+<dd><p>Get all datasets and their deployments in a single call using one optimized query.</p>
+<p>Args: use_cache: If True, cache results with 5-minute TTL (default: False)
+:returns: Dict mapping dataset names to lists of deployment records.</p>
+<blockquote>
+<div><p>Each deployment record contains: deployment, animal, min_date, max_date, sample_count
+Format: {“dataset1”: [{“deployment”: “…”, “animal”: “…”, …}, …], …}</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.list_dataset_tables">
+<span class="sig-name descname"><span class="pre">list_dataset_tables</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.list_dataset_tables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.list_dataset_tables" title="Link to this definition"></a></dt>
+<dd><p>List tables for a specific dataset</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.dataset_exists">
+<span class="sig-name descname"><span class="pre">dataset_exists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.dataset_exists"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.dataset_exists" title="Link to this definition"></a></dt>
+<dd><p>Check if a dataset has been initialized</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.remove_dataset">
+<span class="sig-name descname"><span class="pre">remove_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.remove_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.remove_dataset" title="Link to this definition"></a></dt>
+<dd><p>Remove a dataset and all its tables (use with caution!)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_deployment_timezone_offset">
+<span class="sig-name descname"><span class="pre">get_deployment_timezone_offset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deployment_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_deployment_timezone_offset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_deployment_timezone_offset" title="Link to this definition"></a></dt>
+<dd><p>Get timezone offset for a deployment from Notion Deployments table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>deployment_id</strong> – Deployment identifier (e.g., “2019-11-08_apfo-001”)</p></li>
+<li><p><strong>use_cache</strong> – If True, cache results with 1-hour TTL (default: False)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Timezone offset in hours (e.g., 13.0 for Antarctica/McMurdo)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_view_name">
+<span class="sig-name descname"><span class="pre">get_view_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">table_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_view_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_view_name" title="Link to this definition"></a></dt>
+<dd><p>Get the properly quoted view name for a dataset and table type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset</strong> – Dataset identifier (e.g., “EP Physiology”)</p></li>
+<li><p><strong>table_type</strong> – Type of table - “data” or “events”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Quoted view name ready for SQL queries</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">duck_pond</span><span class="o">.</span><span class="n">get_view_name</span><span class="p">(</span><span class="s2">&quot;EP Physiology&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">)</span>
+<span class="go">&#39;&quot;EP Physiology_Data&quot;&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">duck_pond</span><span class="o">.</span><span class="n">get_view_name</span><span class="p">(</span><span class="s2">&quot;EP Physiology&quot;</span><span class="p">,</span> <span class="s2">&quot;events&quot;</span><span class="p">)</span>
+<span class="go">&#39;&quot;EP Physiology_Events&quot;&#39;</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.get_db_schema">
+<span class="sig-name descname"><span class="pre">get_db_schema</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.get_db_schema"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.get_db_schema" title="Link to this definition"></a></dt>
+<dd><p>View all tables in the database</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.list_all_views">
+<span class="sig-name descname"><span class="pre">list_all_views</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.list_all_views"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.list_all_views" title="Link to this definition"></a></dt>
+<dd><p>List all dataset views in the warehouse.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of view names for all initialized datasets</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.list_dataset_views">
+<span class="sig-name descname"><span class="pre">list_dataset_views</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.list_dataset_views"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.list_dataset_views" title="Link to this definition"></a></dt>
+<dd><p>List all views for a specific dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dataset</strong> – Dataset identifier</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of view names for the specified dataset</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.close_connection">
+<span class="sig-name descname"><span class="pre">close_connection</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.close_connection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.close_connection" title="Link to this definition"></a></dt>
+<dd><p>Close the connection</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.list_notion_tables">
+<span class="sig-name descname"><span class="pre">list_notion_tables</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.list_notion_tables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.list_notion_tables" title="Link to this definition"></a></dt>
+<dd><p>List all available Notion tables in DuckDB</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.duck_pond.DuckPond.write_signal_data">
+<span class="sig-name descname"><span class="pre">write_signal_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pyarrow.Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">class_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/duck_pond.html#DuckPond.write_signal_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.duck_pond.DuckPond.write_signal_data" title="Link to this definition"></a></dt>
+<dd><p>Write signal data using the new wide format.
+High-level method for writing signal data to the Iceberg data lake.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset</strong> – Dataset identifier</p></li>
+<li><p><strong>metadata</strong> – Dict with ‘animal’, ‘deployment’, ‘recording’ keys</p></li>
+<li><p><strong>times</strong> – PyArrow timestamp array</p></li>
+<li><p><strong>group</strong> – Data group (e.g., ‘signal_data’)</p></li>
+<li><p><strong>class_name</strong> – Data class (e.g., ‘accelerometer’)</p></li>
+<li><p><strong>label</strong> – Data label (e.g., ‘acc_x’)</p></li>
+<li><p><strong>values</strong> – Mixed-type list to be transformed</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-DiveDB.services.notion_orm">
+<span id="divedb-services-notion-orm"></span><h2>DiveDB.services.notion_orm<a class="headerlink" href="#module-DiveDB.services.notion_orm" title="Link to this heading"></a></h2>
+<p>Notion ORM - A lightweight ORM-like interface for querying Notion databases.</p>
+<p>This module provides an easy way to define models that map to Notion databases
+and query them using a familiar ORM-like syntax.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.notion_orm.ModelObjects">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.notion_orm.</span></span><span class="sig-name descname"><span class="pre">ModelObjects</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_cls</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/notion_orm.html#ModelObjects"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.notion_orm.ModelObjects" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Query manager for NotionModel.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.notion_orm.ModelObjects.all">
+<span class="sig-name descname"><span class="pre">all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span></span></span><a class="reference internal" href="_modules/DiveDB/services/notion_orm.html#ModelObjects.all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.notion_orm.ModelObjects.all" title="Link to this definition"></a></dt>
+<dd><p>Get all records from the database.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>use_cache</strong> – If True, cache results with 4-hour TTL</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.notion_orm.ModelObjects.filter">
+<span class="sig-name descname"><span class="pre">filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#DiveDB.services.notion_orm.ModelObjects" title="DiveDB.services.notion_orm.ModelObjects"><span class="pre">ModelObjects</span></a></span></span><a class="reference internal" href="_modules/DiveDB/services/notion_orm.html#ModelObjects.filter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.notion_orm.ModelObjects.filter" title="Link to this definition"></a></dt>
+<dd><p>Filter records based on provided criteria.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>use_cache</strong> – If True, cache results with 4-hour TTL</p></li>
+<li><p><strong>**kwargs</strong> – Filter criteria</p></li>
+<li><p><strong>spaces</strong> (<em>For properties with</em>)</p></li>
+<li><p><strong>argument</strong> (<em>use underscores in the keyword</em>)</p></li>
+<li><p><strong>e.g.</strong></p></li>
+<li><p><strong>property</strong> (<em>Project_ID=&quot;123&quot; for &quot;Project ID&quot;</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Self for method chaining</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.notion_orm.ModelObjects.first">
+<span class="sig-name descname"><span class="pre">first</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#DiveDB.services.notion_orm.NotionModel" title="DiveDB.services.notion_orm.NotionModel"><span class="pre">NotionModel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/DiveDB/services/notion_orm.html#ModelObjects.first"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.notion_orm.ModelObjects.first" title="Link to this definition"></a></dt>
+<dd><p>Get the first result.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>use_cache</strong> – If True, cache results with 4-hour TTL</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.notion_orm.NotionModel">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.notion_orm.</span></span><span class="sig-name descname"><span class="pre">NotionModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/notion_orm.html#NotionModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.notion_orm.NotionModel" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Base class for Notion database models.</p>
+<p>Initialize a model instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>**kwargs</strong> – Model field values</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DiveDB.services.notion_orm.NotionModel.objects">
+<span class="sig-name descname"><span class="pre">objects</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#DiveDB.services.notion_orm.ModelObjects" title="DiveDB.services.notion_orm.ModelObjects"><span class="pre">ModelObjects</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#DiveDB.services.notion_orm.NotionModel.objects" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.notion_orm.NotionORMManager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.notion_orm.</span></span><span class="sig-name descname"><span class="pre">NotionORMManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db_map</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/notion_orm.html#NotionORMManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.notion_orm.NotionORMManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Manager class for handling Notion database models and queries.</p>
+<p>Initialize the NotionORMManager.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db_map</strong> – Dictionary mapping database names to their Notion database IDs</p></li>
+<li><p><strong>token</strong> – Notion API token</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.notion_orm.NotionORMManager.get_model">
+<span class="sig-name descname"><span class="pre">get_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#DiveDB.services.notion_orm.NotionModel" title="DiveDB.services.notion_orm.NotionModel"><span class="pre">NotionModel</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/notion_orm.html#NotionORMManager.get_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.notion_orm.NotionORMManager.get_model" title="Link to this definition"></a></dt>
+<dd><p>Get or create a model class for a Notion database.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>model_name</strong> – Name of the model/database</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Model class for the specified database</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-DiveDB.services.data_uploader">
+<span id="divedb-services-data-uploader"></span><h2>DiveDB.services.data_uploader<a class="headerlink" href="#module-DiveDB.services.data_uploader" title="Link to this heading"></a></h2>
+<p>Data Uploader</p>
+<dl class="py exception">
+<dt class="sig sig-object py" id="DiveDB.services.data_uploader.NetCDFValidationError">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.data_uploader.</span></span><span class="sig-name descname"><span class="pre">NetCDFValidationError</span></span><a class="reference internal" href="_modules/DiveDB/services/data_uploader.html#NetCDFValidationError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.data_uploader.NetCDFValidationError" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+<p>Custom exception for NetCDF validation errors.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.data_uploader.DataUploader">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.data_uploader.</span></span><span class="sig-name descname"><span class="pre">DataUploader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">duck_pond</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#DiveDB.services.duck_pond.DuckPond" title="DiveDB.services.duck_pond.DuckPond"><span class="pre">DuckPond</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/data_uploader.html#DataUploader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.data_uploader.DataUploader" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Data Uploader</p>
+<p>Initialize DataUploader with optional DuckPond instance and Notion configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>duck_pond</strong> – DuckPond instance for Iceberg data storage</p></li>
+<li><p><strong>notion_manager</strong> – NotionORMManager instance for database operations</p></li>
+<li><p><strong>notion_config</strong> – Dictionary with ‘db_map’ and ‘token’ keys for Notion ORM (ignored if notion_manager is provided)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.data_uploader.DataUploader.validate_netcdf">
+<span class="sig-name descname"><span class="pre">validate_netcdf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">xarray.Dataset</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/DiveDB/services/data_uploader.html#DataUploader.validate_netcdf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.data_uploader.DataUploader.validate_netcdf" title="Link to this definition"></a></dt>
+<dd><p>Validates netCDF file before upload.</p>
+<dl class="simple">
+<dt>Dimensions:</dt><dd><ul class="simple">
+<li><p>Sampling: Must have suffix “_samples”. Array of datetime64.</p></li>
+<li><p>Labeling: Must have suffix “_variables”. Array of str.</p></li>
+</ul>
+</dd>
+<dt>Data variables:</dt><dd><ul class="simple">
+<li><p>Must be associated with sampling dim, and maybe labeling dim.</p></li>
+<li><p>If flat array (ndim=1), should have attribute “variable” with str.</p></li>
+<li><p>If nested list (ndim=2), should have attribute “variables” with list of str.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ds</strong> (<em>xr.Dataset</em>) – A formatted (no groups) netCDF dataset.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#DiveDB.services.data_uploader.NetCDFValidationError" title="DiveDB.services.data_uploader.NetCDFValidationError"><strong>NetCDFValidationError</strong></a> – Generic exception for validation errors. Provides details in msg.</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>True if dataset passes all checks.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.data_uploader.DataUploader.get_logger">
+<span class="sig-name descname"><span class="pre">get_logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logger_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="_modules/DiveDB/services/data_uploader.html#DataUploader.get_logger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.data_uploader.DataUploader.get_logger" title="Link to this definition"></a></dt>
+<dd><p>Get logger from Notion database.</p>
+<p>Args: logger_data: Dict with logger information including ‘logger_id’
+Returns: Logger instance
+Raises: ValueError: If logger not found</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.data_uploader.DataUploader.get_recording">
+<span class="sig-name descname"><span class="pre">get_recording</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">recording_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="_modules/DiveDB/services/data_uploader.html#DataUploader.get_recording"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.data_uploader.DataUploader.get_recording" title="Link to this definition"></a></dt>
+<dd><p>Get recording from Notion database.</p>
+<p>Args: recording_data: Dict with recording information including ‘recording_id’
+Returns: Recording instance
+Raises: ValueError: If recording not found</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.data_uploader.DataUploader.get_deployment">
+<span class="sig-name descname"><span class="pre">get_deployment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deployment_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="_modules/DiveDB/services/data_uploader.html#DataUploader.get_deployment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.data_uploader.DataUploader.get_deployment" title="Link to this definition"></a></dt>
+<dd><p>Get deployment from Notion database.</p>
+<p>Args: deployment_data: Dict with deployment information including ‘deployment_id’
+Returns: Deployment instance
+Raises: ValueError: If deployment not found</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.data_uploader.DataUploader.get_animal">
+<span class="sig-name descname"><span class="pre">get_animal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">animal_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="_modules/DiveDB/services/data_uploader.html#DataUploader.get_animal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.data_uploader.DataUploader.get_animal" title="Link to this definition"></a></dt>
+<dd><p>Get animal from Notion database.</p>
+<p>Args: animal_data: Dict with animal information including ‘animal_id’
+Returns: Animal instance
+Raises: ValueError: If animal not found</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.data_uploader.DataUploader.upload_netcdf">
+<span class="sig-name descname"><span class="pre">upload_netcdf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">netcdf_file_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rename_map</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_validation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/DiveDB/services/data_uploader.html#DataUploader.upload_netcdf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.data_uploader.DataUploader.upload_netcdf" title="Link to this definition"></a></dt>
+<dd><p>Uploads a netCDF file to the database and Ice Pond (Iceberg).</p>
+<p>Parameters:
+netcdf_file_path (str): Path to the netCDF file.
+metadata (Dict[str, Any]): Metadata dictionary.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>Required keys:</dt><dd><ul class="simple">
+<li><p>dataset: Dataset identifier (str)</p></li>
+<li><p>animal: Animal ID (int)</p></li>
+<li><p>deployment: Deployment Name (str)</p></li>
+</ul>
+</dd>
+<dt>Optional key:</dt><dd><ul class="simple">
+<li><p>recording: Recording Name (str)</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p>batch_size (int, optional): Size of data batches for processing. Defaults to 5 million which is safe for an 8GB RAM machine.
+rename_map (Optional[Dict[str, str]], optional): A dictionary mapping original variable names to new names.
+skip_validation (bool, optional): Skip validation of the netCDF file. Defaults to False.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-DiveDB.services.dive_data">
+<span id="divedb-services-dive-data"></span><h2>DiveDB.services.dive_data<a class="headerlink" href="#module-DiveDB.services.dive_data" title="Link to this heading"></a></h2>
+<p>Retrieved Data Manager</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.DiveData">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">DiveData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">duckdb_relation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">duckdb.DuckDBPyRelation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">duckdb.DuckDBPyConnection</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">notion_manager</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#DiveDB.services.notion_orm.NotionORMManager" title="DiveDB.services.notion_orm.NotionORMManager"><span class="pre">NotionORMManager</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">notion_db_map</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">notion_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#DiveData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.DiveData" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Retrieved Data Manager</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.DiveData.get_metadata">
+<span class="sig-name descname"><span class="pre">get_metadata</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#DiveData.get_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.DiveData.get_metadata" title="Link to this definition"></a></dt>
+<dd><p>Fetch logger id, animal id, and deployment id for each recording in <cite>self.duckdb_relation</cite></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.DiveData.export_to_edf">
+<span class="sig-name descname"><span class="pre">export_to_edf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#DiveData.export_to_edf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.DiveData.export_to_edf" title="Link to this definition"></a></dt>
+<dd><p>Export data to a set of EDF files</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.get_metadata">
+<span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">get_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">divedata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#get_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.get_metadata" title="Link to this definition"></a></dt>
+<dd><p>Get metadata from Notion</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.make_unique_edf_filename">
+<span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">make_unique_edf_filename</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename_prefix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_suffix_int</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#make_unique_edf_filename"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.make_unique_edf_filename" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.export_to_edf">
+<span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">export_to_edf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#DiveDB.services.dive_data.DiveData" title="DiveDB.services.dive_data.DiveData"><span class="pre">DiveData</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#export_to_edf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.export_to_edf" title="Link to this definition"></a></dt>
+<dd><p>Export metadata plus signals to set of EDF files in <cite>output_dir</cite></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.get_sampling_rate">
+<span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">get_sampling_rate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timestamps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.Series</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#get_sampling_rate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.get_sampling_rate" title="Link to this definition"></a></dt>
+<dd><p>Calculate single sampling rate from input set of timestamps.</p>
+<p>Timestamps are assumed to be associated with a uniformly sampled, contiguous
+signal. If assumption is violated, output sampling rate will be wildly incorrect.
+No validation is performed to check for assumptions.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.get_pad_value_for_signal">
+<span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">get_pad_value_for_signal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signal_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#get_pad_value_for_signal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.get_pad_value_for_signal" title="Link to this definition"></a></dt>
+<dd><p>Get signal-specific data padding value. Currently always returns zero!!!</p>
+<p>Pulled out as subfunction (and filed in issue tracker) to highlight this limitation.
+Should be implemented as signal-specific value, either specific to type of
+signal or derived from min/max value in signal data itself.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.get_signal_offset_index">
+<span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">get_signal_offset_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signal_starttime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">&lt;module</span> <span class="pre">'datetime'</span> <span class="pre">from</span> <span class="pre">'/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/datetime.py'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signal_sampling_rate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recording_starttime</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">&lt;module</span> <span class="pre">'datetime'</span> <span class="pre">from</span> <span class="pre">'/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/datetime.py'&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#get_signal_offset_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.get_signal_offset_index" title="Link to this definition"></a></dt>
+<dd><p>Calculate the sample index for the offset padding between a signal’s start time
+relative to its recording’s start time.</p>
+<p>Correctness note: The resultant sample offset relative to the start of the
+<cite>recording_starttime</cite> (and therefore also other signals) may be off by as much
+as 1 / sampling_rate seconds. ¯_(ツ)_/¯
+Nothing we can do—such is the life of conforming to the EDF spec!</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.get_edf_label_for_signal">
+<span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">get_edf_label_for_signal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signal_class_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signal_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#get_edf_label_for_signal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.get_edf_label_for_signal" title="Link to this definition"></a></dt>
+<dd><p>Return a signal label that conforms to EDF spec label length requirements (&lt;17 characters)</p>
+<p>Adds class name as prefix to signal name, e.g. for multichannel sensor output,
+where each channel is an individual signal in the resultant EDF (e.g. for
+accelerometer x, y, and z signals).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.data_processing_details">
+<span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">data_processing_details</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signal_class_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#data_processing_details"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.data_processing_details" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.get_physical_dimension">
+<span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">get_physical_dimension</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signal_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#get_physical_dimension"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.get_physical_dimension" title="Link to this definition"></a></dt>
+<dd><p>Return the physical dimension of a signal. Currently always returns <cite>Unknown</cite>!!!</p>
+<p>Pulled out as subfunction (and filed in issue tracker) to highlight this limitation.
+It <em>should</em> be specified per-signal basis, either hard-coded based on type of signal
+(mvp, correctness risk) or passed in by the user (annoying but less correctness risk)
+or gleaned from the db (best! but does not yet exist in db)</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DiveDB.services.dive_data.construct_recording_edf">
+<span class="sig-prename descclassname"><span class="pre">DiveDB.services.dive_data.</span></span><span class="sig-name descname"><span class="pre">construct_recording_edf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">multisignal_data_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/dive_data.html#construct_recording_edf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.dive_data.construct_recording_edf" title="Link to this definition"></a></dt>
+<dd><p>Return an <cite>edfio.Edf</cite> constructed from an input table of timestamps from
+multiple sensor signals belonging to a single recording.</p>
+<p>Assumes and does not validate that input is (a) from a single recording and
+(b) each signal is uniformly sampled and continuous (i.e., no gaps).</p>
+</dd></dl>
+
+</section>
+<section id="module-DiveDB.services.immich_service">
+<span id="divedb-services-immich-service"></span><h2>DiveDB.services.immich_service<a class="headerlink" href="#module-DiveDB.services.immich_service" title="Link to this heading"></a></h2>
+<p>Immich Service - Integration with Immich photo management system</p>
+<p>Provides functionality to:
+- Search for media assets by dataset ID (album name)
+- Retrieve detailed metadata for specific media assets
+- Generate playback URLs for Dash dashboard integration</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.immich_service.ImmichService">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.immich_service.</span></span><span class="sig-name descname"><span class="pre">ImmichService</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/immich_service.html#ImmichService"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.immich_service.ImmichService" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Immich integration service for media asset management</p>
+<p>Initialize Immich service client</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>api_key</strong> – Immich API key (defaults to IMMICH_API_KEY env var)</p></li>
+<li><p><strong>base_url</strong> – Immich API base URL (defaults to IMMICH_BASE_URL env var)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.immich_service.ImmichService.find_media_by_deployment_id">
+<span class="sig-name descname"><span class="pre">find_media_by_deployment_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deployment_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">media_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'IMAGE'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'VIDEO'</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shared</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/immich_service.html#ImmichService.find_media_by_deployment_id"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.immich_service.ImmichService.find_media_by_deployment_id" title="Link to this definition"></a></dt>
+<dd><p>Find media assets associated with a deployment ID (album name)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>deployment_id</strong> – Deployment ID to search for (matches album name)</p></li>
+<li><p><strong>media_type</strong> – Filter by media type (“IMAGE” or “VIDEO”), None for all</p></li>
+<li><p><strong>shared</strong> – Search in shared albums (default: True)</p></li>
+<li><p><strong>use_cache</strong> – If True, cache results with 1-hour TTL</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict with ‘success’ status, ‘data’ list of assets, or ‘error’ message</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.immich_service.ImmichService.get_media_details">
+<span class="sig-name descname"><span class="pre">get_media_details</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">asset_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/immich_service.html#ImmichService.get_media_details"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.immich_service.ImmichService.get_media_details" title="Link to this definition"></a></dt>
+<dd><p>Get detailed metadata and playback URLs for a specific media asset</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>asset_id</strong> – Unique identifier for the media asset</p></li>
+<li><p><strong>use_cache</strong> – If True, cache results with 1-hour TTL</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Dict with ‘success’ status, ‘data’ dict with metadata and URLs, or ‘error’ message</p>
+<p>On success, ‘data’ contains:
+- metadata: Asset details (dates, tags, EXIF, etc.)
+- urls: Playback URLs (original, thumbnail, preview)</p>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.immich_service.ImmichService.create_asset_share_link">
+<span class="sig-name descname"><span class="pre">create_asset_share_link</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">asset_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expires_hours</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/immich_service.html#ImmichService.create_asset_share_link"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.immich_service.ImmichService.create_asset_share_link" title="Link to this definition"></a></dt>
+<dd><p>Create a temporary shared link for a specific asset</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>asset_id</strong> – The asset ID to create a share link for</p></li>
+<li><p><strong>expires_hours</strong> – Number of hours until the share link expires (default: 4)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary with success status and share data or error message</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.immich_service.ImmichService.prepare_video_options_for_react">
+<span class="sig-name descname"><span class="pre">prepare_video_options_for_react</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">media_result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expires_hours</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/immich_service.html#ImmichService.prepare_video_options_for_react"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.immich_service.ImmichService.prepare_video_options_for_react" title="Link to this definition"></a></dt>
+<dd><p>Process media result and prepare video options for React component</p>
+<p>Takes a media result from find_media_by_deployment_id() and creates a list
+of video options with share links and metadata suitable for React components.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>media_result</strong> – Result from find_media_by_deployment_id()</p></li>
+<li><p><strong>expires_hours</strong> – Hours until share links expire (default: 4)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict with ‘success’ status and ‘video_options’ list or ‘error’ message</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.immich_service.ImmichService.test_connection">
+<span class="sig-name descname"><span class="pre">test_connection</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/immich_service.html#ImmichService.test_connection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.immich_service.ImmichService.test_connection" title="Link to this definition"></a></dt>
+<dd><p>Test the connection to Immich API</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict with ‘success’ status and optional ‘error’ message</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-DiveDB.services.connection.warehouse_config">
+<span id="divedb-services-connection-warehouse-config"></span><h2>DiveDB.services.connection.warehouse_config<a class="headerlink" href="#module-DiveDB.services.connection.warehouse_config" title="Link to this heading"></a></h2>
+<p>Warehouse configuration management for S3 vs local filesystem backends.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.connection.warehouse_config.</span></span><span class="sig-name descname"><span class="pre">WarehouseConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">warehouse_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_s3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'auto'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'sql'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'in-memory'</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_endpoint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_access_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_secret_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_bucket</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_region</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'us-east-1'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/warehouse_config.html#WarehouseConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for warehouse backend (S3 or local filesystem)</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig.warehouse_path">
+<span class="sig-name descname"><span class="pre">warehouse_path</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig.warehouse_path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig.use_s3">
+<span class="sig-name descname"><span class="pre">use_s3</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig.use_s3" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig.catalog_type">
+<span class="sig-name descname"><span class="pre">catalog_type</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'auto'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'sql'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'in-memory'</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'auto'</span></span><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig.catalog_type" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig.s3_endpoint">
+<span class="sig-name descname"><span class="pre">s3_endpoint</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig.s3_endpoint" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig.s3_access_key">
+<span class="sig-name descname"><span class="pre">s3_access_key</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig.s3_access_key" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig.s3_secret_key">
+<span class="sig-name descname"><span class="pre">s3_secret_key</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig.s3_secret_key" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig.s3_bucket">
+<span class="sig-name descname"><span class="pre">s3_bucket</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig.s3_bucket" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig.s3_region">
+<span class="sig-name descname"><span class="pre">s3_region</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'us-east-1'</span></span><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig.s3_region" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig.from_parameters">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">warehouse_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_endpoint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_access_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_secret_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_bucket</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_region</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'us-east-1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'auto'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig" title="DiveDB.services.connection.warehouse_config.WarehouseConfig"><span class="pre">WarehouseConfig</span></a></span></span><a class="reference internal" href="_modules/DiveDB/services/connection/warehouse_config.html#WarehouseConfig.from_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig.from_parameters" title="Link to this definition"></a></dt>
+<dd><p>Create configuration from direct parameters</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.warehouse_config.WarehouseConfig.from_environment">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_environment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig" title="DiveDB.services.connection.warehouse_config.WarehouseConfig"><span class="pre">WarehouseConfig</span></a></span></span><a class="reference internal" href="_modules/DiveDB/services/connection/warehouse_config.html#WarehouseConfig.from_environment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig.from_environment" title="Link to this definition"></a></dt>
+<dd><p>Create configuration from environment variables.</p>
+<p>Environment variables:
+- LOCAL_ICEBERG_PATH or CONTAINER_ICEBERG_PATH: Path for local filesystem warehouse
+- S3_ENDPOINT: S3/Ceph endpoint URL
+- S3_ACCESS_KEY: S3 access key
+- S3_SECRET_KEY: S3 secret key
+- S3_BUCKET: S3 bucket name
+- S3_REGION: S3 region (optional, defaults to us-east-1)
+- ICEBERG_CATALOG_TYPE: Catalog mode (auto, sql, in-memory)</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-DiveDB.services.connection.catalog_manager">
+<span id="divedb-services-connection-catalog-manager"></span><h2>DiveDB.services.connection.catalog_manager<a class="headerlink" href="#module-DiveDB.services.connection.catalog_manager" title="Link to this heading"></a></h2>
+<p>Iceberg catalog management for both S3 and local filesystem backends.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.connection.catalog_manager.CatalogManager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.connection.catalog_manager.</span></span><span class="sig-name descname"><span class="pre">CatalogManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig" title="DiveDB.services.connection.warehouse_config.WarehouseConfig"><span class="pre">WarehouseConfig</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/catalog_manager.html#CatalogManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.catalog_manager.CatalogManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Manages Iceberg catalog creation and configuration</p>
+</dd></dl>
+
+</section>
+<section id="module-DiveDB.services.connection.duckdb_connection">
+<span id="divedb-services-connection-duckdb-connection"></span><h2>DiveDB.services.connection.duckdb_connection<a class="headerlink" href="#module-DiveDB.services.connection.duckdb_connection" title="Link to this heading"></a></h2>
+<p>DuckDB connection management with extension loading and S3 configuration.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.connection.duckdb_connection.DuckDBConnection">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.connection.duckdb_connection.</span></span><span class="sig-name descname"><span class="pre">DuckDBConnection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig" title="DiveDB.services.connection.warehouse_config.WarehouseConfig"><span class="pre">WarehouseConfig</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/duckdb_connection.html#DuckDBConnection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.duckdb_connection.DuckDBConnection" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Manages DuckDB connection, extensions, and database configuration</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.duckdb_connection.DuckDBConnection.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/duckdb_connection.html#DuckDBConnection.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.duckdb_connection.DuckDBConnection.execute" title="Link to this definition"></a></dt>
+<dd><p>Execute a SQL query</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.duckdb_connection.DuckDBConnection.sql">
+<span class="sig-name descname"><span class="pre">sql</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/duckdb_connection.html#DuckDBConnection.sql"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.duckdb_connection.DuckDBConnection.sql" title="Link to this definition"></a></dt>
+<dd><p>Execute a SQL query and return results</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.duckdb_connection.DuckDBConnection.register">
+<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/duckdb_connection.html#DuckDBConnection.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.duckdb_connection.DuckDBConnection.register" title="Link to this definition"></a></dt>
+<dd><p>Register a DataFrame as a table</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.duckdb_connection.DuckDBConnection.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/duckdb_connection.html#DuckDBConnection.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.duckdb_connection.DuckDBConnection.close" title="Link to this definition"></a></dt>
+<dd><p>Close the DuckDB connection</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-DiveDB.services.connection.dataset_manager">
+<span id="divedb-services-connection-dataset-manager"></span><h2>DiveDB.services.connection.dataset_manager<a class="headerlink" href="#module-DiveDB.services.connection.dataset_manager" title="Link to this heading"></a></h2>
+<p>Dataset management for DiveDB - handles dataset lifecycle, discovery, and initialization.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.connection.dataset_manager.DatasetManager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.connection.dataset_manager.</span></span><span class="sig-name descname"><span class="pre">DatasetManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#DiveDB.services.connection.warehouse_config.WarehouseConfig" title="DiveDB.services.connection.warehouse_config.WarehouseConfig"><span class="pre">WarehouseConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_manager</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#DiveDB.services.connection.catalog_manager.CatalogManager" title="DiveDB.services.connection.catalog_manager.CatalogManager"><span class="pre">CatalogManager</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">duckdb_connection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#DiveDB.services.connection.duckdb_connection.DuckDBConnection" title="DiveDB.services.connection.duckdb_connection.DuckDBConnection"><span class="pre">DuckDBConnection</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/dataset_manager.html#DatasetManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.dataset_manager.DatasetManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Manages dataset lifecycle: creation, discovery, initialization, and removal</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.dataset_manager.DatasetManager.setup_dataset_tables">
+<span class="sig-name descname"><span class="pre">setup_dataset_tables</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/dataset_manager.html#DatasetManager.setup_dataset_tables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.dataset_manager.DatasetManager.setup_dataset_tables" title="Link to this definition"></a></dt>
+<dd><p>Create Iceberg tables for a specific dataset</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.dataset_manager.DatasetManager.discover_and_load_existing_datasets">
+<span class="sig-name descname"><span class="pre">discover_and_load_existing_datasets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/dataset_manager.html#DatasetManager.discover_and_load_existing_datasets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.dataset_manager.DatasetManager.discover_and_load_existing_datasets" title="Link to this definition"></a></dt>
+<dd><p>Discover existing datasets in the Iceberg warehouse and load views for them.
+A dataset is considered valid if it has at least the ‘data’ table.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.dataset_manager.DatasetManager.ensure_dataset_initialized">
+<span class="sig-name descname"><span class="pre">ensure_dataset_initialized</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/dataset_manager.html#DatasetManager.ensure_dataset_initialized"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.dataset_manager.DatasetManager.ensure_dataset_initialized" title="Link to this definition"></a></dt>
+<dd><p>Ensure a dataset’s tables and views are initialized</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.dataset_manager.DatasetManager.get_all_datasets">
+<span class="sig-name descname"><span class="pre">get_all_datasets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/connection/dataset_manager.html#DatasetManager.get_all_datasets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.dataset_manager.DatasetManager.get_all_datasets" title="Link to this definition"></a></dt>
+<dd><p>Get list of all initialized datasets</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.dataset_manager.DatasetManager.list_dataset_tables">
+<span class="sig-name descname"><span class="pre">list_dataset_tables</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/connection/dataset_manager.html#DatasetManager.list_dataset_tables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.dataset_manager.DatasetManager.list_dataset_tables" title="Link to this definition"></a></dt>
+<dd><p>List tables for a specific dataset</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.dataset_manager.DatasetManager.dataset_exists">
+<span class="sig-name descname"><span class="pre">dataset_exists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/DiveDB/services/connection/dataset_manager.html#DatasetManager.dataset_exists"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.dataset_manager.DatasetManager.dataset_exists" title="Link to this definition"></a></dt>
+<dd><p>Check if a dataset has been initialized</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.dataset_manager.DatasetManager.remove_dataset">
+<span class="sig-name descname"><span class="pre">remove_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/dataset_manager.html#DatasetManager.remove_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.dataset_manager.DatasetManager.remove_dataset" title="Link to this definition"></a></dt>
+<dd><p>Remove a dataset and all its tables (use with caution!)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.dataset_manager.DatasetManager.initialize_datasets">
+<span class="sig-name descname"><span class="pre">initialize_datasets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">datasets</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/dataset_manager.html#DatasetManager.initialize_datasets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.dataset_manager.DatasetManager.initialize_datasets" title="Link to this definition"></a></dt>
+<dd><p>Initialize specific datasets or discover existing ones</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-DiveDB.services.connection.notion_integration">
+<span id="divedb-services-connection-notion-integration"></span><h2>DiveDB.services.connection.notion_integration<a class="headerlink" href="#module-DiveDB.services.connection.notion_integration" title="Link to this heading"></a></h2>
+<p>Notion integration for DiveDB - handles loading Notion databases and metadata mappings.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="DiveDB.services.connection.notion_integration.NotionIntegration">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DiveDB.services.connection.notion_integration.</span></span><span class="sig-name descname"><span class="pre">NotionIntegration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">notion_manager</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#DiveDB.services.notion_orm.NotionORMManager" title="DiveDB.services.notion_orm.NotionORMManager"><span class="pre">NotionORMManager</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duckdb_connection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallelism</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/notion_integration.html#NotionIntegration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.notion_integration.NotionIntegration" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Manages Notion database loading, caching, and metadata mappings</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.notion_integration.NotionIntegration.load_standardized_channels_df">
+<span class="sig-name descname"><span class="pre">load_standardized_channels_df</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pandas.DataFrame</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/DiveDB/services/connection/notion_integration.html#NotionIntegration.load_standardized_channels_df"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.notion_integration.NotionIntegration.load_standardized_channels_df" title="Link to this definition"></a></dt>
+<dd><p>Load Standardized Channel DB into a DataFrame from DuckDB table or Notion API.
+Returns None if Notion is not available.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.notion_integration.NotionIntegration.load_signal_metadata_map">
+<span class="sig-name descname"><span class="pre">load_signal_metadata_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/connection/notion_integration.html#NotionIntegration.load_signal_metadata_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.notion_integration.NotionIntegration.load_signal_metadata_map" title="Link to this definition"></a></dt>
+<dd><p>Return a cached mapping of channel_id -&gt; metadata from Standardized Channels and Parent Signals.</p>
+<p>Uses ORM to traverse from Standardized Channels to their Parent Signals,
+combining channel-specific overrides with parent signal base properties.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>channel_ids</strong> – Optional list of channel IDs to load metadata for. If None, loads all channels.</p>
+</dd>
+</dl>
+<p>Returns mapping where keys are Standardized Channel IDs and values are dicts
+with all metadata fields (preferring channel overrides over parent defaults).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.notion_integration.NotionIntegration.build_stdchan_mappings">
+<span class="sig-name descname"><span class="pre">build_stdchan_mappings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">std_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/connection/notion_integration.html#NotionIntegration.build_stdchan_mappings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.notion_integration.NotionIntegration.build_stdchan_mappings" title="Link to this definition"></a></dt>
+<dd><p>From Standardized Channels DataFrame, build lookup mappings:
+- channel_id_to_signal_id: mapping of channel_id(lower) -&gt; Signal DB notion_id
+- original_alias_to_channel_id: mapping of alias(lower) -&gt; channel_id</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.notion_integration.NotionIntegration.load_notion_databases">
+<span class="sig-name descname"><span class="pre">load_notion_databases</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DiveDB/services/connection/notion_integration.html#NotionIntegration.load_notion_databases"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.notion_integration.NotionIntegration.load_notion_databases" title="Link to this definition"></a></dt>
+<dd><p>Load all available Notion databases into DuckDB tables</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.notion_integration.NotionIntegration.list_notion_tables">
+<span class="sig-name descname"><span class="pre">list_notion_tables</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/connection/notion_integration.html#NotionIntegration.list_notion_tables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.notion_integration.NotionIntegration.list_notion_tables" title="Link to this definition"></a></dt>
+<dd><p>List all available Notion tables in DuckDB</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DiveDB.services.connection.notion_integration.NotionIntegration.get_metadata_mappings">
+<span class="sig-name descname"><span class="pre">get_metadata_mappings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel_ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/DiveDB/services/connection/notion_integration.html#NotionIntegration.get_metadata_mappings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DiveDB.services.connection.notion_integration.NotionIntegration.get_metadata_mappings" title="Link to this definition"></a></dt>
+<dd><p>Get all metadata mappings needed for channel discovery.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>channel_ids</strong> – Optional list of channel IDs to load metadata for. If None, loads all channels.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tuple of (channel_id_to_signal_id, original_alias_to_channel_id, signal_metadata_map)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="modules.html" class="btn btn-neutral float-left" title="DiveDB" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="terminology.html" class="btn btn-neutral float-right" title="Terminology: Organism / Animal Migration" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Jessica Kendall-Bar.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

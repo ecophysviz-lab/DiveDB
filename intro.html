@@ -1,0 +1,334 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Introduction &mdash; DiveDB 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="AI Agent Technical Reference" href="ai_docs.html" />
+    <link rel="prev" title="Welcome to DiveDB’s documentation!" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            DiveDB
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-is-divedb">What is DiveDB?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#key-components">Key Components</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#duckpond">DuckPond</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#datauploader">DataUploader</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#notionormmanager">NotionORMManager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#divedata">DiveData</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#immichservice">ImmichService</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#architecture-overview">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#storage-backends">Storage Backends</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#local-filesystem-development">Local Filesystem (Development)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#s3-ceph-backend-production">S3 / Ceph Backend (Production)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ai_docs.html">AI Agent Technical Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">DiveDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="terminology.html">Terminology: Organism / Animal Migration</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DiveDB</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Introduction</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/intro.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Link to this heading"></a></h1>
+<section id="what-is-divedb">
+<h2>What is DiveDB?<a class="headerlink" href="#what-is-divedb" title="Link to this heading"></a></h2>
+<p>DiveDB is an Apache Iceberg data lake designed to organize and analyze biologging data
+collected by any sensor on any marine mammal. By storing data in a structured,
+partitioned data lake, DiveDB enforces consistency across multiple dives, sensors,
+and animals, enabling fast cross-deployment analytical queries.</p>
+<p>Built entirely on open-source dependencies — DuckDB, Apache Iceberg, PyArrow, xarray,
+and Notion — DiveDB is designed to be flexible, extensible, and deployable on any
+platform with Docker support.</p>
+<p>Primary goals:</p>
+<ul class="simple">
+<li><p><strong>Metadata Management</strong>: Notion databases provide a collaborative interface for
+managing dive metadata (animals, loggers, deployments, recordings).</p></li>
+<li><p><strong>Data Reliability</strong>: Apache Iceberg brings ACID transactions to big-data workloads.</p></li>
+<li><p><strong>Analytical Queries</strong>: DuckDB executes fast analytical SQL over Iceberg tables.</p></li>
+<li><p><strong>Interactive Visualization</strong>: Plotly Dash dashboards visualize biologging signals,
+events, and synchronized video.</p></li>
+</ul>
+</section>
+<section id="key-components">
+<h2>Key Components<a class="headerlink" href="#key-components" title="Link to this heading"></a></h2>
+<section id="duckpond">
+<h3>DuckPond<a class="headerlink" href="#duckpond" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">DuckPond</span></code> is the primary interface to the data lake. It combines an Iceberg catalog,
+a DuckDB connection, Notion metadata integration, and dataset lifecycle management into
+a single object.</p>
+<p>Typical entry point:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DiveDB.services</span><span class="w"> </span><span class="kn">import</span> <span class="n">DuckPond</span><span class="p">,</span> <span class="n">NotionORMManager</span>
+
+<span class="n">duck_pond</span> <span class="o">=</span> <span class="n">DuckPond</span><span class="o">.</span><span class="n">from_environment</span><span class="p">(</span>
+    <span class="n">notion_manager</span><span class="o">=</span><span class="n">NotionORMManager</span><span class="p">(</span><span class="n">db_map</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="datauploader">
+<h3>DataUploader<a class="headerlink" href="#datauploader" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">DataUploader</span></code> handles validation and ingest of NetCDF files into Iceberg tables.
+It validates file structure, processes signal data in configurable batches, and
+refreshes DuckDB views after upload.</p>
+</section>
+<section id="notionormmanager">
+<h3>NotionORMManager<a class="headerlink" href="#notionormmanager" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">NotionORMManager</span></code> provides ORM-like read access to Notion databases. It maps
+Notion database IDs to Python model classes, supports chainable <code class="docutils literal notranslate"><span class="pre">filter()</span></code> queries,
+and auto-injects relationship traversal methods.</p>
+</section>
+<section id="divedata">
+<h3>DiveData<a class="headerlink" href="#divedata" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">DiveData</span></code> wraps a DuckDB relation returned by <code class="docutils literal notranslate"><span class="pre">get_data(pivoted=False)</span></code>. It
+delegates to DuckDB relation methods (<code class="docutils literal notranslate"><span class="pre">df()</span></code>, <code class="docutils literal notranslate"><span class="pre">filter()</span></code>, etc.) and adds Notion
+metadata enrichment and EDF export.</p>
+</section>
+<section id="immichservice">
+<h3>ImmichService<a class="headerlink" href="#immichservice" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ImmichService</span></code> integrates with an Immich photo/video server to discover deployment
+media albums, retrieve asset metadata and playback URLs, and format video options for
+React/Dash components.</p>
+</section>
+</section>
+<section id="architecture-overview">
+<h2>Architecture Overview<a class="headerlink" href="#architecture-overview" title="Link to this heading"></a></h2>
+<p><strong>Data flow</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>NetCDF Files
+     |
+     v
+DataUploader  ──validates──►  NetCDFValidationError
+     |
+     v
+DuckPond.write_signal_data / write_to_iceberg
+     |
+     v
+Iceberg Tables  ({dataset}.data, {dataset}.events)
+     |
+     v
+DuckDB Views  (&quot;{dataset}_Data&quot;, &quot;{dataset}_Events&quot;)
+     |
+     v
+DuckPond.get_data / get_events
+     |
+     ├──► pd.DataFrame (pivoted=True)
+     └──► DiveData wrapper (pivoted=False)
+                |
+                └──► EDF export
+
+Notion Databases
+     |
+     v
+NotionIntegration.load_notion_databases()
+     |
+     v
+DuckDB in-memory tables (metadata joins)
+     |
+     v
+Channel metadata enrichment, timezone offsets, organism icons
+
+ImmichService
+     |
+     v
+Media discovery by deployment ID → video URLs for Dash UI
+</pre></div>
+</div>
+<p><strong>Initialization sequence</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WarehouseConfig</span><span class="o">.</span><span class="n">from_environment</span><span class="p">()</span>   <span class="c1"># S3 vs local filesystem</span>
+         <span class="o">|</span>
+         <span class="n">v</span>
+<span class="n">CatalogManager</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>               <span class="c1"># Iceberg SqlCatalog</span>
+         <span class="o">|</span>
+         <span class="n">v</span>
+<span class="n">DuckDBConnection</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>             <span class="c1"># DuckDB + iceberg/httpfs extensions</span>
+         <span class="o">|</span>
+         <span class="n">v</span>
+<span class="n">NotionIntegration</span><span class="p">(</span><span class="n">notion_manager</span><span class="p">,</span> <span class="n">duckdb_connection</span><span class="p">)</span>
+         <span class="o">|</span>
+         <span class="n">v</span>
+<span class="n">DatasetManager</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">catalog</span><span class="p">,</span> <span class="n">duckdb_conn</span><span class="p">)</span>
+         <span class="o">|</span>
+         <span class="n">v</span>
+<span class="n">DuckPond</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>                        <span class="c1"># All components combined</span>
+</pre></div>
+</div>
+</section>
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<p><strong>1. Configure environment</strong></p>
+<p>Copy <code class="docutils literal notranslate"><span class="pre">.env.example</span></code> to <code class="docutils literal notranslate"><span class="pre">.env</span></code> and set:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Notion credentials</span>
+<span class="nv">NOTION_API_KEY</span><span class="o">=</span>secret_...
+<span class="nv">NOTION_ANIMAL_DB</span><span class="o">=</span>...
+<span class="nv">NOTION_DEPLOYMENT_DB</span><span class="o">=</span>...
+
+<span class="c1"># Local Iceberg warehouse (development)</span>
+<span class="nv">CONTAINER_ICEBERG_PATH</span><span class="o">=</span>/app/iceberg_warehouse
+<span class="nv">LOCAL_ICEBERG_PATH</span><span class="o">=</span>./local_iceberg_warehouse
+
+<span class="c1"># Or S3/Ceph backend (production)</span>
+<span class="nv">S3_ENDPOINT</span><span class="o">=</span>https://your-s3-endpoint.com
+<span class="nv">S3_ACCESS_KEY</span><span class="o">=</span>your-access-key
+<span class="nv">S3_SECRET_KEY</span><span class="o">=</span>your-secret-key
+<span class="nv">S3_BUCKET</span><span class="o">=</span>your-iceberg-bucket
+<span class="nv">S3_REGION</span><span class="o">=</span>us-east-1
+</pre></div>
+</div>
+<p><strong>2. Start the environment</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/ecophysviz-lab/DiveDB.git
+<span class="nb">cd</span><span class="w"> </span>DiveDB
+cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w">   </span><span class="c1"># fill in credentials</span>
+make<span class="w"> </span>up<span class="w">                </span><span class="c1"># starts Jupyter + Docker services</span>
+</pre></div>
+</div>
+<p><strong>3. Initialize DuckPond</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DiveDB.services</span><span class="w"> </span><span class="kn">import</span> <span class="n">DuckPond</span><span class="p">,</span> <span class="n">NotionORMManager</span>
+
+<span class="n">notion_manager</span> <span class="o">=</span> <span class="n">NotionORMManager</span><span class="p">(</span><span class="n">db_map</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>
+<span class="n">duck_pond</span> <span class="o">=</span> <span class="n">DuckPond</span><span class="o">.</span><span class="n">from_environment</span><span class="p">(</span><span class="n">notion_manager</span><span class="o">=</span><span class="n">notion_manager</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>4. Upload a NetCDF file</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DiveDB.services</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataUploader</span>
+
+<span class="n">uploader</span> <span class="o">=</span> <span class="n">DataUploader</span><span class="p">(</span><span class="n">duck_pond</span><span class="o">=</span><span class="n">duck_pond</span><span class="p">)</span>
+<span class="n">uploader</span><span class="o">.</span><span class="n">upload_netcdf</span><span class="p">(</span>
+    <span class="n">netcdf_file_path</span><span class="o">=</span><span class="s2">&quot;data.nc&quot;</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;animal&quot;</span><span class="p">:</span> <span class="s2">&quot;apfo-001a&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>5. Query data</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">duck_pond</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
+    <span class="n">deployment_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">],</span>
+    <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;temperature&quot;</span><span class="p">],</span>
+    <span class="n">frequency</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>   <span class="c1"># resample to 1 Hz</span>
+    <span class="n">pivoted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="storage-backends">
+<h2>Storage Backends<a class="headerlink" href="#storage-backends" title="Link to this heading"></a></h2>
+<section id="local-filesystem-development">
+<h3>Local Filesystem (Development)<a class="headerlink" href="#local-filesystem-development" title="Link to this heading"></a></h3>
+<p>Set <code class="docutils literal notranslate"><span class="pre">LOCAL_ICEBERG_PATH</span></code> (host path) and <code class="docutils literal notranslate"><span class="pre">CONTAINER_ICEBERG_PATH</span></code> (container path)
+in <code class="docutils literal notranslate"><span class="pre">.env</span></code>. DiveDB creates a SQLite catalog database and stores Iceberg data files
+on the local filesystem. No additional configuration is required.</p>
+</section>
+<section id="s3-ceph-backend-production">
+<h3>S3 / Ceph Backend (Production)<a class="headerlink" href="#s3-ceph-backend-production" title="Link to this heading"></a></h3>
+<p>When all five S3 environment variables are present (<code class="docutils literal notranslate"><span class="pre">S3_ENDPOINT</span></code>, <code class="docutils literal notranslate"><span class="pre">S3_ACCESS_KEY</span></code>,
+<code class="docutils literal notranslate"><span class="pre">S3_SECRET_KEY</span></code>, <code class="docutils literal notranslate"><span class="pre">S3_BUCKET</span></code>, <code class="docutils literal notranslate"><span class="pre">S3_REGION</span></code>), DiveDB automatically:</p>
+<ul class="simple">
+<li><p>Configures the Iceberg catalog to use S3 storage</p></li>
+<li><p>Loads DuckDB’s <code class="docutils literal notranslate"><span class="pre">httpfs</span></code> extension for remote file access</p></li>
+<li><p>Sets S3 credentials in DuckDB for query execution</p></li>
+<li><p>Stores data under <code class="docutils literal notranslate"><span class="pre">s3://your-bucket/iceberg-warehouse/</span></code></p></li>
+</ul>
+<p>The backend selection is handled transparently by <code class="docutils literal notranslate"><span class="pre">WarehouseConfig.from_environment()</span></code>
+and requires no changes to application code.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to DiveDB’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="ai_docs.html" class="btn btn-neutral float-right" title="AI Agent Technical Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Jessica Kendall-Bar.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

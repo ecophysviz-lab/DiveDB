@@ -1,0 +1,958 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Agent Technical Reference &mdash; DiveDB 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="DiveDB" href="modules.html" />
+    <link rel="prev" title="Introduction" href="intro.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            DiveDB
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">AI Agent Technical Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#quick-reference">Quick Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#terminology">Terminology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#architecture-overview">Architecture Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#service-flow">Service Flow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-storage">Data Storage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#initialization-pattern">Initialization Pattern</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#file-map">File Map</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-reference">Module Reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#duck-pond-py">duck_pond.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#notion-orm-py">notion_orm.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-uploader-py">data_uploader.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#dive-data-py">dive_data.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#immich-service-py">immich_service.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#connection-warehouse-config-py">connection/warehouse_config.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#connection-catalog-manager-py">connection/catalog_manager.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#connection-duckdb-connection-py">connection/duckdb_connection.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#connection-dataset-manager-py">connection/dataset_manager.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#connection-notion-integration-py">connection/notion_integration.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#utils-directory-utils-py">utils/directory_utils.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#utils-netcdf-conversions-py">utils/netcdf_conversions.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#utils-openstack-py">utils/openstack.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#utils-storage-py">utils/storage.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#utils-timing-py">utils/timing.py</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#data-structures">Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#duckpond-query-result">DuckPond Query Result</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#channel-metadata-structure">Channel Metadata Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#deployment-metadata-structure">Deployment Metadata Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#video-options-structure">Video Options Structure</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#integration-points">Integration Points</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#duckpond-notionorm">DuckPond ↔ NotionORM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#datauploader-duckpond">DataUploader → DuckPond</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#duckpond-divedata">DuckPond → DiveData</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#dash-app-integration">Dash App Integration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#common-patterns">Common Patterns</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#initializing-duckpond">Initializing DuckPond</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#querying-data">Querying Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#discovering-channels">Discovering Channels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#uploading-netcdf">Uploading NetCDF</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#writing-signal-data">Writing Signal Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#using-notion-orm">Using Notion ORM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#using-immich-service">Using Immich Service</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#maintenance-guidelines">Maintenance Guidelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#when-to-update-this-documentation">When to Update This Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#documentation-standards">Documentation Standards</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#update-checklist">Update Checklist</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">DiveDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="terminology.html">Terminology: Organism / Animal Migration</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DiveDB</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">AI Agent Technical Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/ai_docs.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="ai-agent-technical-reference">
+<h1>AI Agent Technical Reference<a class="headerlink" href="#ai-agent-technical-reference" title="Link to this heading"></a></h1>
+<p>This page is a comprehensive, token-efficient technical reference derived from
+<code class="docutils literal notranslate"><span class="pre">DiveDB/AI_DOCS.md</span></code>. It covers architecture, module interfaces, data structures,
+integration points, common patterns, and maintenance guidelines.</p>
+<section id="quick-reference">
+<h2>Quick Reference<a class="headerlink" href="#quick-reference" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Project</strong></p></td>
+<td><p>Apache Iceberg data lake with Notion metadata integration for biologging data</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Entry Point</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DuckPond.from_environment()</span></code> (<code class="docutils literal notranslate"><span class="pre">duck_pond.py</span></code>:384)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Tech Stack</strong></p></td>
+<td><p>DuckDB, Apache Iceberg, PyArrow, xarray, Notion API, requests</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Key Dependencies</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NotionORMManager</span></code>, <code class="docutils literal notranslate"><span class="pre">ImmichService</span></code>, <code class="docutils literal notranslate"><span class="pre">DataUploader</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Config</strong></p></td>
+<td><p>Environment variables (<code class="docutils literal notranslate"><span class="pre">ICEBERG_PATH</span></code>, S3 config, Notion credentials)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="terminology">
+<h2>Terminology<a class="headerlink" href="#terminology" title="Link to this heading"></a></h2>
+<p>See the dedicated <a class="reference internal" href="terminology.html"><span class="doc">Terminology: Organism / Animal Migration</span></a> page for the full organism/animal migration
+reference table and rules for new code.</p>
+</section>
+<section id="architecture-overview">
+<h2>Architecture Overview<a class="headerlink" href="#architecture-overview" title="Link to this heading"></a></h2>
+<section id="service-flow">
+<h3>Service Flow<a class="headerlink" href="#service-flow" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>DataUploader → DuckPond → Iceberg Tables → DuckDB Views → DiveData
+                  |
+          NotionORMManager (metadata enrichment)
+                  |
+          ImmichService (media assets)
+</pre></div>
+</div>
+</section>
+<section id="data-storage">
+<h3>Data Storage<a class="headerlink" href="#data-storage" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Iceberg Tables</strong>: Dataset-specific partitioned tables (<code class="docutils literal notranslate"><span class="pre">data</span></code>, <code class="docutils literal notranslate"><span class="pre">events</span></code>)</p></li>
+<li><p><strong>DuckDB Views</strong>: Dataset-specific views (<code class="docutils literal notranslate"><span class="pre">{dataset}_Data</span></code>, <code class="docutils literal notranslate"><span class="pre">{dataset}_Events</span></code>)</p></li>
+<li><p><strong>Notion Integration</strong>: Metadata loaded into DuckDB tables for joins</p></li>
+<li><p><strong>Storage Backends</strong>: Local filesystem or S3/Ceph</p></li>
+</ul>
+</section>
+<section id="initialization-pattern">
+<h3>Initialization Pattern<a class="headerlink" href="#initialization-pattern" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">WarehouseConfig.from_environment()</span></code> → Config object</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CatalogManager(config)</span></code> → Iceberg catalog</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DuckDBConnection(config)</span></code> → DuckDB connection with extensions</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NotionIntegration(notion_manager,</span> <span class="pre">duckdb_connection)</span></code> → Notion loader</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DatasetManager(config,</span> <span class="pre">catalog_manager,</span> <span class="pre">duckdb_connection)</span></code> → Dataset lifecycle</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DuckPond(...)</span></code> → Combines all components</p></li>
+</ol>
+</section>
+</section>
+<section id="file-map">
+<h2>File Map<a class="headerlink" href="#file-map" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%" />
+<col style="width: 35.0%" />
+<col style="width: 20.0%" />
+<col style="width: 10.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Purpose</p></th>
+<th class="head"><p>Key Exports</p></th>
+<th class="head"><p>Lines</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">duck_pond.py</span></code></p></td>
+<td><p>Main data lake interface</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DuckPond</span></code></p></td>
+<td><p>1691</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">notion_orm.py</span></code></p></td>
+<td><p>Notion database ORM</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NotionORMManager</span></code>, <code class="docutils literal notranslate"><span class="pre">NotionModel</span></code></p></td>
+<td><p>512</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">data_uploader.py</span></code></p></td>
+<td><p>NetCDF upload and validation</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DataUploader</span></code>, <code class="docutils literal notranslate"><span class="pre">NetCDFValidationError</span></code></p></td>
+<td><p>705</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dive_data.py</span></code></p></td>
+<td><p>Query results wrapper</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DiveData</span></code></p></td>
+<td><p>319</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">immich_service.py</span></code></p></td>
+<td><p>Media asset management</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ImmichService</span></code></p></td>
+<td><p>400</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">connection/warehouse_config.py</span></code></p></td>
+<td><p>Backend configuration</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WarehouseConfig</span></code></p></td>
+<td><p>99</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">connection/catalog_manager.py</span></code></p></td>
+<td><p>Iceberg catalog management</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CatalogManager</span></code></p></td>
+<td><p>82</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">connection/duckdb_connection.py</span></code></p></td>
+<td><p>DuckDB connection manager</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DuckDBConnection</span></code></p></td>
+<td><p>93</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">connection/dataset_manager.py</span></code></p></td>
+<td><p>Dataset lifecycle management</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DatasetManager</span></code></p></td>
+<td><p>447</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">connection/notion_integration.py</span></code></p></td>
+<td><p>Notion database loader</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NotionIntegration</span></code></p></td>
+<td><p>490</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">utils/directory_utils.py</span></code></p></td>
+<td><p>Directory utilities</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">get_tmpdir()</span></code></p></td>
+<td><p>10</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">utils/netcdf_conversions.py</span></code></p></td>
+<td><p>NetCDF conversion helpers</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">matlab_datenum_to_datetime_vectorized()</span></code>, <code class="docutils literal notranslate"><span class="pre">infer_date_format()</span></code></p></td>
+<td><p>146</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">utils/openstack.py</span></code></p></td>
+<td><p>OpenStack Swift client</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SwiftClient</span></code></p></td>
+<td><p>71</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">utils/storage.py</span></code></p></td>
+<td><p>Storage abstraction</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OpenStackStorage</span></code></p></td>
+<td><p>25</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">utils/timing.py</span></code></p></td>
+<td><p>Timing context manager</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TimingContext</span></code></p></td>
+<td><p>17</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="module-reference">
+<h2>Module Reference<a class="headerlink" href="#module-reference" title="Link to this heading"></a></h2>
+<section id="duck-pond-py">
+<h3>duck_pond.py<a class="headerlink" href="#duck-pond-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: Main data lake interface for querying and writing biologging data.</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">DuckPond</span></code> — primary interface for data operations.</p>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">from_environment(**kwargs)</span></code> → <code class="docutils literal notranslate"><span class="pre">DuckPond</span></code> — Factory method from env vars</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_data(dataset,</span> <span class="pre">labels,</span> <span class="pre">organism_ids,</span> <span class="pre">deployment_ids,</span> <span class="pre">recording_ids,</span> <span class="pre">groups,</span> <span class="pre">classes,</span> <span class="pre">date_range,</span> <span class="pre">frequency,</span> <span class="pre">limit,</span> <span class="pre">pivoted,</span> <span class="pre">apply_timezone_offset,</span> <span class="pre">add_timestamp_column,</span> <span class="pre">use_cache)</span></code> → <code class="docutils literal notranslate"><span class="pre">pd.DataFrame</span> <span class="pre">|</span> <span class="pre">DiveData</span></code> — Query data with optional resampling and caching; <code class="docutils literal notranslate"><span class="pre">animal_ids</span></code> accepted as deprecated kwarg</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_events(dataset,</span> <span class="pre">organism_ids,</span> <span class="pre">deployment_ids,</span> <span class="pre">recording_ids,</span> <span class="pre">event_keys,</span> <span class="pre">date_range,</span> <span class="pre">limit,</span> <span class="pre">apply_timezone_offset,</span> <span class="pre">add_timestamp_columns)</span></code> → <code class="docutils literal notranslate"><span class="pre">pd.DataFrame</span></code> — Query events; <code class="docutils literal notranslate"><span class="pre">animal_ids</span></code> accepted as deprecated kwarg</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_available_channels(dataset,</span> <span class="pre">include_metadata,</span> <span class="pre">pack_groups,</span> <span class="pre">load_metadata)</span></code> → <code class="docutils literal notranslate"><span class="pre">List[Dict]</span></code> — Discover channels with metadata</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_channels_metadata(dataset,</span> <span class="pre">channel_ids)</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">Dict]</span></code> — Lazy metadata loading</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_all_datasets_and_deployments()</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">List[Dict]]</span></code> — All datasets with deployments</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">estimate_data_size(dataset,</span> <span class="pre">labels,</span> <span class="pre">organism_ids,</span> <span class="pre">deployment_ids,</span> <span class="pre">recording_ids,</span> <span class="pre">groups,</span> <span class="pre">classes,</span> <span class="pre">date_range)</span></code> → <code class="docutils literal notranslate"><span class="pre">int</span></code> — Row count estimate; <code class="docutils literal notranslate"><span class="pre">animal_ids</span></code> accepted as deprecated kwarg</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">write_signal_data(dataset,</span> <span class="pre">metadata,</span> <span class="pre">times,</span> <span class="pre">group,</span> <span class="pre">class_name,</span> <span class="pre">label,</span> <span class="pre">values)</span></code> → <code class="docutils literal notranslate"><span class="pre">int</span></code> — Write signal data</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">write_to_iceberg(data,</span> <span class="pre">lake,</span> <span class="pre">dataset,</span> <span class="pre">mode,</span> <span class="pre">skip_view_refresh)</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Write PyArrow table</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">write_event(dataset,</span> <span class="pre">deployment,</span> <span class="pre">animal,</span> <span class="pre">event_key,</span> <span class="pre">datetime_start,</span> <span class="pre">datetime_end,</span> <span class="pre">recording,</span> <span class="pre">group,</span> <span class="pre">short_description,</span> <span class="pre">long_description,</span> <span class="pre">event_data)</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Write single event (convenience for Dash UI)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_deployment_timezone_offset(deployment_id)</span></code> → <code class="docutils literal notranslate"><span class="pre">float</span></code> — Timezone offset in hours</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_view_name(dataset,</span> <span class="pre">table_type)</span></code> → <code class="docutils literal notranslate"><span class="pre">str</span></code> — Quoted view name</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_3d_model_for_organism(organism_id,</span> <span class="pre">use_cache)</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict</span></code> — Fetch 3D model info from Notion; <code class="docutils literal notranslate"><span class="pre">get_3d_model_for_animal</span></code> is a deprecated alias</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_get_organism_icons(organism_ids)</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">str]</span></code> — Fetch icon URLs; <code class="docutils literal notranslate"><span class="pre">_get_animal_icons</span></code> delegates to this</p></li>
+</ul>
+<p><strong>Data Flow</strong>:</p>
+<ol class="arabic simple">
+<li><p>Query → Build SQL → Execute via DuckDB → Return DataFrame or DiveData</p></li>
+<li><p>Write → PyArrow Table → Iceberg append/overwrite → Refresh views</p></li>
+<li><p>Metadata → NotionIntegration → Signal DB → Channel metadata enrichment</p></li>
+</ol>
+<p><strong>Resampling</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_wrap_query_with_resampling()</span></code> — SQL-level resampling (downsample/upsample)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_estimate_label_frequency()</span></code> — Native frequency estimation</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_build_downsample_query()</span></code> — Every Nth row selection</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_build_upsample_query()</span></code> — Time grid with forward-fill</p></li>
+</ul>
+</section>
+<section id="notion-orm-py">
+<h3>notion_orm.py<a class="headerlink" href="#notion-orm-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: ORM-like interface for Notion databases.</p>
+<p><strong>Key Classes</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">NotionORMManager</span></code> — Database manager with model factory</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NotionModel</span></code> — Base model class with property parsing</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ModelObjects</span></code> — Query manager for models</p></li>
+</ul>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">NotionORMManager.__init__(db_map,</span> <span class="pre">token)</span></code> — Initialize with database map</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_model(model_name)</span></code> → <code class="docutils literal notranslate"><span class="pre">Type[NotionModel]</span></code> — Get or create model class</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ModelObjects.all()</span></code> → <code class="docutils literal notranslate"><span class="pre">List[NotionModel]</span></code> — Get all records</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ModelObjects.filter(**kwargs)</span></code> → <code class="docutils literal notranslate"><span class="pre">ModelObjects</span></code> — Filter records (chainable)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ModelObjects.first()</span></code> → <code class="docutils literal notranslate"><span class="pre">Optional[NotionModel]</span></code> — Get first result</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NotionModel._from_notion_page(page_data)</span></code> → <code class="docutils literal notranslate"><span class="pre">NotionModel</span></code> — Parse Notion page</p></li>
+</ul>
+<p><strong>Property Types Supported</strong>:
+title, rich_text, number, select, multi_select, date, relation, checkbox, url,
+email, phone_number, formula, files.</p>
+<p><strong>Relationship Methods</strong>:
+Auto-injected <code class="docutils literal notranslate"><span class="pre">get_{related_db}()</span></code> methods for relation properties. Traverses
+Notion relations to load related records.</p>
+<p><strong>Database Map</strong>:
+Maps database names to Notion database IDs. Common databases: Deployment DB,
+Recording DB, Logger DB, Organism DB (falls back to Animal DB), Asset DB, Dataset DB,
+Signal DB, Standardized Channel DB. <code class="docutils literal notranslate"><span class="pre">get_model(&quot;Animal&quot;)</span></code> tries <code class="docutils literal notranslate"><span class="pre">&quot;Organism&quot;</span></code>
+first, falls back to <code class="docutils literal notranslate"><span class="pre">&quot;Animal&quot;</span></code> for older Notion workspaces.</p>
+</section>
+<section id="data-uploader-py">
+<h3>data_uploader.py<a class="headerlink" href="#data-uploader-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: NetCDF file validation and upload to Iceberg data lake.</p>
+<p><strong>Key Classes</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DataUploader</span></code> — Main uploader class</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NetCDFValidationError</span></code> — Validation exception</p></li>
+</ul>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__init__(duck_pond)</span></code> — Initialize with DuckPond instance</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">validate_netcdf(ds)</span></code> → <code class="docutils literal notranslate"><span class="pre">bool</span></code> — Validate NetCDF structure (raises <code class="docutils literal notranslate"><span class="pre">NetCDFValidationError</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">upload_netcdf(netcdf_file_path,</span> <span class="pre">metadata,</span> <span class="pre">batch_size,</span> <span class="pre">rename_map,</span> <span class="pre">skip_validation)</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Upload NetCDF file</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_logger(logger_data)</span></code> → <code class="docutils literal notranslate"><span class="pre">Logger</span></code> — Get logger from Notion</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_recording(recording_data)</span></code> → <code class="docutils literal notranslate"><span class="pre">Recording</span></code> — Get recording from Notion</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_deployment(deployment_data)</span></code> → <code class="docutils literal notranslate"><span class="pre">Deployment</span></code> — Get deployment from Notion</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_animal(animal_data)</span></code> → <code class="docutils literal notranslate"><span class="pre">Animal</span></code> — Get animal from Notion</p></li>
+</ul>
+<p><strong>NetCDF Requirements</strong>:</p>
+<ul class="simple">
+<li><p>Dimensions: <code class="docutils literal notranslate"><span class="pre">*_samples</span></code> (datetime64), <code class="docutils literal notranslate"><span class="pre">*_variables</span></code> (str)</p></li>
+<li><p>Data variables: Must have <code class="docutils literal notranslate"><span class="pre">variable</span></code> (1D) or <code class="docutils literal notranslate"><span class="pre">variables</span></code> (2D) attribute</p></li>
+<li><p>Event data: <code class="docutils literal notranslate"><span class="pre">event_data_*</span></code> variables with <code class="docutils literal notranslate"><span class="pre">event_data_samples</span></code> coordinate</p></li>
+</ul>
+<p><strong>Upload Process</strong>:</p>
+<ol class="arabic simple">
+<li><p>Load NetCDF → Validate structure</p></li>
+<li><p>Process events → Write to events lake</p></li>
+<li><p>Process signals → Batch write to data lake</p></li>
+<li><p>Refresh views → Update DuckDB views</p></li>
+</ol>
+<p><strong>Metadata Structure</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>     <span class="c1"># Required</span>
+    <span class="s2">&quot;animal&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>      <span class="c1"># Required</span>
+    <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>  <span class="c1"># Required</span>
+    <span class="s2">&quot;recording&quot;</span><span class="p">:</span> <span class="nb">str</span>    <span class="c1"># Optional</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="dive-data-py">
+<h3>dive_data.py<a class="headerlink" href="#dive-data-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: Wrapper for query results with EDF export capabilities.</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">DiveData</span></code> — Query results wrapper.</p>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__init__(duckdb_relation,</span> <span class="pre">conn,</span> <span class="pre">notion_manager,</span> <span class="pre">notion_db_map,</span> <span class="pre">notion_token)</span></code> — Initialize wrapper</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_metadata()</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict</span></code> — Fetch logger/animal/deployment metadata from Notion</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">export_to_edf(output_dir)</span></code> → <code class="docutils literal notranslate"><span class="pre">List[str]</span></code> — Export to EDF files</p></li>
+</ul>
+<p><strong>Features</strong>:</p>
+<ul class="simple">
+<li><p>Delegates to DuckDB relation methods (<code class="docutils literal notranslate"><span class="pre">df()</span></code>, <code class="docutils literal notranslate"><span class="pre">filter()</span></code>, etc.)</p></li>
+<li><p>Metadata enrichment via Notion ORM</p></li>
+<li><p>EDF export with signal padding and alignment</p></li>
+</ul>
+</section>
+<section id="immich-service-py">
+<h3>immich_service.py<a class="headerlink" href="#immich-service-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: Immich photo/video management integration.</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">ImmichService</span></code> — Media asset service.</p>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__init__(api_key,</span> <span class="pre">base_url)</span></code> — Initialize with API credentials</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">find_media_by_deployment_id(deployment_id,</span> <span class="pre">media_type,</span> <span class="pre">shared)</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict</span></code> — Find media by album name</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_media_details(asset_id)</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict</span></code> — Get asset metadata and URLs</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">create_asset_share_link(asset_id,</span> <span class="pre">expires_hours)</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict</span></code> — Create temporary share link</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">prepare_video_options_for_react(media_result,</span> <span class="pre">expires_hours)</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict</span></code> — Format videos for React</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">test_connection()</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict</span></code> — Test API connection</p></li>
+</ul>
+<p><strong>Environment Variables</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">IMMICH_API_KEY</span></code> — API authentication key</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">IMMICH_BASE_URL</span></code> — Base URL for Immich API</p></li>
+</ul>
+<p><strong>Return Format</strong>: All methods return <code class="docutils literal notranslate"><span class="pre">{&quot;success&quot;:</span> <span class="pre">bool,</span> <span class="pre">&quot;data&quot;:</span> <span class="pre">...,</span> <span class="pre">&quot;error&quot;:</span> <span class="pre">...}</span></code> dicts.</p>
+</section>
+<section id="connection-warehouse-config-py">
+<h3>connection/warehouse_config.py<a class="headerlink" href="#connection-warehouse-config-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: Backend configuration (S3 vs local filesystem).</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">WarehouseConfig</span></code> — Configuration dataclass.</p>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">from_parameters(warehouse_path,</span> <span class="pre">s3_endpoint,</span> <span class="pre">s3_access_key,</span> <span class="pre">s3_secret_key,</span> <span class="pre">s3_bucket,</span> <span class="pre">s3_region)</span></code> → <code class="docutils literal notranslate"><span class="pre">WarehouseConfig</span></code> — Create from params</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">from_environment()</span></code> → <code class="docutils literal notranslate"><span class="pre">WarehouseConfig</span></code> — Create from env vars</p></li>
+</ul>
+<p><strong>Environment Variables</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">LOCAL_ICEBERG_PATH</span></code> or <code class="docutils literal notranslate"><span class="pre">CONTAINER_ICEBERG_PATH</span></code> — Local warehouse path</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">S3_ENDPOINT</span></code>, <code class="docutils literal notranslate"><span class="pre">S3_ACCESS_KEY</span></code>, <code class="docutils literal notranslate"><span class="pre">S3_SECRET_KEY</span></code>, <code class="docutils literal notranslate"><span class="pre">S3_BUCKET</span></code>, <code class="docutils literal notranslate"><span class="pre">S3_REGION</span></code> — S3 config</p></li>
+</ul>
+<p><strong>Backend Selection</strong>: S3 if all S3 env vars present; local filesystem otherwise.</p>
+</section>
+<section id="connection-catalog-manager-py">
+<h3>connection/catalog_manager.py<a class="headerlink" href="#connection-catalog-manager-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: Iceberg catalog creation and configuration.</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">CatalogManager</span></code> — Catalog manager.</p>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__init__(config)</span></code> — Initialize with warehouse config</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_create_catalog()</span></code> → <code class="docutils literal notranslate"><span class="pre">SqlCatalog</span></code> — Create catalog (S3 or local)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_create_s3_catalog()</span></code> → <code class="docutils literal notranslate"><span class="pre">SqlCatalog</span></code> — S3 catalog with SQLite metadata</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_create_local_catalog()</span></code> → <code class="docutils literal notranslate"><span class="pre">SqlCatalog</span></code> — Local catalog</p></li>
+</ul>
+<p><strong>Catalog Types</strong>:</p>
+<ul class="simple">
+<li><p>S3: SQLite catalog DB + S3 data storage</p></li>
+<li><p>Local: SQLite catalog DB + local filesystem storage</p></li>
+</ul>
+</section>
+<section id="connection-duckdb-connection-py">
+<h3>connection/duckdb_connection.py<a class="headerlink" href="#connection-duckdb-connection-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: DuckDB connection management with extensions.</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">DuckDBConnection</span></code> — Connection manager.</p>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__init__(config)</span></code> — Initialize connection</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_create_connection()</span></code> → <code class="docutils literal notranslate"><span class="pre">DuckDBPyConnection</span></code> — Create with optimizations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_load_extensions()</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Install/load iceberg and httpfs extensions</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_configure_s3_settings()</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Configure S3 credentials for DuckDB</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">close()</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Close connection</p></li>
+</ul>
+<p><strong>Extensions</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">iceberg</span></code> — Required for Iceberg table access</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">httpfs</span></code> — Required for S3 backend</p></li>
+</ul>
+</section>
+<section id="connection-dataset-manager-py">
+<h3>connection/dataset_manager.py<a class="headerlink" href="#connection-dataset-manager-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: Dataset lifecycle management (create, discover, initialize, remove).</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">DatasetManager</span></code> — Dataset manager.</p>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__init__(config,</span> <span class="pre">catalog_manager,</span> <span class="pre">duckdb_connection)</span></code> — Initialize manager</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">initialize_datasets(datasets)</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Initialize specific datasets or discover all</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ensure_dataset_initialized(dataset)</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Ensure dataset tables/views exist</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_all_datasets()</span></code> → <code class="docutils literal notranslate"><span class="pre">List[str]</span></code> — List all initialized datasets</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dataset_exists(dataset)</span></code> → <code class="docutils literal notranslate"><span class="pre">bool</span></code> — Check if dataset initialized</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">remove_dataset(dataset)</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Remove dataset (use with caution)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_create_dataset_views(dataset)</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Create DuckDB views for dataset</p></li>
+</ul>
+<p><strong>Dataset Structure</strong>:</p>
+<ul class="simple">
+<li><p>Each dataset has two Iceberg tables: <code class="docutils literal notranslate"><span class="pre">{dataset}.data</span></code>, <code class="docutils literal notranslate"><span class="pre">{dataset}.events</span></code></p></li>
+<li><p>Views created: <code class="docutils literal notranslate"><span class="pre">&quot;{dataset}_Data&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;{dataset}_Events&quot;</span></code></p></li>
+<li><p>Partitioning: animal, deployment, class, label</p></li>
+</ul>
+<p><strong>Lake Schemas</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">data</span></code>: dataset, animal, deployment, recording, group, class, label, datetime, val_dbl, val_int, val_bool, val_str, data_type</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">events</span></code>: dataset, animal, deployment, recording, group, event_key, datetime_start, datetime_end, short_description, long_description, event_data</p></li>
+</ul>
+</section>
+<section id="connection-notion-integration-py">
+<h3>connection/notion_integration.py<a class="headerlink" href="#connection-notion-integration-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: Notion database loading and metadata mapping.</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">NotionIntegration</span></code> — Notion loader.</p>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__init__(notion_manager,</span> <span class="pre">duckdb_connection,</span> <span class="pre">parallelism)</span></code> — Initialize loader</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_notion_databases()</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code> — Load all Notion databases into DuckDB</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_standardized_channels_df()</span></code> → <code class="docutils literal notranslate"><span class="pre">Optional[pd.DataFrame]</span></code> — Load Standardized Channel DB</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_signal_metadata_map(channel_ids)</span></code> → <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">Dict]</span></code> — Load channel metadata mapping</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_metadata_mappings(channel_ids)</span></code> → <code class="docutils literal notranslate"><span class="pre">Tuple[Dict,</span> <span class="pre">Dict,</span> <span class="pre">Dict]</span></code> — Get channel/signal mappings</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">list_notion_tables()</span></code> → <code class="docutils literal notranslate"><span class="pre">List[str]</span></code> — List loaded Notion tables</p></li>
+</ul>
+<p><strong>Metadata Mapping</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">channel_id_to_signal_id</span></code> — Channel ID → Signal DB ID</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">original_alias_to_channel_id</span></code> — Alias → Standardized Channel ID</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">signal_metadata_map</span></code> — Signal ID → Metadata dict</p></li>
+</ul>
+<p><strong>Parallel Loading</strong>: Uses <code class="docutils literal notranslate"><span class="pre">concurrent.futures</span></code> for parallel Notion API calls.
+Default parallelism: 8.</p>
+</section>
+<section id="utils-directory-utils-py">
+<h3>utils/directory_utils.py<a class="headerlink" href="#utils-directory-utils-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: Directory utilities.</p>
+<p><strong>Key Functions</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">get_tmpdir(base)</span></code> → <code class="docutils literal notranslate"><span class="pre">str</span></code> — Create unique temporary directory</p></li>
+</ul>
+</section>
+<section id="utils-netcdf-conversions-py">
+<h3>utils/netcdf_conversions.py<a class="headerlink" href="#utils-netcdf-conversions-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: NetCDF conversion utilities.</p>
+<p><strong>Key Functions</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">matlab_datenum_to_datetime_vectorized(matlab_serial_dates)</span></code> → <code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> — Convert MATLAB datenum to datetime</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">infer_date_format(date_str,</span> <span class="pre">possible_formats)</span></code> → <code class="docutils literal notranslate"><span class="pre">str</span></code> — Infer date format from string</p></li>
+</ul>
+</section>
+<section id="utils-openstack-py">
+<h3>utils/openstack.py<a class="headerlink" href="#utils-openstack-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: OpenStack Swift client (legacy, not actively maintained).</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">SwiftClient</span></code> — Swift client wrapper.</p>
+<p><strong>Environment Variables</strong>: <code class="docutils literal notranslate"><span class="pre">OPENSTACK_AUTH_URL</span></code>, <code class="docutils literal notranslate"><span class="pre">OPENSTACK_APPLICATION_CREDENTIAL_ID</span></code>,
+<code class="docutils literal notranslate"><span class="pre">OPENSTACK_APPLICATION_CREDENTIAL_SECRET</span></code>.</p>
+</section>
+<section id="utils-storage-py">
+<h3>utils/storage.py<a class="headerlink" href="#utils-storage-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: Storage abstraction layer.</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">OpenStackStorage</span></code> — OpenStack storage interface.</p>
+<p><strong>Key Methods</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_open(name,</span> <span class="pre">mode)</span></code> → <code class="docutils literal notranslate"><span class="pre">bytes</span></code> — Get object binary</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_save(name,</span> <span class="pre">content)</span></code> → <code class="docutils literal notranslate"><span class="pre">str</span></code> — Save object</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">exists(name)</span></code> → <code class="docutils literal notranslate"><span class="pre">bool</span></code> — Check if object exists</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">url(name)</span></code> → <code class="docutils literal notranslate"><span class="pre">str</span></code> — Get object URL</p></li>
+</ul>
+</section>
+<section id="utils-timing-py">
+<h3>utils/timing.py<a class="headerlink" href="#utils-timing-py" title="Link to this heading"></a></h3>
+<p><strong>Purpose</strong>: Timing utilities.</p>
+<p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">TimingContext</span></code> — Context manager for timing operations.</p>
+<p><strong>Usage</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">TimingContext</span><span class="p">(</span><span class="s2">&quot;operation_name&quot;</span><span class="p">):</span>
+    <span class="c1"># code to time</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="data-structures">
+<h2>Data Structures<a class="headerlink" href="#data-structures" title="Link to this heading"></a></h2>
+<section id="duckpond-query-result">
+<h3>DuckPond Query Result<a class="headerlink" href="#duckpond-query-result" title="Link to this heading"></a></h3>
+<p><strong>DataFrame format</strong> (<code class="docutils literal notranslate"><span class="pre">pivoted=True</span></code>):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">&quot;datetime&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">,</span>
+    <span class="s2">&quot;label1&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="s2">&quot;label2&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="c1"># ...</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+<p><strong>DiveData format</strong> (<code class="docutils literal notranslate"><span class="pre">pivoted=False</span></code>):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DiveData</span><span class="p">(</span>
+    <span class="n">duckdb_relation</span><span class="o">=</span><span class="n">DuckDBPyRelation</span><span class="p">,</span>
+    <span class="n">conn</span><span class="o">=</span><span class="n">DuckDBPyConnection</span><span class="p">,</span>
+    <span class="n">notion_manager</span><span class="o">=</span><span class="n">NotionORMManager</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="channel-metadata-structure">
+<h3>Channel Metadata Structure<a class="headerlink" href="#channel-metadata-structure" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="s2">&quot;variable&quot;</span> <span class="o">|</span> <span class="s2">&quot;group&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;class&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;channel_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;parent_signal&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;y_label&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;y_description&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;y_units&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;line_label&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;icon&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span>   <span class="c1"># For groups</span>
+    <span class="s2">&quot;coverage&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;available&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="s2">&quot;present&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">},</span>  <span class="c1"># For groups</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="deployment-metadata-structure">
+<h3>Deployment Metadata Structure<a class="headerlink" href="#deployment-metadata-structure" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;organism_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>   <span class="c1"># canonical Python key; &quot;animal&quot; preserved in Iceberg column</span>
+    <span class="s2">&quot;deployment_date&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;min_date&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;max_date&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;sample_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="s2">&quot;icon_url&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="video-options-structure">
+<h3>Video Options Structure<a class="headerlink" href="#video-options-structure" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;filename&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;fileCreatedAt&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;shareUrl&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;originalUrl&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;thumbnailUrl&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="s2">&quot;originalFilename&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="integration-points">
+<h2>Integration Points<a class="headerlink" href="#integration-points" title="Link to this heading"></a></h2>
+<section id="duckpond-notionorm">
+<h3>DuckPond ↔ NotionORM<a class="headerlink" href="#duckpond-notionorm" title="Link to this heading"></a></h3>
+<p><strong>Metadata Enrichment</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DuckPond.notion_manager</span></code> → <code class="docutils literal notranslate"><span class="pre">NotionORMManager</span></code> instance</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_available_channels()</span></code> → Loads Signal DB metadata via <code class="docutils literal notranslate"><span class="pre">NotionIntegration</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_channels_metadata()</span></code> → Lazy-loads metadata for specific channels</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_deployment_timezone_offset()</span></code> → Queries Deployments table in DuckDB</p></li>
+</ul>
+<p><strong>Notion Tables Loaded</strong>:</p>
+<ul class="simple">
+<li><p>Standardized Channel DB → Channel metadata</p></li>
+<li><p>Signal DB → Signal definitions</p></li>
+<li><p>Deployment DB → Deployment metadata</p></li>
+<li><p>Organism DB (fallback: Animal DB) → Organism metadata</p></li>
+<li><p>Asset DB → Organism icons</p></li>
+</ul>
+</section>
+<section id="datauploader-duckpond">
+<h3>DataUploader → DuckPond<a class="headerlink" href="#datauploader-duckpond" title="Link to this heading"></a></h3>
+<p><strong>Data Ingestion</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DataUploader.duck_pond</span></code> → <code class="docutils literal notranslate"><span class="pre">DuckPond</span></code> instance</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">upload_netcdf()</span></code> → Calls <code class="docutils literal notranslate"><span class="pre">write_signal_data()</span></code> and <code class="docutils literal notranslate"><span class="pre">write_to_iceberg()</span></code></p></li>
+<li><p>Validates NetCDF structure before upload</p></li>
+<li><p>Batches writes for performance</p></li>
+</ul>
+</section>
+<section id="duckpond-divedata">
+<h3>DuckPond → DiveData<a class="headerlink" href="#duckpond-divedata" title="Link to this heading"></a></h3>
+<p><strong>Query Results</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">get_data(pivoted=False)</span></code> → Returns <code class="docutils literal notranslate"><span class="pre">DiveData</span></code> wrapper</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DiveData</span></code> delegates to DuckDB relation methods</p></li>
+<li><p>Supports metadata enrichment via Notion</p></li>
+</ul>
+</section>
+<section id="dash-app-integration">
+<h3>Dash App Integration<a class="headerlink" href="#dash-app-integration" title="Link to this heading"></a></h3>
+<p><strong>Services Used</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DuckPond.from_environment()</span></code> → Data queries</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NotionORMManager()</span></code> → Metadata access</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ImmichService()</span></code> → Video/media access</p></li>
+</ul>
+<p><strong>Typical Flow</strong>:</p>
+<ol class="arabic simple">
+<li><p>Load datasets/deployments → <code class="docutils literal notranslate"><span class="pre">get_all_datasets_and_deployments()</span></code></p></li>
+<li><p>Query data → <code class="docutils literal notranslate"><span class="pre">get_data()</span></code> with filters</p></li>
+<li><p>Load channels → <code class="docutils literal notranslate"><span class="pre">get_available_channels()</span></code></p></li>
+<li><p>Load videos → <code class="docutils literal notranslate"><span class="pre">ImmichService.find_media_by_deployment_id()</span></code></p></li>
+<li><p>Load events → <code class="docutils literal notranslate"><span class="pre">get_events()</span></code></p></li>
+</ol>
+</section>
+</section>
+<section id="common-patterns">
+<h2>Common Patterns<a class="headerlink" href="#common-patterns" title="Link to this heading"></a></h2>
+<section id="initializing-duckpond">
+<h3>Initializing DuckPond<a class="headerlink" href="#initializing-duckpond" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DiveDB.services</span><span class="w"> </span><span class="kn">import</span> <span class="n">DuckPond</span><span class="p">,</span> <span class="n">NotionORMManager</span>
+
+<span class="c1"># From environment</span>
+<span class="n">duck_pond</span> <span class="o">=</span> <span class="n">DuckPond</span><span class="o">.</span><span class="n">from_environment</span><span class="p">(</span>
+    <span class="n">notion_manager</span><span class="o">=</span><span class="n">NotionORMManager</span><span class="p">(</span><span class="n">db_map</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># With explicit config</span>
+<span class="n">duck_pond</span> <span class="o">=</span> <span class="n">DuckPond</span><span class="p">(</span>
+    <span class="n">warehouse_path</span><span class="o">=</span><span class="s2">&quot;./warehouse&quot;</span><span class="p">,</span>
+    <span class="n">notion_manager</span><span class="o">=</span><span class="n">notion_manager</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="querying-data">
+<h3>Querying Data<a class="headerlink" href="#querying-data" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get data with filters</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">duck_pond</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
+    <span class="n">deployment_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">],</span>
+    <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;temperature&quot;</span><span class="p">],</span>
+    <span class="n">date_range</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;2019-11-08&quot;</span><span class="p">,</span> <span class="s2">&quot;2019-11-09&quot;</span><span class="p">),</span>
+    <span class="n">frequency</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>    <span class="c1"># Resample to 1 Hz</span>
+    <span class="n">pivoted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Get events</span>
+<span class="n">events_df</span> <span class="o">=</span> <span class="n">duck_pond</span><span class="o">.</span><span class="n">get_events</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
+    <span class="n">deployment_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">],</span>
+    <span class="n">date_range</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;2019-11-08&quot;</span><span class="p">,</span> <span class="s2">&quot;2019-11-09&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="discovering-channels">
+<h3>Discovering Channels<a class="headerlink" href="#discovering-channels" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get all available channels with metadata</span>
+<span class="n">channels</span> <span class="o">=</span> <span class="n">duck_pond</span><span class="o">.</span><span class="n">get_available_channels</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
+    <span class="n">include_metadata</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">pack_groups</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">load_metadata</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Lazy-load metadata for specific channels</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">duck_pond</span><span class="o">.</span><span class="n">get_channels_metadata</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
+    <span class="n">channel_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;temperature&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="uploading-netcdf">
+<h3>Uploading NetCDF<a class="headerlink" href="#uploading-netcdf" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DiveDB.services</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataUploader</span><span class="p">,</span> <span class="n">DuckPond</span>
+
+<span class="n">duck_pond</span> <span class="o">=</span> <span class="n">DuckPond</span><span class="o">.</span><span class="n">from_environment</span><span class="p">()</span>
+<span class="n">uploader</span> <span class="o">=</span> <span class="n">DataUploader</span><span class="p">(</span><span class="n">duck_pond</span><span class="o">=</span><span class="n">duck_pond</span><span class="p">)</span>
+
+<span class="n">uploader</span><span class="o">.</span><span class="n">upload_netcdf</span><span class="p">(</span>
+    <span class="n">netcdf_file_path</span><span class="o">=</span><span class="s2">&quot;data.nc&quot;</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;animal&quot;</span><span class="p">:</span> <span class="s2">&quot;apfo-001a&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;recording&quot;</span><span class="p">:</span> <span class="s2">&quot;recording-001&quot;</span><span class="p">,</span>  <span class="c1"># Optional</span>
+    <span class="p">},</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">5_000_000</span><span class="p">,</span>
+    <span class="n">rename_map</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;old_name&quot;</span><span class="p">:</span> <span class="s2">&quot;new_name&quot;</span><span class="p">},</span>  <span class="c1"># Optional</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="writing-signal-data">
+<h3>Writing Signal Data<a class="headerlink" href="#writing-signal-data" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pa</span>
+
+<span class="n">times</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">...</span><span class="p">],</span> <span class="nb">type</span><span class="o">=</span><span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;us&quot;</span><span class="p">))</span>
+<span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">]</span>
+
+<span class="n">duck_pond</span><span class="o">.</span><span class="n">write_signal_data</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;animal&quot;</span><span class="p">:</span> <span class="s2">&quot;apfo-001a&quot;</span><span class="p">,</span> <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">},</span>
+    <span class="n">times</span><span class="o">=</span><span class="n">times</span><span class="p">,</span>
+    <span class="n">group</span><span class="o">=</span><span class="s2">&quot;signal_data&quot;</span><span class="p">,</span>
+    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;depth_sensor&quot;</span><span class="p">,</span>
+    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span>
+    <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="using-notion-orm">
+<h3>Using Notion ORM<a class="headerlink" href="#using-notion-orm" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DiveDB.services</span><span class="w"> </span><span class="kn">import</span> <span class="n">NotionORMManager</span>
+
+<span class="n">manager</span> <span class="o">=</span> <span class="n">NotionORMManager</span><span class="p">(</span><span class="n">db_map</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>
+
+<span class="c1"># Get model</span>
+<span class="n">Deployment</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="s2">&quot;Deployment&quot;</span><span class="p">)</span>
+
+<span class="c1"># Query</span>
+<span class="n">deployment</span> <span class="o">=</span> <span class="n">Deployment</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">deployment_id</span><span class="o">=</span><span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+
+<span class="c1"># Access properties</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">deployment</span><span class="o">.</span><span class="n">time_zone</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">deployment</span><span class="o">.</span><span class="n">animal_id</span><span class="p">)</span>
+
+<span class="c1"># Traverse relations</span>
+<span class="n">animal</span> <span class="o">=</span> <span class="n">deployment</span><span class="o">.</span><span class="n">get_animal</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Auto-injected method</span>
+</pre></div>
+</div>
+</section>
+<section id="using-immich-service">
+<h3>Using Immich Service<a class="headerlink" href="#using-immich-service" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DiveDB.services</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImmichService</span>
+
+<span class="n">immich</span> <span class="o">=</span> <span class="n">ImmichService</span><span class="p">()</span>  <span class="c1"># Uses env vars</span>
+
+<span class="c1"># Find media</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">immich</span><span class="o">.</span><span class="n">find_media_by_deployment_id</span><span class="p">(</span>
+    <span class="n">deployment_id</span><span class="o">=</span><span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">,</span>
+    <span class="n">media_type</span><span class="o">=</span><span class="s2">&quot;VIDEO&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Prepare for React</span>
+<span class="n">video_options</span> <span class="o">=</span> <span class="n">immich</span><span class="o">.</span><span class="n">prepare_video_options_for_react</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="maintenance-guidelines">
+<h2>Maintenance Guidelines<a class="headerlink" href="#maintenance-guidelines" title="Link to this heading"></a></h2>
+<section id="when-to-update-this-documentation">
+<h3>When to Update This Documentation<a class="headerlink" href="#when-to-update-this-documentation" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>New Files</strong>: Add entry to File Map table</p></li>
+<li><p><strong>New Methods</strong>: Document in Module Reference → Key Methods section</p></li>
+<li><p><strong>New Data Structures</strong>: Add to Data Structures section</p></li>
+<li><p><strong>New Integration Points</strong>: Add to Integration Points section</p></li>
+<li><p><strong>Architecture Changes</strong>: Update Architecture Overview section</p></li>
+<li><p><strong>New Patterns</strong>: Add to Common Patterns section</p></li>
+</ul>
+</section>
+<section id="documentation-standards">
+<h3>Documentation Standards<a class="headerlink" href="#documentation-standards" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p><strong>Keep it Token-Efficient</strong>:</p>
+<ul class="simple">
+<li><p>Use tables for structured data</p></li>
+<li><p>Use bullet lists over prose</p></li>
+<li><p>Function signatures only, no implementation details</p></li>
+<li><p>Reference file paths and line numbers, not code</p></li>
+<li><p>High-level architecture, not low-level implementation</p></li>
+</ul>
+</li>
+<li><p><strong>What to Include</strong>:</p>
+<ul class="simple">
+<li><p>File purposes and key exports</p></li>
+<li><p>Function signatures and return types</p></li>
+<li><p>Data flow and integration points</p></li>
+<li><p>Important architectural decisions</p></li>
+</ul>
+</li>
+<li><p><strong>What to Exclude</strong>:</p>
+<ul class="simple">
+<li><p>Implementation details (how functions work internally)</p></li>
+<li><p>Step-by-step procedures</p></li>
+<li><p>Detailed parameter explanations</p></li>
+</ul>
+</li>
+<li><p><strong>Front-Load Important Info</strong>:</p>
+<ul class="simple">
+<li><p>Quick Reference at top</p></li>
+<li><p>Most common patterns first</p></li>
+<li><p>Detailed reference sections follow</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="update-checklist">
+<h3>Update Checklist<a class="headerlink" href="#update-checklist" title="Link to this heading"></a></h3>
+<p>When making changes, check if documentation needs updates:</p>
+<ul class="simple">
+<li><p>New method added → Add to Module Reference (signature only)</p></li>
+<li><p>New file created → Add to File Map table</p></li>
+<li><p>Function signature changed → Update Module Reference</p></li>
+<li><p>Data structure changed → Update Data Structures section</p></li>
+<li><p>Integration point changed → Update Integration Points</p></li>
+<li><p>New major pattern → Add to Common Patterns (high-level only)</p></li>
+</ul>
+<p><strong>Remember</strong>: Document “what” and “where”, not “how”. Keep entries under 2 lines.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="intro.html" class="btn btn-neutral float-left" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="modules.html" class="btn btn-neutral float-right" title="DiveDB" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Jessica Kendall-Bar.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
