@@ -10,6 +10,19 @@
 - **Key Dependencies**: `NotionORMManager`, `ImmichService`, `DataUploader`
 - **Config**: Environment variables (ICEBERG_PATH, S3 config, NOTION credentials)
 
+## Terminology
+
+The codebase is being migrated from "animal" to "organism" in Python APIs and Notion. Frozen storage layers keep the old names.
+
+| Context | Field name | Notes |
+| --- | --- | --- |
+| Python API params | `organism_id` / `organism_ids` | New canonical name |
+| Deprecated kwargs | `animal_id` / `animal_ids` | Still accepted; merged internally |
+| Iceberg/SQL column | `animal` | Frozen — do not rename |
+| NetCDF / pkl files | `animal_id` | Frozen — do not rename |
+| Notion DB name | `"Organism DB"` | Falls back to `"Animal DB"` |
+| Notion property | `"Organism ID"` | Falls back to `"Animal ID"` |
+
 ## Architecture Overview
 
 ### Service Flow
@@ -69,18 +82,19 @@ DataUploader → DuckPond → Iceberg Tables → DuckDB Views → DiveData
 
 **Key Methods**:
 - `from_environment(**kwargs)` → DuckPond - Factory method from env vars
-- `get_data(dataset, labels, animal_ids, deployment_ids, recording_ids, groups, classes, date_range, frequency, limit, pivoted, apply_timezone_offset, add_timestamp_column, use_cache)` → pd.DataFrame | DiveData - Query data with optional resampling and caching
-- `get_events(dataset, animal_ids, deployment_ids, recording_ids, event_keys, date_range, limit, apply_timezone_offset, add_timestamp_columns)` → pd.DataFrame - Query events
+- `get_data(dataset, labels, organism_ids, deployment_ids, recording_ids, groups, classes, date_range, frequency, limit, pivoted, apply_timezone_offset, add_timestamp_column, use_cache)` → pd.DataFrame | DiveData - Query data with optional resampling and caching; `animal_ids` accepted as deprecated kwarg (merged internally)
+- `get_events(dataset, organism_ids, deployment_ids, recording_ids, event_keys, date_range, limit, apply_timezone_offset, add_timestamp_columns)` → pd.DataFrame - Query events; `animal_ids` accepted as deprecated kwarg
 - `get_available_channels(dataset, include_metadata, pack_groups, load_metadata)` → List[Dict] - Discover channels with metadata
 - `get_channels_metadata(dataset, channel_ids)` → Dict[str, Dict] - Lazy metadata loading
 - `get_all_datasets_and_deployments()` → Dict[str, List[Dict]] - All datasets with deployments
-- `estimate_data_size(dataset, labels, animal_ids, deployment_ids, recording_ids, groups, classes, date_range)` → int - Row count estimate
+- `estimate_data_size(dataset, labels, organism_ids, deployment_ids, recording_ids, groups, classes, date_range)` → int - Row count estimate; `animal_ids` accepted as deprecated kwarg
 - `write_signal_data(dataset, metadata, times, group, class_name, label, values)` → int - Write signal data
 - `write_to_iceberg(data, lake, dataset, mode, skip_view_refresh)` → None - Write PyArrow table
 - `write_event(dataset, deployment, animal, event_key, datetime_start, datetime_end, recording, group, short_description, long_description, event_data)` → None - Write single event to Iceberg (convenience method for Dash UI)
 - `get_deployment_timezone_offset(deployment_id)` → float - Timezone offset in hours
 - `get_view_name(dataset, table_type)` → str - Quoted view name
-- `get_3d_model_for_animal(animal_id)` → Dict - Fetch 3D model info from Notion (Animal→Asset DB→Best-3D-model)
+- `get_3d_model_for_organism(organism_id, use_cache)` → Dict - Fetch 3D model info from Notion (Organism→Asset DB→Best-3D-model); `get_3d_model_for_animal` is a deprecated alias
+- `_get_organism_icons(organism_ids)` → Dict[str, str] - Fetch icon URLs for a set of organism IDs; `_get_animal_icons` delegates to this
 
 **Data Flow**:
 1. Query → Build SQL → Execute via DuckDB → Return DataFrame or DiveData
@@ -119,7 +133,8 @@ DataUploader → DuckPond → Iceberg Tables → DuckDB Views → DiveData
 
 **Database Map**:
 - Maps database names to Notion database IDs
-- Common databases: Deployment DB, Recording DB, Logger DB, Animal DB, Asset DB, Dataset DB, Signal DB, Standardized Channel DB
+- Common databases: Deployment DB, Recording DB, Logger DB, Organism DB (falls back to Animal DB), Asset DB, Dataset DB, Signal DB, Standardized Channel DB
+- `get_model("Animal")`: DiveDB now tries `"Organism"` first, falls back to `"Animal"` for older Notion workspaces
 
 ### data_uploader.py
 
@@ -402,7 +417,7 @@ DiveData(
 ```python
 {
     "deployment": str,
-    "animal": str,
+    "organism_id": str,  # canonical Python key; "animal" key preserved in Iceberg column
     "deployment_date": str,
     "min_date": str,
     "max_date": str,
@@ -443,8 +458,8 @@ DiveData(
 - Standardized Channel DB → Channel metadata
 - Signal DB → Signal definitions
 - Deployment DB → Deployment metadata
-- Animal DB → Animal metadata
-- Asset DB → Animal icons
+- Organism DB (fallback: Animal DB) → Organism metadata
+- Asset DB → Organism icons
 
 ### DataUploader → DuckPond
 

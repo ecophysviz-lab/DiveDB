@@ -1,0 +1,31 @@
+name: Deploy DiveDB Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'DiveDB/**'
+      - 'docs/**'
+      - 'AGENTS.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install docs dependencies
+        run: pip install ".[docs]"
+      - name: Build Sphinx docs
+        run: sphinx-build -b html docs/source docs/build/html
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/build/html

@@ -542,7 +542,7 @@ DataPkl(
 ```python
 {
     "deployment": "2019-11-08_apfo-001",
-    "animal": "apfo-001a",
+    "animal": "apfo-001a",  # Iceberg column name — do not rename; use organism_id in Python params
     "deployment_date": "2019-11-08",
     "min_date": "2019-11-08T00:00:00",
     "max_date": "2019-11-08T23:59:59",
@@ -637,11 +637,11 @@ video_preview.VideoPreview(
 - `get_all_datasets_and_deployments(use_cache)` → dict - Returns all datasets with deployments (5-min TTL)
 - `get_available_channels(dataset, include_metadata, pack_groups, load_metadata, use_cache)` → List[dict] - Returns channel metadata (1-hour TTL)
 - `get_channels_metadata(dataset, channel_ids)` → dict - Returns metadata for specific channels
-- `get_data(dataset, deployment_ids, animal_ids, date_range, frequency, labels, add_timestamp_column, apply_timezone_offset, pivoted, use_cache)` → pd.DataFrame - Fetches data (1-day TTL)
-- `get_events(dataset, animal_ids, date_range, apply_timezone_offset, add_timestamp_columns, use_cache)` → pd.DataFrame - Fetches events (5-min TTL)
+- `get_data(dataset, deployment_ids, organism_ids, date_range, frequency, labels, add_timestamp_column, apply_timezone_offset, pivoted, use_cache)` → pd.DataFrame - Fetches data (1-day TTL); `animal_ids` accepted as deprecated kwarg
+- `get_events(dataset, organism_ids, date_range, apply_timezone_offset, add_timestamp_columns, use_cache)` → pd.DataFrame - Fetches events (5-min TTL); `animal_ids` accepted as deprecated kwarg
 - `get_deployment_timezone_offset(deployment_id, use_cache)` → float - Returns timezone offset in hours (1-hour TTL)
-- `get_3d_model_for_animal(animal_id, use_cache)` → dict - Returns 3D model info from Notion (1-hour TTL)
-- `estimate_data_size(dataset, labels, deployment_ids, animal_ids, date_range)` → int - Estimates row count
+- `get_3d_model_for_organism(organism_id, use_cache)` → dict - Returns 3D model info from Notion (1-hour TTL); `get_3d_model_for_animal` is a deprecated alias
+- `estimate_data_size(dataset, labels, deployment_ids, organism_ids, date_range)` → int - Estimates row count; `animal_ids` accepted as deprecated kwarg
 
 **Caching**: All methods with `use_cache` parameter support file-based caching via `DiveDB/services/utils/cache_utils.py`. Enable with `DASH_USE_CACHE=true` environment variable.
 
@@ -656,7 +656,8 @@ video_preview.VideoPreview(
 **Initialization**: `NotionORMManager(token, db_map)` (data_visualization.py:38-50)
 
 **Database Maps**:
-- Deployment DB, Recording DB, Logger DB, Animal DB, Asset DB, Dataset DB, Signal DB, Standardized Channel DB
+
+- Deployment DB, Recording DB, Logger DB, Organism DB (falls back to Animal DB), Asset DB, Dataset DB, Signal DB, Standardized Channel DB
 
 ### ImmichService
 

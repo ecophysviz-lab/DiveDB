@@ -729,7 +729,7 @@ class DuckPond:
         self,
         view_name: str,
         labels: List[str] | None,
-        animal_ids: List[str] | None,
+        organism_ids: List[str] | None,
         deployment_ids: List[str] | None,
         recording_ids: List[str] | None,
         groups: List[str] | None,
@@ -773,8 +773,8 @@ class DuckPond:
         predicates = []
         if labels:
             predicates.append(get_predicate_string("label", labels))
-        if animal_ids:
-            predicates.append(get_predicate_string("animal", animal_ids))
+        if organism_ids:
+            predicates.append(get_predicate_string("animal", organism_ids))
         if deployment_ids:
             predicates.append(get_predicate_string("deployment", deployment_ids))
         if recording_ids:
@@ -1198,7 +1198,7 @@ class DuckPond:
         self,
         dataset: str,  # Dataset ID - required for new structure
         labels: str | List[str] | None = None,
-        animal_ids: str | List[str] | None = None,
+        organism_ids: str | List[str] | None = None,
         deployment_ids: str | List[str] | None = None,
         recording_ids: str | List[str] | None = None,
         groups: str | List[str] | None = None,
@@ -1211,6 +1211,7 @@ class DuckPond:
         apply_timezone_offset: Optional[int] = None,
         add_timestamp_column: bool = False,
         use_cache: bool = False,
+        animal_ids: str | List[str] | None = None,  # deprecated alias for organism_ids
     ):
         """
         Get data from a specific dataset using direct Parquet access (bypassing Iceberg layer).
@@ -1218,7 +1219,7 @@ class DuckPond:
         Args:
             dataset: Dataset identifier (required)
             labels: Specific labels to include (if None, gets all distinct labels)
-            animal_ids: Animal ID filter
+            organism_ids: Organism ID filter (use this; animal_ids is a deprecated alias)
             deployment_ids: Deployment ID filter
             recording_ids: Recording ID filter
             groups: Group filter
@@ -1249,16 +1250,21 @@ class DuckPond:
         # Ensure dataset is initialized
         self.dataset_manager.ensure_dataset_initialized(dataset)
 
+        # Merge deprecated animal_ids alias into organism_ids
+        if animal_ids is not None:
+            organism_ids = list({*(self._normalize_to_list(organism_ids) or []),
+                                  *(self._normalize_to_list(animal_ids) or [])}) or None
+
         # Convert single strings to lists
         (
             labels,
-            animal_ids,
+            organism_ids,
             deployment_ids,
             recording_ids,
             groups,
             classes,
         ) = self._normalize_list_to_list(
-            labels, animal_ids, deployment_ids, recording_ids, groups, classes
+            labels, organism_ids, deployment_ids, recording_ids, groups, classes
         )
 
         # Check if we should use cache (only for DataFrame returns)
@@ -1271,7 +1277,7 @@ class DuckPond:
             params_dict = {
                 "dataset": dataset,
                 "labels": labels,
-                "animal_ids": animal_ids,
+                "organism_ids": organism_ids,
                 "deployment_ids": deployment_ids,
                 "recording_ids": recording_ids,
                 "groups": groups,
@@ -1306,7 +1312,7 @@ class DuckPond:
         base_query = self._build_base_query(
             view_name=view_name,
             labels=labels,
-            animal_ids=animal_ids,
+            organism_ids=organism_ids,
             deployment_ids=deployment_ids,
             recording_ids=recording_ids,
             groups=groups,
@@ -1373,12 +1379,13 @@ class DuckPond:
         self,
         dataset: str,
         labels: str | List[str] | None = None,
-        animal_ids: str | List[str] | None = None,
+        organism_ids: str | List[str] | None = None,
         deployment_ids: str | List[str] | None = None,
         recording_ids: str | List[str] | None = None,
         groups: str | List[str] | None = None,
         classes: str | List[str] | None = None,
         date_range: tuple[str, str] | None = None,
+        animal_ids: str | List[str] | None = None,  # deprecated alias for organism_ids
     ) -> int:
         """
         Quickly estimate the number of rows that would be returned by get_data.
@@ -1393,16 +1400,21 @@ class DuckPond:
         # Ensure dataset is initialized
         self.dataset_manager.ensure_dataset_initialized(dataset)
 
+        # Merge deprecated animal_ids alias into organism_ids
+        if animal_ids is not None:
+            organism_ids = list({*(self._normalize_to_list(organism_ids) or []),
+                                  *(self._normalize_to_list(animal_ids) or [])}) or None
+
         # Convert single strings to lists
         (
             labels,
-            animal_ids,
+            organism_ids,
             deployment_ids,
             recording_ids,
             groups,
             classes,
         ) = self._normalize_list_to_list(
-            labels, animal_ids, deployment_ids, recording_ids, groups, classes
+            labels, organism_ids, deployment_ids, recording_ids, groups, classes
         )
 
         # Build base query using existing method
@@ -1410,7 +1422,7 @@ class DuckPond:
         base_query = self._build_base_query(
             view_name=view_name,
             labels=labels,
-            animal_ids=animal_ids,
+            organism_ids=organism_ids,
             deployment_ids=deployment_ids,
             recording_ids=recording_ids,
             groups=groups,
@@ -1427,7 +1439,7 @@ class DuckPond:
     def get_events(
         self,
         dataset: str,
-        animal_ids: str | List[str] | None = None,
+        organism_ids: str | List[str] | None = None,
         deployment_ids: str | List[str] | None = None,
         recording_ids: str | List[str] | None = None,
         event_keys: str | List[str] | None = None,
@@ -1436,13 +1448,14 @@ class DuckPond:
         apply_timezone_offset: Optional[int] = None,
         add_timestamp_columns: bool = False,
         use_cache: bool = False,
+        animal_ids: str | List[str] | None = None,  # deprecated alias for organism_ids
     ):
         """
         Get events from a specific dataset.
 
         Args:
             dataset: Dataset identifier (required)
-            animal_ids: Animal ID filter
+            organism_ids: Organism ID filter (use this; animal_ids is a deprecated alias)
             deployment_ids: Deployment ID filter
             recording_ids: Recording ID filter
             event_keys: Event key filter
@@ -1466,7 +1479,7 @@ class DuckPond:
             cache_params = {
                 "method": "get_events",
                 "dataset": dataset,
-                "animal_ids": animal_ids,
+                "organism_ids": organism_ids,
                 "deployment_ids": deployment_ids,
                 "recording_ids": recording_ids,
                 "event_keys": event_keys,
@@ -1493,14 +1506,19 @@ class DuckPond:
             quoted_values = ", ".join(f"'{value}'" for value in values)
             return f"{predicate} IN ({quoted_values})"
 
+        # Merge deprecated animal_ids alias into organism_ids
+        if animal_ids is not None:
+            organism_ids = list({*(self._normalize_to_list(organism_ids) or []),
+                                  *(self._normalize_to_list(animal_ids) or [])}) or None
+
         # Convert single strings to lists
         (
-            animal_ids,
+            organism_ids,
             deployment_ids,
             recording_ids,
             event_keys,
         ) = self._normalize_list_to_list(
-            animal_ids, deployment_ids, recording_ids, event_keys
+            organism_ids, deployment_ids, recording_ids, event_keys
         )
 
         # Build query using the dataset-specific Events view
@@ -1524,8 +1542,8 @@ class DuckPond:
 
         # Build WHERE clause
         predicates = []
-        if animal_ids:
-            predicates.append(get_predicate_string("animal", animal_ids))
+        if organism_ids:
+            predicates.append(get_predicate_string("animal", organism_ids))
         if deployment_ids:
             predicates.append(get_predicate_string("deployment", deployment_ids))
         if recording_ids:
@@ -1582,46 +1600,51 @@ class DuckPond:
         """Get list of all initialized datasets"""
         return self.dataset_manager.get_all_datasets()
 
-    def _get_animal_icons(self, animal_ids: set) -> Dict[str, str]:
+    def _get_organism_icons(self, organism_ids: set) -> Dict[str, str]:
         """
-        Fetch icon URLs for animals by traversing Animal DB -> Assets DB -> Icon property.
+        Fetch icon URLs for organisms by traversing Organism DB -> Assets DB -> Icon property.
 
         Args:
-            animal_ids: Set of animal IDs (e.g., {"apfo-001", "nesc-001"})
+            organism_ids: Set of organism IDs (e.g., {"apfo-001", "nesc-001"})
 
         Returns:
-            Dict mapping animal_id -> icon_url, with fallback to default icon
+            Dict mapping organism_id -> icon_url, with fallback to default icon
         """
         icon_map = {}
         default_icon = "/assets/images/seal.svg"
 
-        if not animal_ids or not self.notion_integration.notion_manager:
+        if not organism_ids or not self.notion_integration.notion_manager:
             return icon_map
 
         try:
-            # Get the Animal model
-            AnimalModel = self.notion_integration.notion_manager.get_model("Animal")
+            # Try "Organism" first (new name), fall back to "Animal" for older Notion DBs
+            OrganismModel = None
+            for model_name in ["Organism", "Animal"]:
+                try:
+                    OrganismModel = self.notion_integration.notion_manager.get_model(model_name)
+                    break
+                except Exception:
+                    continue
+            if OrganismModel is None:
+                return icon_map
 
-            # Query animals - we need to filter by the animal name/ID
-            # The animal field in deployments is like "apfo-001", which should match
-            # a property in Animal DB (likely "Name" or "Animal ID")
-            all_animals = AnimalModel.objects.all()
+            all_organisms = OrganismModel.objects.all()
 
-            for animal in all_animals:
-                # Try to get the animal identifier - could be in different properties
-                animal_name = None
-                for prop_name in ["Name", "Animal ID", "name", "animal_id"]:
-                    if hasattr(animal, prop_name):
-                        animal_name = getattr(animal, prop_name, None)
-                        if animal_name:
+            for organism in all_organisms:
+                # Check both new and legacy property names
+                organism_name = None
+                for prop_name in ["Name", "Organism ID", "organism_id", "Animal ID", "name", "animal_id"]:
+                    if hasattr(organism, prop_name):
+                        organism_name = getattr(organism, prop_name, None)
+                        if organism_name:
                             break
 
-                # Skip if we can't find the animal name or it's not in our requested set
-                if not animal_name or animal_name not in animal_ids:
+                # Skip if we can't find the organism name or it's not in our requested set
+                if not organism_name or organism_name not in organism_ids:
                     continue
 
                 # Try to traverse to Assets DB using the injected relationship method
-                asset_records = animal.get_asset()
+                asset_records = organism.get_asset()
                 if asset_records and len(asset_records) > 0:
                     # Get the first asset record (use first if multiple)
                     asset = asset_records[0]
@@ -1637,44 +1660,43 @@ class DuckPond:
                     if icon_value:
                         # Files property is parsed as a list of file info dicts
                         if isinstance(icon_value, list) and len(icon_value) > 0:
-                            # Get the first file's URL
                             first_file = icon_value[0]
                             if isinstance(first_file, dict) and "url" in first_file:
-                                icon_map[animal_name] = first_file["url"]
+                                icon_map[organism_name] = first_file["url"]
                             else:
-                                icon_map[animal_name] = default_icon
-                        # Legacy handling for other formats (shouldn't happen with updated ORM)
+                                icon_map[organism_name] = default_icon
                         elif isinstance(icon_value, str):
-                            icon_map[animal_name] = icon_value
+                            icon_map[organism_name] = icon_value
                         elif isinstance(icon_value, dict) and "url" in icon_value:
-                            icon_map[animal_name] = icon_value["url"]
+                            icon_map[organism_name] = icon_value["url"]
                         else:
-                            icon_map[animal_name] = default_icon
+                            icon_map[organism_name] = default_icon
                     else:
-                        # No icon found, use default
-                        icon_map[animal_name] = default_icon
+                        icon_map[organism_name] = default_icon
                 else:
-                    # No asset records found, use default
-                    icon_map[animal_name] = default_icon
+                    icon_map[organism_name] = default_icon
 
         except Exception as e:
-            logging.warning(f"Failed to fetch animal icons from Notion: {e}")
-            # Return what we have so far
+            logging.warning(f"Failed to fetch organism icons from Notion: {e}")
 
         return icon_map
 
-    def get_3d_model_for_animal(
-        self, animal_id: str, use_cache: bool = False
+    def _get_animal_icons(self, animal_ids: set) -> Dict[str, str]:
+        """Deprecated alias for _get_organism_icons."""
+        return self._get_organism_icons(animal_ids)
+
+    def get_3d_model_for_organism(
+        self, organism_id: str, use_cache: bool = False
     ) -> Optional[Dict[str, Any]]:
         """
-        Fetch 3D model info for an animal via Animal→Asset DB→Best-3D-model chain.
+        Fetch 3D model info for an organism via Organism→Asset DB→Best-3D-model chain.
 
-        The Animal DB has a direct relation to Asset DB, which contains the
-        Best-3D-model file property with the 3D model file URL, and optionally
-        3D-Material(s) for textures.
+        The Organism DB (formerly Animal DB) has a direct relation to Asset DB, which
+        contains the Best-3D-model file property with the 3D model file URL, and
+        optionally 3D-Material(s) for textures.
 
         Args:
-            animal_id: Animal identifier (e.g., "apfo-001a")
+            organism_id: Organism identifier (e.g., "apfo-001a")
             use_cache: If True, cache results with 1-hour TTL (default: False)
 
         Returns:
@@ -1699,66 +1721,73 @@ class DuckPond:
             "texture_filename": None,
         }
 
-        if not animal_id or not self.notion_integration.notion_manager:
-            logging.debug("No animal_id or notion_manager, returning empty model")
+        if not organism_id or not self.notion_integration.notion_manager:
+            logging.debug("No organism_id or notion_manager, returning empty model")
             return default_model
 
         # Check cache if enabled
         cache_key = None
         if use_cache:
             cache_params = {
-                "method": "get_3d_model_for_animal",
-                "animal_id": animal_id,
+                "method": "get_3d_model_for_organism",
+                "organism_id": organism_id,
             }
             cache_key = generate_cache_key(cache_params)
             cached_result = load_from_cache(
                 cache_key, ttl_seconds=CACHE_TTL, cache_dir=".cache/duckpond"
             )
             if cached_result is not None:
-                logging.debug(f"Cache hit for get_3d_model_for_animal({animal_id})")
+                logging.debug(f"Cache hit for get_3d_model_for_organism({organism_id})")
                 return cached_result
 
         try:
-            # Get the Animal model
-            AnimalModel = self.notion_integration.notion_manager.get_model("Animal")
+            # Try "Organism" first (new name), fall back to "Animal" for older Notion DBs
+            OrganismModel = None
+            for model_name in ["Organism", "Animal"]:
+                try:
+                    OrganismModel = self.notion_integration.notion_manager.get_model(model_name)
+                    break
+                except Exception:
+                    continue
+            if OrganismModel is None:
+                return default_model
 
-            # Query all animals to find the matching one
-            all_animals = AnimalModel.objects.all()
+            all_organisms = OrganismModel.objects.all()
 
-            target_animal = None
-            for animal in all_animals:
-                # Try to get the animal identifier - could be in different properties
-                animal_name = None
-                for prop_name in ["Name", "Animal ID", "name", "animal_id"]:
-                    if hasattr(animal, prop_name):
-                        animal_name = getattr(animal, prop_name, None)
-                        if animal_name:
+            target_organism = None
+            for organism in all_organisms:
+                # Check both new and legacy property names
+                organism_name = None
+                for prop_name in ["Name", "Organism ID", "organism_id", "Animal ID", "name", "animal_id"]:
+                    if hasattr(organism, prop_name):
+                        organism_name = getattr(organism, prop_name, None)
+                        if organism_name:
                             break
 
-                if animal_name == animal_id:
-                    target_animal = animal
+                if organism_name == organism_id:
+                    target_organism = organism
                     break
 
-            if not target_animal:
+            if not target_organism:
                 logging.debug(
-                    f"Animal '{animal_id}' not found in Notion, returning empty model"
+                    f"Organism '{organism_id}' not found in Notion, returning empty model"
                 )
                 return default_model
 
-            # Traverse Animal → Asset DB directly (same pattern as _get_animal_icons)
+            # Traverse Organism → Asset DB
             asset_records = None
-            if hasattr(target_animal, "get_asset"):
-                asset_records = target_animal.get_asset()
+            if hasattr(target_organism, "get_asset"):
+                asset_records = target_organism.get_asset()
 
             if not asset_records or len(asset_records) == 0:
                 logging.debug(
-                    f"No asset found for animal '{animal_id}', returning empty model"
+                    f"No asset found for organism '{organism_id}', returning empty model"
                 )
                 return default_model
 
             asset = asset_records[0]
             asset_name = getattr(asset, "Name", getattr(asset, "name", "unknown"))
-            logging.debug(f"Found asset for animal '{animal_id}': {asset_name}")
+            logging.debug(f"Found asset for organism '{organism_id}': {asset_name}")
 
             # Extract Best-3D-model file property
             # Property name in Notion is "Best-3D-model" (files type)
@@ -1822,7 +1851,7 @@ class DuckPond:
                             else "obj"
                         )
                         logging.info(
-                            f"Found 3D model for animal '{animal_id}': {model_filename} ({filetype})"
+                            f"Found 3D model for organism '{organism_id}': {model_filename} ({filetype})"
                             + (
                                 f" with texture {texture_filename}"
                                 if texture_filename
@@ -1836,13 +1865,12 @@ class DuckPond:
                             "texture_url": texture_url,
                             "texture_filename": texture_filename,
                         }
-                        # Save to cache if enabled
                         if cache_key is not None:
                             save_to_cache(
                                 cache_key, result, cache_dir=".cache/duckpond"
                             )
                             logging.debug(
-                                f"Cached get_3d_model_for_animal({animal_id}) result"
+                                f"Cached get_3d_model_for_organism({organism_id}) result"
                             )
                         return result
 
@@ -1860,18 +1888,23 @@ class DuckPond:
                     "texture_url": texture_url,
                     "texture_filename": texture_filename,
                 }
-                # Save to cache if enabled
                 if cache_key is not None:
                     save_to_cache(cache_key, result, cache_dir=".cache/duckpond")
-                    logging.debug(f"Cached get_3d_model_for_animal({animal_id}) result")
+                    logging.debug(f"Cached get_3d_model_for_organism({organism_id}) result")
                 return result
 
             logging.debug("Could not parse 3D model file value, returning empty model")
             return default_model
 
         except Exception as e:
-            logging.warning(f"Failed to fetch 3D model for animal '{animal_id}': {e}")
+            logging.warning(f"Failed to fetch 3D model for organism '{organism_id}': {e}")
             return default_model
+
+    def get_3d_model_for_animal(
+        self, animal_id: str, use_cache: bool = False
+    ) -> Optional[Dict[str, Any]]:
+        """Deprecated alias for get_3d_model_for_organism."""
+        return self.get_3d_model_for_organism(animal_id, use_cache=use_cache)
 
     def get_all_datasets_and_deployments(
         self, use_cache: bool = False
@@ -1963,23 +1996,22 @@ class DuckPond:
             for dataset in datasets:
                 result[dataset] = []
 
-        # Fetch icons from Notion for all animals in results
+        # Fetch icons from Notion for all organisms in results
         if result and self.notion_integration.notion_manager:
-            animal_ids = set()
+            organism_ids = set()
             for deployments in result.values():
                 for dep in deployments:
                     if dep.get("animal"):
-                        animal_ids.add(dep["animal"])
+                        organism_ids.add(dep["animal"])
 
-            if animal_ids:
-                animal_icon_map = self._get_animal_icons(animal_ids)
+            if organism_ids:
+                organism_icon_map = self._get_organism_icons(organism_ids)
 
-                # Add icons to deployment records
                 for deployments in result.values():
                     for dep in deployments:
-                        animal_id = dep.get("animal")
-                        dep["icon_url"] = animal_icon_map.get(
-                            animal_id, "/assets/images/seal.svg"
+                        organism_id = dep.get("animal")
+                        dep["icon_url"] = organism_icon_map.get(
+                            organism_id, "/assets/images/seal.svg"
                         )
 
         # Save to cache if enabled
