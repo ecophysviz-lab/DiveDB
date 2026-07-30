@@ -47,7 +47,7 @@ class DatasetManager:
         self.LAKE_SCHEMAS = {
             "data": Schema(
                 NestedField(1, "dataset", StringType(), required=True),
-                NestedField(2, "animal", StringType(), required=True),
+                NestedField(2, "organism", StringType(), required=True),
                 NestedField(3, "deployment", StringType(), required=True),
                 NestedField(4, "recording", StringType(), required=False),
                 NestedField(5, "group", StringType(), required=False),
@@ -64,7 +64,7 @@ class DatasetManager:
             ),
             "events": Schema(
                 NestedField(1, "dataset", StringType(), required=True),
-                NestedField(2, "animal", StringType(), required=True),
+                NestedField(2, "organism", StringType(), required=True),
                 NestedField(3, "deployment", StringType(), required=True),
                 NestedField(4, "recording", StringType(), required=False),
                 NestedField(5, "group", StringType(), required=False),
@@ -92,10 +92,10 @@ class DatasetManager:
                 if lake_name == "data":
                     partition_spec = PartitionSpec(
                         PartitionField(
-                            source_id=2,  # animal field
+                            source_id=2,  # organism field
                             field_id=1001,
                             transform=IdentityTransform(),
-                            name="animal",
+                            name="organism",
                         ),
                         PartitionField(
                             source_id=3,  # deployment field
@@ -117,13 +117,13 @@ class DatasetManager:
                         ),
                     )
                 elif lake_name == "events":
-                    # Events schema: partition by animal, deployment, event_key
+                    # Events schema: partition by organism, deployment, event_key
                     partition_spec = PartitionSpec(
                         PartitionField(
-                            source_id=2,  # animal field
+                            source_id=2,  # organism field
                             field_id=1001,
                             transform=IdentityTransform(),
-                            name="animal",
+                            name="organism",
                         ),
                         PartitionField(
                             source_id=3,  # deployment field
@@ -191,7 +191,7 @@ class DatasetManager:
                             CREATE VIEW {view_name} AS
                             SELECT
                                 CAST(NULL AS VARCHAR) as dataset,
-                                CAST(NULL AS VARCHAR) as animal,
+                                CAST(NULL AS VARCHAR) as organism,
                                 CAST(NULL AS VARCHAR) as deployment,
                                 CAST(NULL AS VARCHAR) as recording,
                                 CAST(NULL AS VARCHAR) as "group",
@@ -244,7 +244,7 @@ class DatasetManager:
                             CREATE VIEW {view_name} AS
                             SELECT
                                 dataset,
-                                animal,
+                                organism,
                                 deployment,
                                 recording,
                                 "group",

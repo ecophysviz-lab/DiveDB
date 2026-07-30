@@ -42,7 +42,7 @@ class DiveData:
             return getattr(self.duckdb_relation, item)
 
     def get_metadata(self):
-        """Fetch logger id, animal id, and deployment id for each recording in `self.duckdb_relation`"""
+        """Fetch logger id, organism id, and deployment id for each recording in `self.duckdb_relation`"""
         return get_metadata(self)
 
     def export_to_edf(self, output_dir: str):
@@ -90,7 +90,7 @@ def get_metadata(divedata):
         animal = Animal.objects.filter(id=recording.animal_id).first()
         if not animal:
             raise Exception(
-                f"Animal with id '{recording.animal_id}' not found in Notion!"
+                f"Organism with id '{recording.animal_id}' not found in Notion!"
             )
 
         # Query Deployments database in Notion
@@ -100,7 +100,7 @@ def get_metadata(divedata):
                 f"Deployment with id '{recording.deployment_id}' not found in Notion!"
             )
 
-        recording_metadata["animal_id"] = animal.id
+        recording_metadata["organism_id"] = animal.id
         recording_metadata["deployment_id"] = deployment.id
         recording_metadata["recording_id"] = recording_id
 
@@ -309,6 +309,6 @@ def construct_recording_edf(multisignal_data_df, metadata):
             EdfAnnotation(0, None, metadata_str),
         ]
     )
-    subject_code = metadata["animal_id"]
+    subject_code = metadata.get("organism_id") or metadata.get("animal_id")
     edf.patient = Patient(code=subject_code.replace(" ", "_"))
     return edf

@@ -98,7 +98,7 @@ class DataUploader:
         wide_schema = pa.schema(
             [
                 pa.field("dataset", pa.string(), nullable=False),
-                pa.field("animal", pa.string(), nullable=False),
+                pa.field("organism", pa.string(), nullable=False),
                 pa.field("deployment", pa.string(), nullable=False),
                 pa.field("recording", pa.string(), nullable=True),
                 pa.field("group", pa.string(), nullable=False),
@@ -117,7 +117,9 @@ class DataUploader:
         table = pa.table(
             [
                 pa.array([dataset] * len(values)).dictionary_encode(),
-                pa.array([metadata["animal"]] * len(values)).dictionary_encode(),
+                pa.array(
+                    [metadata.get("organism") or metadata.get("animal")] * len(values)
+                ).dictionary_encode(),
                 pa.array(
                     [str(metadata["deployment"])] * len(values)
                 ).dictionary_encode(),
@@ -196,7 +198,7 @@ class DataUploader:
             # For state events, end_time is different from start_time
             event = {
                 "dataset": dataset,
-                "animal": metadata["animal"],
+                "organism": metadata.get("organism") or metadata.get("animal"),
                 "deployment": str(metadata["deployment"]),
                 "recording": metadata.get("recording"),  # Optional field
                 "group": group,
@@ -215,7 +217,7 @@ class DataUploader:
             events_schema = pa.schema(
                 [
                     pa.field("dataset", pa.string(), nullable=False),
-                    pa.field("animal", pa.string(), nullable=False),
+                    pa.field("organism", pa.string(), nullable=False),
                     pa.field("deployment", pa.string(), nullable=False),
                     pa.field("recording", pa.string(), nullable=True),
                     pa.field("group", pa.string(), nullable=False),
@@ -231,7 +233,7 @@ class DataUploader:
             batch_table = pa.table(
                 [
                     pa.array([e["dataset"] for e in events]),
-                    pa.array([e["animal"] for e in events]),
+                    pa.array([e["organism"] for e in events]),
                     pa.array([e["deployment"] for e in events]),
                     pa.array([e["recording"] for e in events]),
                     pa.array([e["group"] for e in events]),
@@ -397,15 +399,19 @@ class DataUploader:
         """
         return self._get_model_by_id("Deployment", deployment_data["deployment_id"])
 
-    def get_animal(self, animal_data: Dict[str, Any]) -> Any:
+    def get_organism(self, organism_data: Dict[str, Any]) -> Any:
         """
-        Get animal from Notion database.
+        Get organism from Notion database.
 
-        Args: animal_data: Dict with animal information including 'animal_id'
-        Returns: Animal instance
-        Raises: ValueError: If animal not found
+        Args: organism_data: Dict with organism information including 'organism_id'
+        Returns: Organism instance
+        Raises: ValueError: If organism not found
         """
-        return self._get_model_by_id("Animal", animal_data["animal_id"])
+        return self._get_model_by_id("Animal", organism_data["organism_id"])
+
+    def get_animal(self, animal_data: Dict[str, Any]) -> Any:
+        """Deprecated alias for get_organism. Use get_organism instead."""
+        return self.get_organism(animal_data)
 
     def upload_netcdf(
         self,
@@ -423,7 +429,7 @@ class DataUploader:
         metadata (Dict[str, Any]): Metadata dictionary.
             Required keys:
                 - dataset: Dataset identifier (str)
-                - animal: Animal ID (int)
+                - organism: Organism ID (str) — also accepts legacy key "animal"
                 - deployment: Deployment Name (str)
             Optional key:
                 - recording: Recording Name (str)
@@ -441,6 +447,9 @@ class DataUploader:
         dataset = metadata["dataset"]
         if not isinstance(dataset, str):
             raise TypeError("The 'dataset' value must be set (string)")
+
+        # Resolve organism ID with backward-compat: prefer "organism", fall back to "animal"
+        organism = metadata.get("organism") or metadata.get("animal")
 
         # Set default rename_map if None
         if rename_map is None:
@@ -461,7 +470,7 @@ class DataUploader:
         t0 = time.time()
         self.duck_pond.delete_deployment_data(
             dataset=dataset,
-            animal=metadata["animal"],
+            organism=organism,
             deployment=str(metadata["deployment"]),
         )
         timing["dedup_delete"] = time.time() - t0

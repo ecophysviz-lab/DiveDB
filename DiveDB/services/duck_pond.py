@@ -417,22 +417,29 @@ class DuckPond:
         Create DuckPond instance from environment variables.
 
         Environment variables:
-        - LOCAL_ICEBERG_PATH or CONTAINER_ICEBERG_PATH: Path for local filesystem warehouse
+        - LOCAL_ICEBERG_PATH or CONTAINER_ICEBERG_PATH: Warehouse path (local path,
+          or an s3:// URI to select the S3 warehouse prefix)
         - S3_ENDPOINT: S3/Ceph endpoint URL
         - S3_ACCESS_KEY: S3 access key
         - S3_SECRET_KEY: S3 secret key
         - S3_BUCKET: S3 bucket name
         - S3_REGION: S3 region (optional, defaults to us-east-1)
+        - ICEBERG_CATALOG_TYPE: Catalog mode (auto, sql, in-memory)
         """
         config = WarehouseConfig.from_environment()
 
+        # WarehouseConfig.from_environment() has already resolved the effective
+        # warehouse path (including the s3:// prefix), so pass it through as-is
+        # rather than discarding it on the S3 backend.
         return cls(
-            warehouse_path=config.warehouse_path if not config.use_s3 else None,
+            warehouse_path=config.warehouse_path,
             s3_endpoint=config.s3_endpoint,
             s3_access_key=config.s3_access_key,
             s3_secret_key=config.s3_secret_key,
             s3_bucket=config.s3_bucket,
             s3_region=config.s3_region,
+            # An explicit catalog_type kwarg still wins over the env value.
+            catalog_type=kwargs.pop("catalog_type", config.catalog_type),
             **kwargs,
         )
 
@@ -452,10 +459,10 @@ class DuckPond:
                 # Configure Hive partitioning
                 partition_spec = PartitionSpec(
                     PartitionField(
-                        source_id=2,  # animal field
+                        source_id=2,  # organism field
                         field_id=1001,
                         transform=IdentityTransform(),
-                        name="animal",
+                        name="organism",
                     ),
                     PartitionField(
                         source_id=3,  # deployment field
@@ -524,14 +531,23 @@ class DuckPond:
     def delete_deployment_data(
         self,
         dataset: str,
-        animal: str,
-        deployment: str,
+        organism: str = None,
+        deployment: str = None,
+        *,
+        animal: str = None,  # deprecated alias for organism
     ) -> None:
         """Delete all existing data and events for a deployment before re-upload.
 
         Uses partition-aligned filters so Iceberg drops whole partition files
         rather than scanning rows, keeping the operation fast.
+
+        Args:
+            dataset: Dataset identifier
+            organism: Organism identifier (use this; animal is a deprecated alias)
+            deployment: Deployment identifier
+            animal: Deprecated alias for organism
         """
+        organism = organism or animal
         self.dataset_manager.ensure_dataset_initialized(dataset)
 
         filter_expr = EqualTo("deployment", deployment)
@@ -545,7 +561,7 @@ class DuckPond:
                 table.delete(delete_filter=filter_expr)
                 logging.info(
                     f"Deleted existing {lake_name} for "
-                    f"animal={animal}, deployment={deployment} in {table_name}"
+                    f"organism={organism}, deployment={deployment} in {table_name}"
                 )
             except Exception as e:
                 logging.warning(
@@ -557,15 +573,16 @@ class DuckPond:
         self,
         dataset: str,
         deployment: str,
-        animal: str,
-        event_key: str,
-        datetime_start: pd.Timestamp,
+        organism: str = None,
+        event_key: str = None,
+        datetime_start: pd.Timestamp = None,
         datetime_end: Optional[pd.Timestamp] = None,
         recording: Optional[str] = None,
         group: str = "user_annotations",
         short_description: Optional[str] = None,
         long_description: Optional[str] = None,
         event_data: Optional[Dict] = None,
+        animal: str = None,  # deprecated alias for organism
     ) -> None:
         """
         Write a single event to the Iceberg events table.
@@ -576,7 +593,7 @@ class DuckPond:
         Args:
             dataset: Dataset identifier
             deployment: Deployment identifier
-            animal: Animal identifier
+            organism: Organism identifier (use this; animal is a deprecated alias)
             event_key: Event type/key (e.g., "breath", "dive", "behavior")
             datetime_start: Event start time
             datetime_end: Event end time (for duration events). If None, uses datetime_start (point event)
@@ -588,6 +605,9 @@ class DuckPond:
         """
         import json
 
+        # Resolve organism with backward-compat alias
+        organism = organism or animal
+
         # For point events, end time equals start time
         if datetime_end is None:
             datetime_end = datetime_start
@@ -595,7 +615,7 @@ class DuckPond:
         # Build the event record
         event = {
             "dataset": dataset,
-            "animal": animal,
+            "organism": organism,
             "deployment": str(deployment),
             "recording": recording,
             "group": group,
@@ -611,7 +631,7 @@ class DuckPond:
         events_schema = pa.schema(
             [
                 pa.field("dataset", pa.string(), nullable=False),
-                pa.field("animal", pa.string(), nullable=False),
+                pa.field("organism", pa.string(), nullable=False),
                 pa.field("deployment", pa.string(), nullable=False),
                 pa.field("recording", pa.string(), nullable=True),
                 pa.field("group", pa.string(), nullable=False),
@@ -628,7 +648,7 @@ class DuckPond:
         event_table = pa.table(
             [
                 pa.array([event["dataset"]]),
-                pa.array([event["animal"]]),
+                pa.array([event["organism"]]),
                 pa.array([event["deployment"]]),
                 pa.array([event["recording"]]),
                 pa.array([event["group"]]),
@@ -753,7 +773,7 @@ class DuckPond:
         query = f"""
             SELECT
                 dataset,
-                animal,
+                organism,
                 deployment,
                 recording,
                 "group",
@@ -774,7 +794,7 @@ class DuckPond:
         if labels:
             predicates.append(get_predicate_string("label", labels))
         if organism_ids:
-            predicates.append(get_predicate_string("animal", organism_ids))
+            predicates.append(get_predicate_string("organism", organism_ids))
         if deployment_ids:
             predicates.append(get_predicate_string("deployment", deployment_ids))
         if recording_ids:
@@ -1466,7 +1486,7 @@ class DuckPond:
             use_cache: If True, cache results with 5-minute TTL (default: False)
 
         Returns:
-            pd.DataFrame with columns: dataset, animal, deployment, recording,
+            pd.DataFrame with columns: dataset, organism, deployment, recording,
             group, event_key, datetime_start, datetime_end, short_description,
             long_description, event_data
         """
@@ -1527,7 +1547,7 @@ class DuckPond:
         base_query = f"""
             SELECT
                 dataset,
-                animal,
+                organism,
                 deployment,
                 recording,
                 "group",
@@ -1543,7 +1563,7 @@ class DuckPond:
         # Build WHERE clause
         predicates = []
         if organism_ids:
-            predicates.append(get_predicate_string("animal", organism_ids))
+            predicates.append(get_predicate_string("organism", organism_ids))
         if deployment_ids:
             predicates.append(get_predicate_string("deployment", deployment_ids))
         if recording_ids:
@@ -1915,8 +1935,8 @@ class DuckPond:
         Args: use_cache: If True, cache results with 5-minute TTL (default: False)
         Returns:
             Dict mapping dataset names to lists of deployment records.
-            Each deployment record contains: deployment, animal, min_date, max_date, sample_count
-            Format: {"dataset1": [{"deployment": "...", "animal": "...", ...}, ...], ...}
+            Each deployment record contains: deployment, organism, min_date, max_date, sample_count
+            Format: {"dataset1": [{"deployment": "...", "organism": "...", ...}, ...], ...}
         """
         # Cache TTL: 5 minutes (300 seconds) - datasets/deployments change infrequently
         CACHE_TTL = 300
@@ -1957,13 +1977,13 @@ class DuckPond:
                 SELECT
                     '{dataset_escaped}' as dataset,
                     deployment,
-                    animal,
+                    organism,
                     MIN(datetime) as min_date,
                     MAX(datetime) as max_date,
                     COUNT(*) as sample_count
                 FROM {view_name}
-                WHERE deployment IS NOT NULL AND animal IS NOT NULL
-                GROUP BY deployment, animal
+                WHERE deployment IS NOT NULL AND organism IS NOT NULL
+                GROUP BY deployment, organism
             """
             )
 
@@ -2001,15 +2021,15 @@ class DuckPond:
             organism_ids = set()
             for deployments in result.values():
                 for dep in deployments:
-                    if dep.get("animal"):
-                        organism_ids.add(dep["animal"])
+                    if dep.get("organism"):
+                        organism_ids.add(dep["organism"])
 
             if organism_ids:
                 organism_icon_map = self._get_organism_icons(organism_ids)
 
                 for deployments in result.values():
                     for dep in deployments:
-                        organism_id = dep.get("animal")
+                        organism_id = dep.get("organism")
                         dep["icon_url"] = organism_icon_map.get(
                             organism_id, "/assets/images/seal.svg"
                         )
@@ -2279,7 +2299,7 @@ class DuckPond:
 
         Args:
             dataset: Dataset identifier
-            metadata: Dict with 'animal', 'deployment', 'recording' keys
+            metadata: Dict with 'organism' (or legacy 'animal'), 'deployment', 'recording' keys
             times: PyArrow timestamp array
             group: Data group (e.g., 'signal_data')
             class_name: Data class (e.g., 'accelerometer')
@@ -2299,7 +2319,7 @@ class DuckPond:
         wide_schema = pa.schema(
             [
                 pa.field("dataset", pa.string(), nullable=False),  # Required
-                pa.field("animal", pa.string(), nullable=False),  # Required
+                pa.field("organism", pa.string(), nullable=False),  # Required
                 pa.field("deployment", pa.string(), nullable=False),  # Required
                 pa.field("recording", pa.string(), nullable=True),  # Optional
                 pa.field("group", pa.string(), nullable=False),  # Required
@@ -2320,8 +2340,8 @@ class DuckPond:
             [
                 pa.array([dataset] * len(values)).dictionary_encode(),  # dataset
                 pa.array(
-                    [metadata["animal"]] * len(values)
-                ).dictionary_encode(),  # animal
+                    [metadata.get("organism") or metadata.get("animal")] * len(values)
+                ).dictionary_encode(),  # organism
                 pa.array(
                     [str(metadata["deployment"])] * len(values)
                 ).dictionary_encode(),  # deployment

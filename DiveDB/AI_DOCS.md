@@ -12,16 +12,77 @@
 
 ## Terminology
 
-The codebase is being migrated from "animal" to "organism" in Python APIs and Notion. Frozen storage layers keep the old names.
+The codebase has been migrated from "animal" to "organism" in Python APIs, Notion, **and the Iceberg storage layer**. NetCDF/pkl files keep the old names for back-compat.
 
 | Context | Field name | Notes |
 | --- | --- | --- |
 | Python API params | `organism_id` / `organism_ids` | New canonical name |
 | Deprecated kwargs | `animal_id` / `animal_ids` | Still accepted; merged internally |
-| Iceberg/SQL column | `animal` | Frozen — do not rename |
+| Iceberg/SQL column | `organism` | Renamed; partition dirs are `organism=...` |
 | NetCDF / pkl files | `animal_id` | Frozen — do not rename |
+| NetCDF upload metadata | `organism` | Legacy `animal` key still accepted |
 | Notion DB name | `"Organism DB"` | Falls back to `"Animal DB"` |
 | Notion property | `"Organism ID"` | Falls back to `"Animal ID"` |
+
+### A warehouse must not mix `animal=` and `organism=`
+
+Reads do **not** go through Iceberg. `_create_dataset_views` builds DuckDB views over
+`read_parquet('<path>/**/*.parquet', hive_partitioning = true)`, which resolves columns
+by *name* from the Parquet footer and Hive directory names. Iceberg field IDs are never
+consulted, so renaming a field in the schema does **not** migrate existing files.
+
+Consequence: if one warehouse prefix contains both `animal=…/` and `organism=…/`
+directories, DuckDB raises `Binder Error: Hive partition mismatch between file … key
+"animal" not found` and **every query fails, including `SELECT *`** — for all datasets,
+not just the affected one. There is no graceful degradation.
+
+Therefore: this code can only read a warehouse whose partitions are uniformly
+`organism=`. Pre-rename warehouses must be migrated (rename the partition directories)
+or re-uploaded before use. Writers normalise to `organism` regardless of whether the
+source NetCDF used `organism` or the legacy `animal` metadata key, so files from
+different pipeline vintages coexist safely in a fresh warehouse.
+
+## Warehouse configuration (env vars)
+
+Each backend has exactly one path variable, so there is nothing to keep in sync:
+
+| Backend | Selected by | Path variable |
+| --- | --- | --- |
+| S3 / Ceph | `S3_ENDPOINT` is set | `S3_WAREHOUSE_PATH` (must be an `s3://` URI) |
+| Local filesystem | `S3_ENDPOINT` unset | `LOCAL_ICEBERG_PATH` or `CONTAINER_ICEBERG_PATH` |
+
+`S3_WAREHOUSE_PATH` defaults to `s3://<S3_BUCKET>/iceberg-warehouse` when unset, and
+raises `ValueError` if it is not an `s3://` URI. `ICEBERG_CATALOG_TYPE` selects the
+catalog mode (`auto`, `sql`, `in-memory`).
+
+### The S3 catalog is local, not in S3
+
+`CatalogManager` backs the S3 catalog with a **local SQLite file**
+(`~/.iceberg/s3_catalog.db` for `sql`; a temp file for `in-memory`/`auto`). S3 dataset
+discovery calls `catalog.list_namespaces()`, which reads that catalog — *not* S3 object
+listings. So:
+
+- With `auto`/`in-memory` on S3, the catalog is ephemeral: tables written in one process
+  are invisible to the next, even though the Parquet is safely in S3.
+- With `sql`, the catalog is machine-local: another machine or container sees **zero
+  datasets** until its catalog is populated.
+
+Use `catalog_type="sql"` when tables must persist across runs, and treat the catalog
+location as deployment configuration. Read-only consumers can skip the catalog entirely
+(DuckDB `read_parquet`, or PyIceberg `StaticTable.from_metadata`) — see the read-only
+guide in the LifeInTheDeepDashboard repo (`iceberg_data_lake_read_only_guide.md`).
+
+### NRP Nautilus Ceph S3 access
+
+Nautilus has **no per-bucket sharing** — no IAM users, bucket policies, or ACL grants to
+individuals, so a bucket owner cannot grant access via `aws s3api`. Public pools: each
+person self-serves a key at the User Portal → User → S3 Tokens. Private pools (including
+`DiveDB_deltalake`): contact the admin managing that storage. For deployments, inject one
+service-account key (e.g. into a K8s Secret) rather than granting individuals access.
+See the [Nautilus Ceph S3 docs](https://gitlab.nrp-nautilus.io/prp/nrp-site/-/blob/main/src/content/docs/Documentation/userdocs/storage/ceph-s3.md).
+
+Known Ceph quirk: multipart uploads over ~80 MB can fail with the AWS CLI; use `s3cmd`,
+`boto3`, or `rclone` for large writes.
 
 ## Architecture Overview
 
@@ -90,7 +151,7 @@ DataUploader → DuckPond → Iceberg Tables → DuckDB Views → DiveData
 - `estimate_data_size(dataset, labels, organism_ids, deployment_ids, recording_ids, groups, classes, date_range)` → int - Row count estimate; `animal_ids` accepted as deprecated kwarg
 - `write_signal_data(dataset, metadata, times, group, class_name, label, values)` → int - Write signal data
 - `write_to_iceberg(data, lake, dataset, mode, skip_view_refresh)` → None - Write PyArrow table
-- `write_event(dataset, deployment, animal, event_key, datetime_start, datetime_end, recording, group, short_description, long_description, event_data)` → None - Write single event to Iceberg (convenience method for Dash UI)
+- `write_event(dataset, deployment, organism, event_key, datetime_start, datetime_end, recording, group, short_description, long_description, event_data)` → None - Write single event to Iceberg (convenience method for Dash UI)
 - `get_deployment_timezone_offset(deployment_id)` → float - Timezone offset in hours
 - `get_view_name(dataset, table_type)` → str - Quoted view name
 - `get_3d_model_for_organism(organism_id, use_cache)` → Dict - Fetch 3D model info from Notion (Organism→Asset DB→Best-3D-model); `get_3d_model_for_animal` is a deprecated alias
@@ -151,7 +212,7 @@ DataUploader → DuckPond → Iceberg Tables → DuckDB Views → DiveData
 - `get_logger(logger_data)` → Logger - Get logger from Notion
 - `get_recording(recording_data)` → Recording - Get recording from Notion
 - `get_deployment(deployment_data)` → Deployment - Get deployment from Notion
-- `get_animal(animal_data)` → Animal - Get animal from Notion
+- `get_organism(organism_data)` → Organism - Get organism from Notion; `get_animal` is a deprecated alias
 
 **NetCDF Requirements**:
 - Dimensions: `*_samples` (datetime64), `*_variables` (str)
@@ -168,7 +229,7 @@ DataUploader → DuckPond → Iceberg Tables → DuckDB Views → DiveData
 ```python
 {
     "dataset": str,  # Required
-    "animal": str,    # Required
+    "organism": str,  # Required (legacy key "animal" still accepted)
     "deployment": str, # Required
     "recording": str   # Optional
 }
@@ -183,7 +244,7 @@ DataUploader → DuckPond → Iceberg Tables → DuckDB Views → DiveData
 
 **Key Methods**:
 - `__init__(duckdb_relation, conn, notion_manager, notion_db_map, notion_token)` - Initialize wrapper
-- `get_metadata()` → Dict - Fetch logger/animal/deployment metadata from Notion
+- `get_metadata()` → Dict - Fetch logger/organism/deployment metadata from Notion
 - `export_to_edf(output_dir)` → List[str] - Export to EDF files
 
 **Features**:
@@ -287,11 +348,11 @@ DataUploader → DuckPond → Iceberg Tables → DuckDB Views → DiveData
 **Dataset Structure**:
 - Each dataset has two Iceberg tables: `{dataset}.data`, `{dataset}.events`
 - Views created: `"{dataset}_Data"`, `"{dataset}_Events"`
-- Partitioning: animal, deployment, class, label
+- Partitioning: organism, deployment, class, label
 
 **Lake Schemas**:
-- `data`: dataset, animal, deployment, recording, group, class, label, datetime, val_dbl, val_int, val_bool, val_str, data_type
-- `events`: dataset, animal, deployment, recording, group, event_key, datetime_start, datetime_end, short_description, long_description, event_data
+- `data`: dataset, organism, deployment, recording, group, class, label, datetime, val_dbl, val_int, val_bool, val_str, data_type
+- `events`: dataset, organism, deployment, recording, group, event_key, datetime_start, datetime_end, short_description, long_description, event_data
 
 ### connection/notion_integration.py
 
@@ -417,7 +478,7 @@ DiveData(
 ```python
 {
     "deployment": str,
-    "organism_id": str,  # canonical Python key; "animal" key preserved in Iceberg column
+    "organism_id": str,  # canonical Python key
     "deployment_date": str,
     "min_date": str,
     "max_date": str,
@@ -560,7 +621,7 @@ uploader.upload_netcdf(
     netcdf_file_path="data.nc",
     metadata={
         "dataset": "my-dataset",
-        "animal": "apfo-001a",
+        "organism": "apfo-001a",
         "deployment": "2019-11-08_apfo-001",
         "recording": "recording-001"  # Optional
     },
@@ -579,7 +640,7 @@ values = [1.0, 2.0, 3.0, ...]
 
 duck_pond.write_signal_data(
     dataset="my-dataset",
-    metadata={"animal": "apfo-001a", "deployment": "2019-11-08_apfo-001"},
+    metadata={"organism": "apfo-001a", "deployment": "2019-11-08_apfo-001"},
     times=times,
     group="signal_data",
     class_name="depth_sensor",

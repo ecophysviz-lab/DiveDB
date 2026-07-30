@@ -82,9 +82,16 @@ class WarehouseConfig:
         """
         Create configuration from environment variables.
 
-        Environment variables:
-        - LOCAL_ICEBERG_PATH or CONTAINER_ICEBERG_PATH: Path for local filesystem warehouse
-        - S3_ENDPOINT: S3/Ceph endpoint URL
+        Each backend has one path variable, so the two never have to be kept in sync:
+
+        - S3 backend (S3_ENDPOINT set):
+            - S3_WAREHOUSE_PATH: s3:// URI of the warehouse prefix.
+              Defaults to s3://<S3_BUCKET>/iceberg-warehouse.
+        - Local backend:
+            - LOCAL_ICEBERG_PATH or CONTAINER_ICEBERG_PATH: filesystem path.
+
+        Other variables:
+        - S3_ENDPOINT: S3/Ceph endpoint URL (presence selects the S3 backend)
         - S3_ACCESS_KEY: S3 access key
         - S3_SECRET_KEY: S3 secret key
         - S3_BUCKET: S3 bucket name
@@ -100,13 +107,23 @@ class WarehouseConfig:
         s3_region = os.getenv("S3_REGION", "us-east-1")
         catalog_type = os.getenv("ICEBERG_CATALOG_TYPE", "auto")
 
-        # Check for local warehouse path (support both env var names for compatibility)
-        warehouse_path = os.getenv("LOCAL_ICEBERG_PATH") or os.getenv(
-            "CONTAINER_ICEBERG_PATH"
-        )
+        if s3_endpoint:
+            # S3 backend: only S3_WAREHOUSE_PATH selects the prefix. A local
+            # filesystem path would be meaningless here, so it is ignored.
+            warehouse_path = os.getenv("S3_WAREHOUSE_PATH")
+            if warehouse_path and not warehouse_path.startswith("s3://"):
+                raise ValueError(
+                    "S3_WAREHOUSE_PATH must be an s3:// URI, got: "
+                    f"{warehouse_path!r}"
+                )
+        else:
+            # Local backend (support both env var names for compatibility)
+            warehouse_path = os.getenv("LOCAL_ICEBERG_PATH") or os.getenv(
+                "CONTAINER_ICEBERG_PATH"
+            )
 
         return cls.from_parameters(
-            warehouse_path=warehouse_path if not s3_endpoint else None,
+            warehouse_path=warehouse_path,
             s3_endpoint=s3_endpoint,
             s3_access_key=s3_access_key,
             s3_secret_key=s3_secret_key,
