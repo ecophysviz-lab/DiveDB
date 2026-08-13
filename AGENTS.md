@@ -93,8 +93,24 @@ See [DiveDB/AI_DOCS.md](DiveDB/AI_DOCS.md) for the full rationale.
 - Never add new `dcc.Store` without documenting it in [dash/AI_DOCS.md](dash/AI_DOCS.md) Store Schemas table.
 - Use `allow_duplicate=True` only when a store is legitimately written by multiple callbacks.
 
+### Notebooks
+
+Commit notebooks with their cell outputs stripped. Outputs are usually the bulk of a
+notebook's line count (stripping one in `docs/` removed ~4,200 lines), they churn on
+every re-run, and they can leak absolute data paths, tokens, or record counts into
+history.
+
+```bash
+jupyter nbconvert --clear-output --inplace <notebook>
+```
+
+`scripts/warn_notebook_outputs.py` runs via pre-commit and **warns** when a staged
+notebook still has outputs — it never blocks, since a rendered example notebook is
+sometimes intentional. Run `pre-commit install` once per clone or the hook is inert.
+
 ## Do not
 
+- Commit a notebook with cell outputs unless the rendered output is deliberately part of the doc — strip them first.
 - Rename the `organism` column in any Iceberg schema or DuckDB view — it is the partition key. It was renamed from `animal` once, deliberately; renaming it again breaks every existing warehouse.
 - Write `animal=` partition directories into a warehouse that already uses `organism=` (or vice versa) — a mixed warehouse fails *all* queries.
 - Rename `animal_id` fields in NetCDF or `.pkl` files — they are part of the on-disk format contract.
