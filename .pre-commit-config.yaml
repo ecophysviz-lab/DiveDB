@@ -8,14 +8,15 @@ repos:
       hooks:
         - id: black
           exclude: jupyter/.*\.py,pyologger/.*\.py
-    # Warns (does not block) when a notebook is staged with cell outputs.
-    # Committed outputs bloat diffs and can leak data paths, tokens, or record counts.
-    # To strip: jupyter nbconvert --clear-output --inplace <notebook>
+    # Notebook hygiene:
+    #   - BLOCKS on hardcoded credentials in cell source (never intentional).
+    #   - WARNS on cell outputs (a rendered example notebook is sometimes deliberate).
+    # To strip outputs: jupyter nbconvert --clear-output --inplace <notebook>
     - repo: local
       hooks:
-        - id: warn-notebook-outputs
-          name: warn about notebook outputs
-          entry: scripts/warn_notebook_outputs.py
+        - id: check-notebooks
+          name: check notebooks for secrets and outputs
+          entry: scripts/check_notebooks.py
           language: python
           files: \.ipynb$
           verbose: true

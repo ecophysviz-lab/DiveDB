@@ -104,12 +104,35 @@ history.
 jupyter nbconvert --clear-output --inplace <notebook>
 ```
 
-`scripts/warn_notebook_outputs.py` runs via pre-commit and **warns** when a staged
-notebook still has outputs — it never blocks, since a rendered example notebook is
-sometimes intentional. Run `pre-commit install` once per clone or the hook is inert.
+**Never hardcode credentials in a notebook cell.** Read them from the environment:
+
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+storage_options = {
+    "key": os.environ["S3_ACCESS_KEY"],
+    "secret": os.environ["S3_SECRET_KEY"],
+    "client_kwargs": {"endpoint_url": os.environ["S3_ENDPOINT"]},
+}
+```
+
+Use `os.environ[...]`, not `os.getenv(KEY, "<literal>")`. A literal fallback is exactly
+how a hardcoded secret survives a `load_dotenv()` that silently found no `.env` — it
+looks like config, keeps working, and gets committed. Fail loudly on a missing env var
+instead; that matches the repo's fail-fast rule.
+
+A committed-and-pushed credential is compromised. Rotate it *first*, then purge it from
+history — purging alone does nothing, since anyone may already have fetched it.
+
+`scripts/check_notebooks.py` runs via pre-commit: it **blocks** on apparent hardcoded
+credentials and **warns** on cell outputs (a rendered example notebook is sometimes
+intentional). Run `pre-commit install` once per clone or the hook is inert.
 
 ## Do not
 
+- Hardcode a credential anywhere — notebook cell, script, or config. Read from the environment; never use a literal fallback in `os.getenv`.
 - Commit a notebook with cell outputs unless the rendered output is deliberately part of the doc — strip them first.
 - Rename the `organism` column in any Iceberg schema or DuckDB view — it is the partition key. It was renamed from `animal` once, deliberately; renaming it again breaks every existing warehouse.
 - Write `animal=` partition directories into a warehouse that already uses `organism=` (or vice versa) — a mixed warehouse fails *all* queries.
