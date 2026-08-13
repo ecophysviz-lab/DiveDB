@@ -25,7 +25,7 @@ DiveDB is currently in active development, and we welcome feedback and contribut
   - [PointEventsLake Schema](#2-pointeventslake-schema)
   - [StateEventsLake Schema](#3-stateeventslake-schema)
 - [Notion Metadata Structure](#notion-metadata-structure)
-  - [Animal Database](#1-animal-database)
+  - [Organism Database](#1-organism-database)
   - [Recording Database](#2-recording-database)
   - [Logger Database](#3-logger-database)
   - [Deployment Database](#4-deployment-database)
@@ -119,7 +119,7 @@ The `DuckPond` class in `duck_pond.py` manages three distinct Iceberg tables, ea
 The `data` table stores sensor data using a wide schema approach instead of nested structs. This provides better query performance and easier analytics:
 
 - **dataset**: High-level dataset identifier (required, string)
-- **animal**: The identifier for the animal from which data is collected (required, string)
+- **organism**: The identifier for the organism from which data is collected (required, string)
 - **deployment**: The deployment identifier (required, string)
 - **recording**: The recording session identifier (optional, string)
 - **group**: The group or category of the data (required, string)
@@ -136,7 +136,7 @@ The `data` table stores sensor data using a wide schema approach instead of nest
 
 The `PointEventsLake` schema is used to store discrete events that occur at specific points in time. It includes the following fields:
 
-- **animal**: The identifier for the animal (string).
+- **organism**: The identifier for the organism (string).
 - **deployment**: The deployment identifier (string).
 - **recording**: The recording session identifier (string).
 - **group**: The group or category of the event (string).
@@ -150,7 +150,7 @@ The `PointEventsLake` schema is used to store discrete events that occur at spec
 
 The `StateEventsLake` schema is designed to store events that have a duration, with a start and end time. It includes the following fields:
 
-- **animal**: The identifier for the animal (string).
+- **organism**: The identifier for the organism (string).
 - **deployment**: The deployment identifier (string).
 - **recording**: The recording session identifier (string).
 - **group**: The group or category of the event (string).
@@ -165,20 +165,25 @@ These schemas are defined using the `pyarrow` library and are used to enforce da
 
 ## Notion Metadata Structure
 
-DiveDB uses Notion databases to manage metadata associated with diving projects, animals, loggers, deployments, and recordings. The metadata is organized across several interconnected Notion databases that can be accessed through the Notion ORM integration.
+DiveDB uses Notion databases to manage metadata associated with diving projects, organisms, loggers, deployments, and recordings. The metadata is organized across several interconnected Notion databases that can be accessed through the Notion ORM integration.
 
-### 1. Animal Database
+> **Note:** The Organism database was formerly named "Animal DB", and its identifier
+> property was formerly "Animal ID". DiveDB looks up `"Organism DB"` / `"Organism ID"`
+> first and falls back to the legacy names, so existing Notion workspaces keep working
+> without being renamed.
 
-The Animal database contains information about individual animals in diving projects:
+### 1. Organism Database
 
-- **Animal ID**: Unique identifier for the animal
-- **Common Name**: The common name of the animal species
-- **Scientific Name**: The scientific name of the animal species
+The Organism database contains information about individual organisms in diving projects:
+
+- **Organism ID**: Unique identifier for the organism (legacy: "Animal ID")
+- **Common Name**: The common name of the organism's species
+- **Scientific Name**: The scientific name of the organism's species
 - **Lab ID**: Laboratory identifier (optional)
-- **Birth Year**: The birth year of the animal (optional)
-- **Sex**: The sex of the animal (optional)
-- **Project ID**: The identifier for the project the animal is part of
-- **Domain IDs**: Domain identifiers associated with the animal (optional)
+- **Birth Year**: The birth year of the organism (optional)
+- **Sex**: The sex of the organism (optional)
+- **Project ID**: The identifier for the project the organism is part of
+- **Domain IDs**: Domain identifiers associated with the organism (optional)
 
 ### 1. Recording Database
 
@@ -186,7 +191,7 @@ The Recording database represents recordings of data from loggers:
 
 - **Recording ID**: Unique identifier for the recording
 - **Name**: The name of the recording
-- **Animal**: Link to the associated animal
+- **Organism**: Link to the associated organism
 - **Logger**: Link to the associated logger
 - **Start Time**: The start time of the recording
 - **End Time**: The end time of the recording (optional)
@@ -214,7 +219,7 @@ The Deployment database represents field deployments for data collection:
 - **Deployment ID**: Unique identifier for the deployment
 - **Deployment Name**: The name of the deployment
 - **Recording Date**: The date of the recording
-- **Animal**: Link to the associated animal
+- **Organism**: Link to the associated organism
 - **Deployment Location**: The location of the deployment (optional)
 - **Deployment Coordinates**: Latitude and longitude of deployment (optional)
 - **Recovery Location**: The location of the recovery (optional)
@@ -324,7 +329,7 @@ DiveDB includes a lightweight, read-only Python wrapper for the Notion API that 
 
 - Model Definition: Maps Notion databases to Python classes
 - Schema Introspection: Auto-detects database schemas
-- Query Builder: Pythonic query syntax (e.g., `Animal.objects.filter(Status="Active")`)
+- Query Builder: Pythonic query syntax (e.g., `Organism.objects.filter(Status="Active")`)
 - Property Type Conversion: Maps Notion types to Python types (e.g., Date → datetime)
 - Relationship Support: Navigate between related database records
 - Pagination Handling: Automatic handling of paginated responses
@@ -336,17 +341,18 @@ from DiveDB.services.notion_orm import NotionORMManager
 
 # Initialize with database IDs and token
 db_map = {
-    "Animal DB": os.getenv("NOTION_ANIMAL_DB"),
+    # The env var name is yours to choose; only the "Organism DB" key matters to DiveDB.
+    "Organism DB": os.getenv("NOTION_ANIMAL_DB"),
     "Recording DB": os.getenv("NOTION_RECORDING_DB")
 }
 notion_orm = NotionORMManager(db_map=db_map, token=os.getenv("NOTION_API_KEY"))
 
 # Get model class and query data
-Animal = notion_orm.get_model("Animal DB")
-animal = Animal.get_animal({"Animal ID": "mian-013"})
+Organism = notion_orm.get_model("Organism DB")
+organism = Organism.get_organism({"Organism ID": "mian-013"})
 
 # Access relationships
-recordings = animal.get_recordings()
+recordings = organism.get_recordings()
 for recording in recordings:
     print(f"Recording ID: {recording.id}")
     print(f"Start time: {recording.Start_Time}")

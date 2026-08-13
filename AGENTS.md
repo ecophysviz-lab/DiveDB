@@ -43,16 +43,32 @@ Copy `.env.example` → `.env` and fill in Notion credentials, S3/Iceberg config
 
 ## Organism / animal terminology
 
-The codebase is migrating from "animal" to "organism" in Python APIs and Notion. Frozen storage layers keep the old names.
+The codebase has been migrated from "animal" to "organism" in Python APIs, Notion,
+**and the Iceberg storage layer**. NetCDF/pkl files keep the old names for back-compat.
 
 | Context | Field name | Notes |
 | --- | --- | --- |
 | Python API params | `organism_id` / `organism_ids` | New canonical name |
 | Deprecated kwargs | `animal_id` / `animal_ids` | Still accepted; merged internally |
-| Iceberg/SQL column | `animal` | Frozen — do not rename |
+| Iceberg/SQL column | `organism` | Renamed; partition dirs are `organism=...` |
 | NetCDF / pkl files | `animal_id` | Frozen — do not rename |
+| NetCDF upload metadata | `organism` | Legacy `animal` key still accepted |
 | Notion DB name | `"Organism DB"` | Falls back to `"Animal DB"` |
 | Notion property | `"Organism ID"` | Falls back to `"Animal ID"` |
+
+### A warehouse must not mix `animal=` and `organism=`
+
+Reads do **not** go through Iceberg. `_create_dataset_views` builds DuckDB views over
+`read_parquet(..., hive_partitioning = true)`, which resolves columns by *name* from the
+Parquet footer and Hive directory names — Iceberg field IDs are never consulted, so
+renaming a field in the schema does **not** migrate existing files.
+
+If one warehouse prefix contains both `animal=…/` and `organism=…/` directories, DuckDB
+raises `Binder Error: Hive partition mismatch` and **every query fails, including
+`SELECT *`** — for all datasets, not just the affected one. Pre-rename warehouses must
+have their partition directories renamed, or be re-uploaded, before use.
+
+See [DiveDB/AI_DOCS.md](DiveDB/AI_DOCS.md) for the full rationale.
 
 ## Code standards
 
@@ -79,7 +95,8 @@ The codebase is migrating from "animal" to "organism" in Python APIs and Notion.
 
 ## Do not
 
-- Rename the `animal` column in any Iceberg schema or DuckDB view — it is the partition key and is frozen.
+- Rename the `organism` column in any Iceberg schema or DuckDB view — it is the partition key. It was renamed from `animal` once, deliberately; renaming it again breaks every existing warehouse.
+- Write `animal=` partition directories into a warehouse that already uses `organism=` (or vice versa) — a mixed warehouse fails *all* queries.
 - Rename `animal_id` fields in NetCDF or `.pkl` files — they are part of the on-disk format contract.
 - Use `animal_ids` as a new parameter name in any new Python method — use `organism_ids` instead.
 - Run production deploy or image build (`make deploy`, `build.sh production`) from an automated agent session.
