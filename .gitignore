@@ -182,3 +182,6 @@ local_iceberg_warehouse/
 *_iceberg_warehouse/
 iceberg_catalog.db
 iceberg_catalog.db-*
+
+# Local cache for netCDFs downloaded from S3 by docs/upload_docs.ipynb
+.s3_cache/

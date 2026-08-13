@@ -77,6 +77,41 @@ To create a local analysis environment, follow these steps:
 1. **Access the Environment:**
    To access the Jupyter notebook server, open your web browser and go to `http://localhost:8888` or connect to kernel `http://localhost:8888/jupyter` in a Jupyter client.
 
+### Connecting to the Jupyter kernel from VSCode
+
+These steps assume VSCode with the Python and Jupyter extensions installed. Other editors have their own steps for connecting to the kernel launched by `make up`.
+
+1. Click **Select Kernel** at the top right of the notebook.
+1. Pick **Select another kernel**, then **Existing Jupyter Server**.
+1. Connect to the server:
+   - If you have connected before, pick **localhost** (or whatever you named it).
+   - Otherwise pick **Enter the URL of the running Jupyter server**, enter `http://localhost:8888/jupyter`, and give it a memorable name such as "Local DiveDB Jupyter Server".
+1. Press the **Reload** icon at the top right of the dropdown to refresh the kernel list.
+1. Pick **Python 3**.
+
+You'll know the server is ready when the logs show:
+
+```text
+jupyter-1  | [I 2024-08-30 16:12:37.083 ServerApp] Jupyter Server 2.14.2 is running at:
+jupyter-1  | [I 2024-08-30 16:12:37.083 ServerApp] http://127.0.0.1:8888/jupyter/tree
+```
+
+### Running without Docker
+
+You can also run Jupyter directly on your machine. The same `.env` file is used — notebooks load it with `python-dotenv` via `load_dotenv()`.
+
+The difference is which paths apply. `LOCAL_DATA_PATH` and `LOCAL_ICEBERG_PATH` are host paths; `CONTAINER_DATA_PATH` and `CONTAINER_ICEBERG_PATH` are where `docker-compose.development.yaml` mounts those same folders inside the container:
+
+```yaml
+volumes:
+  - ${LOCAL_ICEBERG_PATH}:${CONTAINER_ICEBERG_PATH}
+  - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
+```
+
+Each pair is **two names for one folder**, not two folders. Use the `LOCAL_` paths when running outside Docker; the `CONTAINER_` variables are ignored. Keep the `CONTAINER_` values as given in `.env.example`.
+
+S3 configuration is identical either way, since S3 is reached over the network rather than through a mount.
+
 ## Where to Store Your Iceberg Warehouse
 
 The Iceberg data warehouse can be stored locally or on remote object storage. The path to the warehouse is configured in the `.env` file as `CONTAINER_ICEBERG_PATH`.

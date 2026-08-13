@@ -3,6 +3,7 @@ DuckPond - Apache Iceberg data lake interface (formerly Delta Lake)
 """
 
 import logging
+import os
 from typing import Any, List, Literal, Dict, Optional
 
 import numpy as np
@@ -541,6 +542,13 @@ class DuckPond:
         Uses partition-aligned filters so Iceberg drops whole partition files
         rather than scanning rows, keeping the operation fast.
 
+        The Iceberg delete only rewrites metadata — it unlinks data files from the
+        manifest but leaves them on disk. Reads do not go through Iceberg
+        (`_create_dataset_views` builds DuckDB views over
+        `read_parquet(..., hive_partitioning = true)`), so those orphaned files stay
+        visible and a re-upload returns duplicated rows. The unlinked files are
+        therefore removed from storage as well.
+
         Args:
             dataset: Dataset identifier
             organism: Organism identifier (use this; animal is a deprecated alias)
@@ -558,16 +566,70 @@ class DuckPond:
                 table = self.catalog.load_table(table_name)
                 if not table.snapshots():
                     continue
+
+                # Capture the deployment's data files before the delete unlinks them;
+                # afterwards they are no longer reachable through the manifest.
+                orphaned = self._deployment_data_files(table, deployment)
+
                 table.delete(delete_filter=filter_expr)
                 logging.info(
                     f"Deleted existing {lake_name} for "
                     f"organism={organism}, deployment={deployment} in {table_name}"
                 )
+
+                self._remove_data_files(orphaned)
             except Exception as e:
                 logging.warning(
                     f"Could not delete from {table_name} "
                     f"(may be empty or first upload): {e}"
                 )
+
+    @staticmethod
+    def _deployment_data_files(table, deployment: str) -> List[str]:
+        """Paths of `table`'s data files belonging to `deployment`.
+
+        Matches on the Hive partition directory rather than the manifest's partition
+        struct, which is what the DuckDB views key off.
+        """
+        needle = f"deployment={deployment}/"
+        try:
+            return [
+                f["file_path"]
+                for f in table.inspect.files().to_pylist()
+                if needle in f["file_path"]
+            ]
+        except Exception as e:
+            logging.warning(f"Could not enumerate data files for {deployment}: {e}")
+            return []
+
+    def _remove_data_files(self, file_paths: List[str]) -> None:
+        """Delete unlinked Parquet files so the DuckDB views stop reading them.
+
+        Best-effort: a file that cannot be removed is logged rather than raised, since
+        the Iceberg delete has already committed by this point.
+        """
+        if not file_paths:
+            return
+
+        removed = 0
+        fs = None
+        if self.config.use_s3:
+            fs = self.catalog_manager._get_s3_filesystem()
+
+        for path in file_paths:
+            try:
+                if self.config.use_s3:
+                    fs.rm_file(path)
+                else:
+                    os.remove(path.replace("file://", ""))
+                removed += 1
+            except FileNotFoundError:
+                continue
+            except Exception as e:
+                logging.warning(f"Could not remove orphaned data file {path}: {e}")
+
+        if removed:
+            logging.info(f"Removed {removed} orphaned data file(s) after delete")
 
     def write_event(
         self,
@@ -1272,8 +1334,15 @@ class DuckPond:
 
         # Merge deprecated animal_ids alias into organism_ids
         if animal_ids is not None:
-            organism_ids = list({*(self._normalize_to_list(organism_ids) or []),
-                                  *(self._normalize_to_list(animal_ids) or [])}) or None
+            organism_ids = (
+                list(
+                    {
+                        *(self._normalize_to_list(organism_ids) or []),
+                        *(self._normalize_to_list(animal_ids) or []),
+                    }
+                )
+                or None
+            )
 
         # Convert single strings to lists
         (
@@ -1422,8 +1491,15 @@ class DuckPond:
 
         # Merge deprecated animal_ids alias into organism_ids
         if animal_ids is not None:
-            organism_ids = list({*(self._normalize_to_list(organism_ids) or []),
-                                  *(self._normalize_to_list(animal_ids) or [])}) or None
+            organism_ids = (
+                list(
+                    {
+                        *(self._normalize_to_list(organism_ids) or []),
+                        *(self._normalize_to_list(animal_ids) or []),
+                    }
+                )
+                or None
+            )
 
         # Convert single strings to lists
         (
@@ -1528,8 +1604,15 @@ class DuckPond:
 
         # Merge deprecated animal_ids alias into organism_ids
         if animal_ids is not None:
-            organism_ids = list({*(self._normalize_to_list(organism_ids) or []),
-                                  *(self._normalize_to_list(animal_ids) or [])}) or None
+            organism_ids = (
+                list(
+                    {
+                        *(self._normalize_to_list(organism_ids) or []),
+                        *(self._normalize_to_list(animal_ids) or []),
+                    }
+                )
+                or None
+            )
 
         # Convert single strings to lists
         (
@@ -1641,7 +1724,9 @@ class DuckPond:
             OrganismModel = None
             for model_name in ["Organism", "Animal"]:
                 try:
-                    OrganismModel = self.notion_integration.notion_manager.get_model(model_name)
+                    OrganismModel = self.notion_integration.notion_manager.get_model(
+                        model_name
+                    )
                     break
                 except Exception:
                     continue
@@ -1653,7 +1738,14 @@ class DuckPond:
             for organism in all_organisms:
                 # Check both new and legacy property names
                 organism_name = None
-                for prop_name in ["Name", "Organism ID", "organism_id", "Animal ID", "name", "animal_id"]:
+                for prop_name in [
+                    "Name",
+                    "Organism ID",
+                    "organism_id",
+                    "Animal ID",
+                    "name",
+                    "animal_id",
+                ]:
                     if hasattr(organism, prop_name):
                         organism_name = getattr(organism, prop_name, None)
                         if organism_name:
@@ -1765,7 +1857,9 @@ class DuckPond:
             OrganismModel = None
             for model_name in ["Organism", "Animal"]:
                 try:
-                    OrganismModel = self.notion_integration.notion_manager.get_model(model_name)
+                    OrganismModel = self.notion_integration.notion_manager.get_model(
+                        model_name
+                    )
                     break
                 except Exception:
                     continue
@@ -1778,7 +1872,14 @@ class DuckPond:
             for organism in all_organisms:
                 # Check both new and legacy property names
                 organism_name = None
-                for prop_name in ["Name", "Organism ID", "organism_id", "Animal ID", "name", "animal_id"]:
+                for prop_name in [
+                    "Name",
+                    "Organism ID",
+                    "organism_id",
+                    "Animal ID",
+                    "name",
+                    "animal_id",
+                ]:
                     if hasattr(organism, prop_name):
                         organism_name = getattr(organism, prop_name, None)
                         if organism_name:
@@ -1910,14 +2011,18 @@ class DuckPond:
                 }
                 if cache_key is not None:
                     save_to_cache(cache_key, result, cache_dir=".cache/duckpond")
-                    logging.debug(f"Cached get_3d_model_for_organism({organism_id}) result")
+                    logging.debug(
+                        f"Cached get_3d_model_for_organism({organism_id}) result"
+                    )
                 return result
 
             logging.debug("Could not parse 3D model file value, returning empty model")
             return default_model
 
         except Exception as e:
-            logging.warning(f"Failed to fetch 3D model for organism '{organism_id}': {e}")
+            logging.warning(
+                f"Failed to fetch 3D model for organism '{organism_id}': {e}"
+            )
             return default_model
 
     def get_3d_model_for_animal(

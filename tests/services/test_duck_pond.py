@@ -665,7 +665,9 @@ class TestDuckPondEvents:
         duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
 
         # Get events for seal_001 only
-        events_df = duck_pond.get_events(dataset="test_dataset", organism_ids="seal_001")
+        events_df = duck_pond.get_events(
+            dataset="test_dataset", organism_ids="seal_001"
+        )
 
         assert len(events_df) == 2
         assert all(events_df["organism"] == "seal_001")
@@ -744,7 +746,9 @@ class TestDuckPondEvents:
         duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
 
         # Query for non-existent animal
-        events_df = duck_pond.get_events(dataset="test_dataset", organism_ids="seal_999")
+        events_df = duck_pond.get_events(
+            dataset="test_dataset", organism_ids="seal_999"
+        )
 
         assert len(events_df) == 0
         assert isinstance(events_df, pd.DataFrame)
@@ -968,7 +972,9 @@ class TestDuckPondWriteEvent:
         )
 
         # Test retrieval by animal
-        events_df = duck_pond.get_events(dataset="test_dataset", organism_ids="seal_001")
+        events_df = duck_pond.get_events(
+            dataset="test_dataset", organism_ids="seal_001"
+        )
         assert len(events_df) == 1
 
         # Test retrieval by deployment
@@ -1005,3 +1011,64 @@ class TestDuckPondWriteEvent:
         # Verify event was written
         events_df = duck_pond.get_events(dataset="new_dataset")
         assert len(events_df) == 1
+
+
+class TestDuckPondDeleteDeploymentData:
+    """Re-uploading a deployment must not duplicate rows in the DuckDB views.
+
+    Iceberg's delete only rewrites metadata; reads go through
+    read_parquet(..., hive_partitioning = true) against the warehouse directory, so
+    data files left on disk stay visible even after being unlinked from the manifest.
+    """
+
+    def _row_counts(self, duck_pond, dataset="test_dataset"):
+        view = duck_pond.get_view_name(dataset, "data")
+        duckdb_rows = duck_pond.conn.execute(f"SELECT COUNT(*) FROM {view}").fetchone()[
+            0
+        ]
+        iceberg_rows = len(
+            duck_pond.catalog.load_table(f"{dataset}.data").scan().to_arrow()
+        )
+        return duckdb_rows, iceberg_rows
+
+    def test_reupload_does_not_duplicate_rows(self, duck_pond, sample_data):
+        """A second write of the same deployment replaces rather than accumulates."""
+        duck_pond.write_to_iceberg(sample_data, "data", dataset="test_dataset")
+        first_duckdb, first_iceberg = self._row_counts(duck_pond)
+        assert first_duckdb == first_iceberg == 1
+
+        duck_pond.delete_deployment_data(
+            dataset="test_dataset", organism="seal_001", deployment="deploy_001"
+        )
+        duck_pond.write_to_iceberg(sample_data, "data", dataset="test_dataset")
+
+        duckdb_rows, iceberg_rows = self._row_counts(duck_pond)
+        assert (
+            duckdb_rows == iceberg_rows == 1
+        ), f"re-upload duplicated rows: duckdb={duckdb_rows}, iceberg={iceberg_rows}"
+
+    def test_delete_leaves_other_deployments_intact(
+        self, duck_pond, sample_data, sample_int_data
+    ):
+        """Deleting one deployment must not touch a sibling's data files."""
+        duck_pond.write_to_iceberg(sample_data, "data", dataset="test_dataset")
+        duck_pond.write_to_iceberg(sample_int_data, "data", dataset="test_dataset")
+        assert self._row_counts(duck_pond) == (2, 2)
+
+        duck_pond.delete_deployment_data(
+            dataset="test_dataset", organism="seal_001", deployment="deploy_001"
+        )
+
+        duckdb_rows, iceberg_rows = self._row_counts(duck_pond)
+        assert duckdb_rows == iceberg_rows == 1
+        remaining = duck_pond.conn.execute(
+            f"SELECT DISTINCT deployment FROM "
+            f"{duck_pond.get_view_name('test_dataset', 'data')}"
+        ).fetchall()
+        assert [r[0] for r in remaining] == ["deploy_002"]
+
+    def test_delete_on_empty_table_is_a_noop(self, duck_pond):
+        """First upload path: nothing written yet, nothing to clean up."""
+        duck_pond.delete_deployment_data(
+            dataset="test_dataset", organism="seal_001", deployment="deploy_001"
+        )
