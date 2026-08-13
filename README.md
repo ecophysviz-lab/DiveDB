@@ -100,12 +100,12 @@ jupyter-1  | [I 2024-08-30 16:12:37.083 ServerApp] http://127.0.0.1:8888/jupyter
 
 You can also run Jupyter directly on your machine. The same `.env` file is used — notebooks load it with `python-dotenv` via `load_dotenv()`.
 
-The difference is which paths apply. `LOCAL_DATA_PATH` and `LOCAL_ICEBERG_PATH` are host paths; `CONTAINER_DATA_PATH` and `CONTAINER_ICEBERG_PATH` are where `docker-compose.development.yaml` mounts those same folders inside the container:
+The difference is which paths apply. `LOCAL_DATA_PATH` and `LOCAL_ICEBERG_PATH` are host paths. `docker-compose.development.yaml` mounts them at fixed locations inside the container, and `CONTAINER_ICEBERG_PATH` tells code in the container where the warehouse landed:
 
 ```yaml
 volumes:
-  - ${LOCAL_ICEBERG_PATH}:${CONTAINER_ICEBERG_PATH}
-  - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
+  - ${LOCAL_ICEBERG_PATH}:/app/iceberg_warehouse
+  - ${LOCAL_DATA_PATH}:/app/data
 ```
 
 Each pair is **two names for one folder**, not two folders. Use the `LOCAL_` paths when running outside Docker; the `CONTAINER_` variables are ignored. Keep the `CONTAINER_` values as given in `.env.example`.
@@ -377,10 +377,10 @@ from DiveDB.services.notion_orm import NotionORMManager
 # Initialize with database IDs and token
 db_map = {
     # The env var name is yours to choose; only the "Organism DB" key matters to DiveDB.
-    "Organism DB": os.getenv("NOTION_ANIMAL_DB"),
-    "Recording DB": os.getenv("NOTION_RECORDING_DB")
+    "Organism DB": os.getenv("NOTION_DB_ORGANISM"),
+    "Recording DB": os.getenv("NOTION_DB_RECORDING")
 }
-notion_orm = NotionORMManager(db_map=db_map, token=os.getenv("NOTION_API_KEY"))
+notion_orm = NotionORMManager(db_map=db_map, token=os.getenv("NOTION_TOKEN"))
 
 # Get model class and query data
 Organism = notion_orm.get_model("Organism DB")
