@@ -8,6 +8,18 @@ from typing import Literal, Optional, cast
 from dataclasses import dataclass
 
 
+def bucket_from_uri(uri: Optional[str]) -> Optional[str]:
+    """Bucket name from an ``s3://bucket/prefix`` URI, or None if not an s3 URI.
+
+    Paths are configured as complete s3:// URIs, so the bucket is read back out of
+    them rather than being tracked as a separate variable.
+    """
+    if not uri or not uri.startswith("s3://"):
+        return None
+    remainder = uri[len("s3://") :].lstrip("/")
+    return remainder.split("/", 1)[0] or None
+
+
 @dataclass
 class WarehouseConfig:
     """Configuration for warehouse backend (S3 or local filesystem)"""
@@ -37,8 +49,21 @@ class WarehouseConfig:
     ) -> "WarehouseConfig":
         """Create configuration from direct parameters"""
 
-        # Determine if we should use S3 backend
-        use_s3 = bool(s3_endpoint and s3_access_key and s3_secret_key and s3_bucket)
+        # The backend is chosen by the endpoint and credentials. The bucket is not part
+        # of the test: an s3:// warehouse_path already names it, and requiring a
+        # separate S3_BUCKET meant a complete S3 config could silently fall back to a
+        # local warehouse when only that one variable was missing.
+        use_s3 = bool(s3_endpoint and s3_access_key and s3_secret_key)
+
+        # Derive the bucket from the warehouse URI when not supplied explicitly.
+        if use_s3 and not s3_bucket and warehouse_path:
+            s3_bucket = bucket_from_uri(warehouse_path)
+
+        if use_s3 and not (s3_bucket or warehouse_path):
+            raise ValueError(
+                "S3 backend selected but no bucket: pass an s3:// warehouse_path "
+                "(e.g. S3_WAREHOUSE_PATH) or an explicit s3_bucket."
+            )
 
         normalized_catalog_type = cast(
             Literal["auto", "sql", "in-memory"], catalog_type.strip().lower()
@@ -48,7 +73,7 @@ class WarehouseConfig:
 
         if use_s3:
             # S3 configuration — honour an explicit warehouse_path if provided,
-            # otherwise fall back to the default bucket-level path.
+            # otherwise fall back to the default prefix in the configured bucket.
             if warehouse_path:
                 final_warehouse_path = warehouse_path
             else:
@@ -85,8 +110,8 @@ class WarehouseConfig:
         Each backend has one path variable, so the two never have to be kept in sync:
 
         - S3 backend (S3_ENDPOINT set):
-            - S3_WAREHOUSE_PATH: s3:// URI of the warehouse prefix.
-              Defaults to s3://<S3_BUCKET>/iceberg-warehouse.
+            - S3_WAREHOUSE_PATH: full s3://bucket/prefix URI of the warehouse. The
+              bucket is read from this URI; there is no separate bucket variable.
         - Local backend:
             - LOCAL_ICEBERG_PATH or CONTAINER_ICEBERG_PATH: filesystem path.
 
@@ -94,9 +119,10 @@ class WarehouseConfig:
         - S3_ENDPOINT: S3/Ceph endpoint URL (presence selects the S3 backend)
         - S3_ACCESS_KEY: S3 access key
         - S3_SECRET_KEY: S3 secret key
-        - S3_BUCKET: S3 bucket name
         - S3_REGION: S3 region (optional, defaults to us-east-1)
         - ICEBERG_CATALOG_TYPE: Catalog mode (auto, sql, in-memory)
+
+        S3_BUCKET is still honoured if set, but is redundant with S3_WAREHOUSE_PATH.
         """
 
         # Check for S3 configuration first

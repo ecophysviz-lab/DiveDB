@@ -185,3 +185,6 @@ iceberg_catalog.db-*
 
 # Local cache for netCDFs downloaded from S3 by docs/upload_docs.ipynb
 .s3_cache/
+
+# Stray local dirs from an s3:// URI treated as a relative path
+s3:/
