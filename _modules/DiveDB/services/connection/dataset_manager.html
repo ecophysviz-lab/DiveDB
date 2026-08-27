@@ -72,9 +72,9 @@
            <div itemprop="articleBody">
              
   <h1>Source code for DiveDB.services.connection.dataset_manager</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""</span>
 <span class="sd">Dataset management for DiveDB - handles dataset lifecycle, discovery, and initialization.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
@@ -100,7 +100,7 @@
 <div class="viewcode-block" id="DatasetManager">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.dataset_manager.DatasetManager">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DatasetManager</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Manages dataset lifecycle: creation, discovery, initialization, and removal&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Manages dataset lifecycle: creation, discovery, initialization, and removal"""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -117,103 +117,103 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">initialized_datasets</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
 
         <span class="c1"># Define lake types and their schemas</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">lakes</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;events&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lakes</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"data"</span><span class="p">,</span> <span class="s2">"events"</span><span class="p">]</span>
 
         <span class="c1"># Lake schemas</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">LAKE_SCHEMAS</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">Schema</span><span class="p">(</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;animal&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;deployment&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;class&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;datetime&quot;</span><span class="p">,</span> <span class="n">TimestampType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="s2">&quot;val_dbl&quot;</span><span class="p">,</span> <span class="n">DoubleType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;val_int&quot;</span><span class="p">,</span> <span class="n">LongType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="s2">&quot;val_bool&quot;</span><span class="p">,</span> <span class="n">BooleanType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="s2">&quot;val_str&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="s2">"data"</span><span class="p">:</span> <span class="n">Schema</span><span class="p">(</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"dataset"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">"organism"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">"deployment"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s2">"recording"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">"group"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">"class"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="s2">"datetime"</span><span class="p">,</span> <span class="n">TimestampType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="s2">"val_dbl"</span><span class="p">,</span> <span class="n">DoubleType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">"val_int"</span><span class="p">,</span> <span class="n">LongType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="s2">"val_bool"</span><span class="p">,</span> <span class="n">BooleanType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="s2">"val_str"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
                 <span class="n">NestedField</span><span class="p">(</span>
-                    <span class="mi">13</span><span class="p">,</span> <span class="s2">&quot;data_type&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span>
-                <span class="p">),</span>  <span class="c1"># &#39;double&#39;, &#39;int&#39;, &#39;bool&#39;, &#39;str&#39;</span>
+                    <span class="mi">13</span><span class="p">,</span> <span class="s2">"data_type"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">),</span>  <span class="c1"># 'double', 'int', 'bool', 'str'</span>
             <span class="p">),</span>
-            <span class="s2">&quot;events&quot;</span><span class="p">:</span> <span class="n">Schema</span><span class="p">(</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;animal&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;deployment&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;recording&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;event_key&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="s2">&quot;datetime_start&quot;</span><span class="p">,</span> <span class="n">TimestampType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;datetime_end&quot;</span><span class="p">,</span> <span class="n">TimestampType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="s2">&quot;short_description&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;long_description&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-                <span class="n">NestedField</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="s2">&quot;event_data&quot;</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="s2">"events"</span><span class="p">:</span> <span class="n">Schema</span><span class="p">(</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"dataset"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">"organism"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">"deployment"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s2">"recording"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">"group"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">"event_key"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="s2">"datetime_start"</span><span class="p">,</span> <span class="n">TimestampType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="s2">"datetime_end"</span><span class="p">,</span> <span class="n">TimestampType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="s2">"short_description"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">"long_description"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="n">NestedField</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="s2">"event_data"</span><span class="p">,</span> <span class="n">StringType</span><span class="p">(),</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
             <span class="p">),</span>
         <span class="p">}</span>
 
 <div class="viewcode-block" id="DatasetManager.setup_dataset_tables">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.dataset_manager.DatasetManager.setup_dataset_tables">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">setup_dataset_tables</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create Iceberg tables for a specific dataset&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Create Iceberg tables for a specific dataset"""</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span><span class="o">.</span><span class="n">create_namespace_if_not_exists</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created/verified namespace: </span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Created/verified namespace: </span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Namespace </span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2"> may already exist: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Namespace </span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2"> may already exist: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">lake_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lakes</span><span class="p">:</span>
-            <span class="n">table_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">table_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">"</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="c1"># Create partition spec based on lake type</span>
-                <span class="k">if</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">"data"</span><span class="p">:</span>
                     <span class="n">partition_spec</span> <span class="o">=</span> <span class="n">PartitionSpec</span><span class="p">(</span>
                         <span class="n">PartitionField</span><span class="p">(</span>
-                            <span class="n">source_id</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>  <span class="c1"># animal field</span>
+                            <span class="n">source_id</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>  <span class="c1"># organism field</span>
                             <span class="n">field_id</span><span class="o">=</span><span class="mi">1001</span><span class="p">,</span>
                             <span class="n">transform</span><span class="o">=</span><span class="n">IdentityTransform</span><span class="p">(),</span>
-                            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;animal&quot;</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="s2">"organism"</span><span class="p">,</span>
                         <span class="p">),</span>
                         <span class="n">PartitionField</span><span class="p">(</span>
                             <span class="n">source_id</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>  <span class="c1"># deployment field</span>
                             <span class="n">field_id</span><span class="o">=</span><span class="mi">1002</span><span class="p">,</span>
                             <span class="n">transform</span><span class="o">=</span><span class="n">IdentityTransform</span><span class="p">(),</span>
-                            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;deployment&quot;</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="s2">"deployment"</span><span class="p">,</span>
                         <span class="p">),</span>
                         <span class="n">PartitionField</span><span class="p">(</span>
                             <span class="n">source_id</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>  <span class="c1"># class field</span>
                             <span class="n">field_id</span><span class="o">=</span><span class="mi">1003</span><span class="p">,</span>
                             <span class="n">transform</span><span class="o">=</span><span class="n">IdentityTransform</span><span class="p">(),</span>
-                            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;class&quot;</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="s2">"class"</span><span class="p">,</span>
                         <span class="p">),</span>
                         <span class="n">PartitionField</span><span class="p">(</span>
                             <span class="n">source_id</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>  <span class="c1"># label field</span>
                             <span class="n">field_id</span><span class="o">=</span><span class="mi">1004</span><span class="p">,</span>
                             <span class="n">transform</span><span class="o">=</span><span class="n">IdentityTransform</span><span class="p">(),</span>
-                            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;label&quot;</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="s2">"label"</span><span class="p">,</span>
                         <span class="p">),</span>
                     <span class="p">)</span>
-                <span class="k">elif</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">&quot;events&quot;</span><span class="p">:</span>
-                    <span class="c1"># Events schema: partition by animal, deployment, event_key</span>
+                <span class="k">elif</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">"events"</span><span class="p">:</span>
+                    <span class="c1"># Events schema: partition by organism, deployment, event_key</span>
                     <span class="n">partition_spec</span> <span class="o">=</span> <span class="n">PartitionSpec</span><span class="p">(</span>
                         <span class="n">PartitionField</span><span class="p">(</span>
-                            <span class="n">source_id</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>  <span class="c1"># animal field</span>
+                            <span class="n">source_id</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>  <span class="c1"># organism field</span>
                             <span class="n">field_id</span><span class="o">=</span><span class="mi">1001</span><span class="p">,</span>
                             <span class="n">transform</span><span class="o">=</span><span class="n">IdentityTransform</span><span class="p">(),</span>
-                            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;animal&quot;</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="s2">"organism"</span><span class="p">,</span>
                         <span class="p">),</span>
                         <span class="n">PartitionField</span><span class="p">(</span>
                             <span class="n">source_id</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>  <span class="c1"># deployment field</span>
                             <span class="n">field_id</span><span class="o">=</span><span class="mi">1002</span><span class="p">,</span>
                             <span class="n">transform</span><span class="o">=</span><span class="n">IdentityTransform</span><span class="p">(),</span>
-                            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;deployment&quot;</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="s2">"deployment"</span><span class="p">,</span>
                         <span class="p">),</span>
                         <span class="n">PartitionField</span><span class="p">(</span>
                             <span class="n">source_id</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>  <span class="c1"># event_key field (NOT class)</span>
                             <span class="n">field_id</span><span class="o">=</span><span class="mi">1003</span><span class="p">,</span>
                             <span class="n">transform</span><span class="o">=</span><span class="n">IdentityTransform</span><span class="p">(),</span>
-                            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;event_key&quot;</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="s2">"event_key"</span><span class="p">,</span>
                         <span class="p">),</span>
                     <span class="p">)</span>
 
@@ -222,24 +222,24 @@
                     <span class="n">schema</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">LAKE_SCHEMAS</span><span class="p">[</span><span class="n">lake_name</span><span class="p">],</span>
                     <span class="n">partition_spec</span><span class="o">=</span><span class="n">partition_spec</span><span class="p">,</span>
                 <span class="p">)</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created/loaded Iceberg table: </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Created/loaded Iceberg table: </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to create table </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to create table </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_create_dataset_views</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">initialized_datasets</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_create_dataset_views</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create DuckDB views for a specific dataset using direct Parquet access&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Create DuckDB views for a specific dataset using direct Parquet access"""</span>
         <span class="k">for</span> <span class="n">lake_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lakes</span><span class="p">:</span>
-            <span class="n">table_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">table_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">"</span>
             <span class="c1"># Create dataset-first view names with proper quoting</span>
-            <span class="k">if</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span>
-                <span class="n">view_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s1">_Data&quot;&#39;</span>
-            <span class="k">elif</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">&quot;events&quot;</span><span class="p">:</span>
-                <span class="n">view_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s1">_Events&quot;&#39;</span>
+            <span class="k">if</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">"data"</span><span class="p">:</span>
+                <span class="n">view_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s1">_Data"'</span>
+            <span class="k">elif</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">"events"</span><span class="p">:</span>
+                <span class="n">view_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s1">_Events"'</span>
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="c1"># Load table and get metadata location</span>
@@ -247,33 +247,33 @@
 
                 <span class="c1"># Build direct Parquet path instead of using iceberg_scan</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_s3</span><span class="p">:</span>
-                    <span class="n">dataset_db</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.db&quot;</span>
+                    <span class="n">dataset_db</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.db"</span>
                     <span class="c1"># Structure: warehouse/dataset.db/table_type/data/**/*.parquet</span>
-                    <span class="n">parquet_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dataset_db</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">/data/**/*.parquet&quot;</span>
+                    <span class="n">parquet_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dataset_db</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">/data/**/*.parquet"</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="c1"># For local filesystem, construct the file path</span>
                     <span class="n">data_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.db&quot;</span><span class="p">,</span> <span class="n">lake_name</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.db"</span><span class="p">,</span> <span class="n">lake_name</span><span class="p">,</span> <span class="s2">"data"</span>
                     <span class="p">)</span>
-                    <span class="n">parquet_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;file://</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">data_dir</span><span class="p">)</span><span class="si">}</span><span class="s2">/**/*.parquet&quot;</span>
+                    <span class="n">parquet_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"file://</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">data_dir</span><span class="p">)</span><span class="si">}</span><span class="s2">/**/*.parquet"</span>
 
-                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hive-partitioned Parquet path: </span><span class="si">{</span><span class="n">parquet_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Hive-partitioned Parquet path: </span><span class="si">{</span><span class="n">parquet_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
                 <span class="c1"># Check if table has any snapshots (data)</span>
                 <span class="n">snapshots</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">snapshots</span><span class="p">()</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">snapshots</span><span class="p">:</span>
                     <span class="c1"># Create empty placeholder view with correct schema</span>
-                    <span class="k">if</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">"data"</span><span class="p">:</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+                            <span class="sa">f</span><span class="s2">"""</span>
 <span class="s2">                            DROP VIEW IF EXISTS </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">;</span>
 <span class="s2">                            CREATE VIEW </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2"> AS</span>
 <span class="s2">                            SELECT</span>
 <span class="s2">                                CAST(NULL AS VARCHAR) as dataset,</span>
-<span class="s2">                                CAST(NULL AS VARCHAR) as animal,</span>
+<span class="s2">                                CAST(NULL AS VARCHAR) as organism,</span>
 <span class="s2">                                CAST(NULL AS VARCHAR) as deployment,</span>
 <span class="s2">                                CAST(NULL AS VARCHAR) as recording,</span>
-<span class="s2">                                CAST(NULL AS VARCHAR) as &quot;group&quot;,</span>
+<span class="s2">                                CAST(NULL AS VARCHAR) as "group",</span>
 <span class="s2">                                CAST(NULL AS VARCHAR) as class,</span>
 <span class="s2">                                CAST(NULL AS VARCHAR) as label,</span>
 <span class="s2">                                CAST(NULL AS TIMESTAMP) as datetime,</span>
@@ -284,7 +284,7 @@
 <span class="s2">                                CAST(NULL AS VARCHAR) as string_value,</span>
 <span class="s2">                                CAST(NULL AS VARCHAR) as data_type</span>
 <span class="s2">                            WHERE FALSE;</span>
-<span class="s2">                        &quot;&quot;&quot;</span>
+<span class="s2">                        """</span>
                         <span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="c1"># Create empty placeholder for events tables</span>
@@ -293,48 +293,48 @@
                         <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">schema_fields</span><span class="p">:</span>
                             <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">field_type</span> <span class="o">==</span> <span class="n">StringType</span><span class="p">():</span>
                                 <span class="n">select_fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                                    <span class="sa">f</span><span class="s2">&quot;CAST(NULL AS VARCHAR) as </span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+                                    <span class="sa">f</span><span class="s2">"CAST(NULL AS VARCHAR) as </span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
                                 <span class="p">)</span>
                             <span class="k">elif</span> <span class="n">field</span><span class="o">.</span><span class="n">field_type</span> <span class="o">==</span> <span class="n">TimestampType</span><span class="p">():</span>
                                 <span class="n">select_fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                                    <span class="sa">f</span><span class="s2">&quot;CAST(NULL AS TIMESTAMP) as </span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+                                    <span class="sa">f</span><span class="s2">"CAST(NULL AS TIMESTAMP) as </span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
                                 <span class="p">)</span>
                             <span class="k">else</span><span class="p">:</span>
                                 <span class="n">select_fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                                    <span class="sa">f</span><span class="s2">&quot;CAST(NULL AS VARCHAR) as </span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+                                    <span class="sa">f</span><span class="s2">"CAST(NULL AS VARCHAR) as </span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
                                 <span class="p">)</span>
 
                         <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+                            <span class="sa">f</span><span class="s2">"""</span>
 <span class="s2">                            DROP VIEW IF EXISTS </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">;</span>
 <span class="s2">                            CREATE VIEW </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2"> AS</span>
-<span class="s2">                            SELECT </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">select_fields</span><span class="p">)</span><span class="si">}</span>
+<span class="s2">                            SELECT </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">select_fields</span><span class="p">)</span><span class="si">}</span>
 <span class="s2">                            WHERE FALSE;</span>
-<span class="s2">                        &quot;&quot;&quot;</span>
+<span class="s2">                        """</span>
                         <span class="p">)</span>
-                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created empty placeholder view: </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Created empty placeholder view: </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="c1"># Table has data, use read_parquet with hive_partitioning</span>
-                    <span class="k">if</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">"data"</span><span class="p">:</span>
                         <span class="c1"># Create view that converts wide format back to single value column</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+                            <span class="sa">f</span><span class="s2">"""</span>
 <span class="s2">                            DROP VIEW IF EXISTS </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">;</span>
 <span class="s2">                            CREATE VIEW </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2"> AS</span>
 <span class="s2">                            SELECT</span>
 <span class="s2">                                dataset,</span>
-<span class="s2">                                animal,</span>
+<span class="s2">                                organism,</span>
 <span class="s2">                                deployment,</span>
 <span class="s2">                                recording,</span>
-<span class="s2">                                &quot;group&quot;,</span>
+<span class="s2">                                "group",</span>
 <span class="s2">                                class,</span>
 <span class="s2">                                label,</span>
 <span class="s2">                                datetime,</span>
 <span class="s2">                                CASE data_type</span>
-<span class="s2">                                    WHEN &#39;double&#39; THEN val_dbl</span>
-<span class="s2">                                    WHEN &#39;int&#39; THEN CAST(val_int AS DOUBLE)</span>
-<span class="s2">                                    WHEN &#39;bool&#39; THEN CAST(val_bool AS DOUBLE)</span>
-<span class="s2">                                    WHEN &#39;str&#39; THEN TRY_CAST(val_str AS DOUBLE)</span>
+<span class="s2">                                    WHEN 'double' THEN val_dbl</span>
+<span class="s2">                                    WHEN 'int' THEN CAST(val_int AS DOUBLE)</span>
+<span class="s2">                                    WHEN 'bool' THEN CAST(val_bool AS DOUBLE)</span>
+<span class="s2">                                    WHEN 'str' THEN TRY_CAST(val_str AS DOUBLE)</span>
 <span class="s2">                                    ELSE NULL</span>
 <span class="s2">                                END as value,</span>
 <span class="s2">                                -- Also expose individual typed columns for new queries</span>
@@ -343,30 +343,30 @@
 <span class="s2">                                val_bool as boolean_value,</span>
 <span class="s2">                                val_str as string_value,</span>
 <span class="s2">                                data_type</span>
-<span class="s2">                            FROM read_parquet(&#39;</span><span class="si">{</span><span class="n">parquet_path</span><span class="si">}</span><span class="s2">&#39;, hive_partitioning = true);</span>
-<span class="s2">                        &quot;&quot;&quot;</span>
+<span class="s2">                            FROM read_parquet('</span><span class="si">{</span><span class="n">parquet_path</span><span class="si">}</span><span class="s2">', hive_partitioning = true);</span>
+<span class="s2">                        """</span>
                         <span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="c1"># For events tables, create simple pass-through view</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+                            <span class="sa">f</span><span class="s2">"""</span>
 <span class="s2">                            DROP VIEW IF EXISTS </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">;</span>
 <span class="s2">                            CREATE VIEW </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2"> AS</span>
-<span class="s2">                            SELECT * FROM read_parquet(&#39;</span><span class="si">{</span><span class="n">parquet_path</span><span class="si">}</span><span class="s2">&#39;, hive_partitioning = true);</span>
-<span class="s2">                        &quot;&quot;&quot;</span>
+<span class="s2">                            SELECT * FROM read_parquet('</span><span class="si">{</span><span class="n">parquet_path</span><span class="si">}</span><span class="s2">', hive_partitioning = true);</span>
+<span class="s2">                        """</span>
                         <span class="p">)</span>
-                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created DuckDB view: </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Created DuckDB view: </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not create view for </span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not create view for </span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 <div class="viewcode-block" id="DatasetManager.discover_and_load_existing_datasets">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.dataset_manager.DatasetManager.discover_and_load_existing_datasets">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">discover_and_load_existing_datasets</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Discover existing datasets in the Iceberg warehouse and load views for them.</span>
-<span class="sd">        A dataset is considered valid if it has at least the &#39;data&#39; table.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        A dataset is considered valid if it has at least the 'data' table.</span>
+<span class="sd">        """</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">discovered_datasets</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -376,30 +376,30 @@
                 <span class="n">discovered_datasets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discover_local_datasets</span><span class="p">()</span>
 
             <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Loading views for </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">discovered_datasets</span><span class="p">)</span><span class="si">}</span><span class="s2"> discovered datasets&quot;</span>
+                <span class="sa">f</span><span class="s2">"Loading views for </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">discovered_datasets</span><span class="p">)</span><span class="si">}</span><span class="s2"> discovered datasets"</span>
             <span class="p">)</span>
             <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="n">discovered_datasets</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="c1"># Set up tables and views for discovered dataset</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">setup_dataset_tables</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
-                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loaded views for dataset: </span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Loaded views for dataset: </span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Failed to load views for dataset &#39;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="sa">f</span><span class="s2">"Failed to load views for dataset '</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">': </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span>
                     <span class="p">)</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to discover existing datasets: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting with empty warehouse - no existing datasets found&quot;</span><span class="p">)</span></div>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to discover existing datasets: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Starting with empty warehouse - no existing datasets found"</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_discover_local_datasets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discover datasets by scanning the local filesystem warehouse directory&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Discover datasets by scanning the local filesystem warehouse directory"""</span>
         <span class="n">discovered_datasets</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">):</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Warehouse path does not exist: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Warehouse path does not exist: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">discovered_datasets</span>
 
@@ -411,32 +411,32 @@
                 <span class="c1"># Skip files, hidden or system directories</span>
                 <span class="k">if</span> <span class="p">(</span>
                     <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">item_path</span><span class="p">)</span>
-                    <span class="ow">or</span> <span class="n">item</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
-                    <span class="ow">or</span> <span class="n">item</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="n">item</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"."</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="n">item</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"_"</span><span class="p">)</span>
                 <span class="p">):</span>
                     <span class="k">continue</span>
 
-                <span class="c1"># If directory contains a &#39;data&#39; subdirectory, it&#39;s a dataset</span>
-                <span class="n">data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">item_path</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">)</span>
+                <span class="c1"># If directory contains a 'data' subdirectory, it's a dataset</span>
+                <span class="n">data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">item_path</span><span class="p">,</span> <span class="s2">"data"</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">data_path</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">data_path</span><span class="p">):</span>
                     <span class="c1"># Remove .db extension if present to get the actual dataset name</span>
-                    <span class="n">dataset_name</span> <span class="o">=</span> <span class="n">item</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.db&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">item</span>
+                    <span class="n">dataset_name</span> <span class="o">=</span> <span class="n">item</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">".db"</span><span class="p">)</span> <span class="k">else</span> <span class="n">item</span>
                     <span class="n">discovered_datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">)</span>
-                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Discovered dataset: </span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Discovered dataset: </span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error scanning local warehouse: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error scanning local warehouse: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">discovered_datasets</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_discover_s3_datasets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discover datasets in S3 warehouse (limited by catalog capabilities)&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Discover datasets in S3 warehouse (limited by catalog capabilities)"""</span>
         <span class="n">discovered_datasets</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="c1"># Try to list namespaces through catalog</span>
             <span class="n">namespaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span><span class="o">.</span><span class="n">list_namespaces</span><span class="p">()</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">namespaces</span><span class="p">)</span><span class="si">}</span><span class="s2"> namespaces in S3 warehouse&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">namespaces</span><span class="p">)</span><span class="si">}</span><span class="s2"> namespaces in S3 warehouse"</span><span class="p">)</span>
 
             <span class="k">for</span> <span class="n">namespace_tuple</span> <span class="ow">in</span> <span class="n">namespaces</span><span class="p">:</span>
                 <span class="c1"># Namespace comes as a tuple, convert to string</span>
@@ -447,7 +447,7 @@
                 <span class="p">)</span>
 
                 <span class="c1"># Skip empty or system namespaces</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">namespace</span> <span class="ow">or</span> <span class="n">namespace</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">namespace</span> <span class="ow">or</span> <span class="n">namespace</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"_"</span><span class="p">):</span>
                     <span class="k">continue</span>
 
                 <span class="c1"># Check if this namespace has our expected tables</span>
@@ -457,20 +457,20 @@
                     <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="n">tables</span>
                 <span class="p">]</span>
 
-                <span class="c1"># A dataset must have at least the &#39;data&#39; table</span>
-                <span class="k">if</span> <span class="s2">&quot;data&quot;</span> <span class="ow">in</span> <span class="n">table_names</span><span class="p">:</span>
+                <span class="c1"># A dataset must have at least the 'data' table</span>
+                <span class="k">if</span> <span class="s2">"data"</span> <span class="ow">in</span> <span class="n">table_names</span><span class="p">:</span>
                     <span class="n">discovered_datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">namespace</span><span class="p">)</span>
-                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Discovered S3 dataset: </span><span class="si">{</span><span class="n">namespace</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Discovered S3 dataset: </span><span class="si">{</span><span class="n">namespace</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error discovering S3 datasets through catalog: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error discovering S3 datasets through catalog: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">discovered_datasets</span>
 
 <div class="viewcode-block" id="DatasetManager.ensure_dataset_initialized">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.dataset_manager.DatasetManager.ensure_dataset_initialized">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ensure_dataset_initialized</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure a dataset&#39;s tables and views are initialized&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Ensure a dataset's tables and views are initialized"""</span>
         <span class="k">if</span> <span class="n">dataset</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialized_datasets</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">setup_dataset_tables</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span></div>
 
@@ -478,65 +478,65 @@
 <div class="viewcode-block" id="DatasetManager.get_all_datasets">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.dataset_manager.DatasetManager.get_all_datasets">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_all_datasets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get list of all initialized datasets&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Get list of all initialized datasets"""</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initialized_datasets</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DatasetManager.list_dataset_tables">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.dataset_manager.DatasetManager.list_dataset_tables">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">list_dataset_tables</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;List tables for a specific dataset&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""List tables for a specific dataset"""</span>
         <span class="k">if</span> <span class="n">dataset</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialized_datasets</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[]</span>
-        <span class="k">return</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">lake</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lakes</span><span class="p">]</span></div>
+        <span class="k">return</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">lake</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lakes</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="DatasetManager.dataset_exists">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.dataset_manager.DatasetManager.dataset_exists">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">dataset_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if a dataset has been initialized&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Check if a dataset has been initialized"""</span>
         <span class="k">return</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialized_datasets</span></div>
 
 
 <div class="viewcode-block" id="DatasetManager.remove_dataset">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.dataset_manager.DatasetManager.remove_dataset">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">remove_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove a dataset and all its tables (use with caution!)&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Remove a dataset and all its tables (use with caution!)"""</span>
         <span class="k">if</span> <span class="n">dataset</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialized_datasets</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dataset &#39;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">&#39; not found in initialized datasets&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Dataset '</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">' not found in initialized datasets"</span><span class="p">)</span>
             <span class="k">return</span>
 
         <span class="c1"># Drop tables</span>
         <span class="k">for</span> <span class="n">lake_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lakes</span><span class="p">:</span>
-            <span class="n">table_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">table_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">"</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span><span class="o">.</span><span class="n">drop_table</span><span class="p">(</span><span class="n">table_name</span><span class="p">)</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dropped table: </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Dropped table: </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not drop table </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not drop table </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="c1"># Drop views</span>
         <span class="k">for</span> <span class="n">lake_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lakes</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span>
-                <span class="n">view_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s1">_Data&quot;&#39;</span>
-            <span class="k">elif</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">&quot;events&quot;</span><span class="p">:</span>
-                <span class="n">view_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s1">_Events&quot;&#39;</span>
+            <span class="k">if</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">"data"</span><span class="p">:</span>
+                <span class="n">view_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s1">_Data"'</span>
+            <span class="k">elif</span> <span class="n">lake_name</span> <span class="o">==</span> <span class="s2">"events"</span><span class="p">:</span>
+                <span class="n">view_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s1">_Events"'</span>
 
             <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;DROP VIEW IF EXISTS </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dropped view: </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">"DROP VIEW IF EXISTS </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Dropped view: </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not drop view </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not drop view </span><span class="si">{</span><span class="n">view_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="c1"># Remove from tracking</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">initialized_datasets</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
-        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removed dataset &#39;</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">&#39; from tracking&quot;</span><span class="p">)</span></div>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Removed dataset '</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">' from tracking"</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DatasetManager.initialize_datasets">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.dataset_manager.DatasetManager.initialize_datasets">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">initialize_datasets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datasets</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize specific datasets or discover existing ones&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Initialize specific datasets or discover existing ones"""</span>
         <span class="k">if</span> <span class="n">datasets</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">setup_dataset_tables</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>

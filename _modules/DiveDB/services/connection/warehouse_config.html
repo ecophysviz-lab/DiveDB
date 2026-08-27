@@ -72,9 +72,9 @@
            <div itemprop="articleBody">
              
   <h1>Source code for DiveDB.services.connection.warehouse_config</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""</span>
 <span class="sd">Warehouse configuration management for S3 vs local filesystem backends.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
@@ -82,23 +82,38 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 
 
+<div class="viewcode-block" id="bucket_from_uri">
+<a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.warehouse_config.bucket_from_uri">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bucket_from_uri</span><span class="p">(</span><span class="n">uri</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Bucket name from an ``s3://bucket/prefix`` URI, or None if not an s3 URI.</span>
+
+<span class="sd">    Paths are configured as complete s3:// URIs, so the bucket is read back out of</span>
+<span class="sd">    them rather than being tracked as a separate variable.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">uri</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">uri</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"s3://"</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">remainder</span> <span class="o">=</span> <span class="n">uri</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">"s3://"</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">"/"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">remainder</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"/"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span> <span class="kc">None</span></div>
+
+
+
 <div class="viewcode-block" id="WarehouseConfig">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.warehouse_config.WarehouseConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">WarehouseConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for warehouse backend (S3 or local filesystem)&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Configuration for warehouse backend (S3 or local filesystem)"""</span>
 
     <span class="c1"># Core warehouse settings</span>
     <span class="n">warehouse_path</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">use_s3</span><span class="p">:</span> <span class="nb">bool</span>
-    <span class="n">catalog_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;sql&quot;</span><span class="p">,</span> <span class="s2">&quot;in-memory&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>
+    <span class="n">catalog_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"sql"</span><span class="p">,</span> <span class="s2">"in-memory"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"auto"</span>
 
     <span class="c1"># S3 configuration (None if using local filesystem)</span>
     <span class="n">s3_endpoint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">s3_access_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">s3_secret_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">s3_bucket</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">s3_region</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;us-east-1&quot;</span>
+    <span class="n">s3_region</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>
 
 <div class="viewcode-block" id="WarehouseConfig.from_parameters">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.warehouse_config.WarehouseConfig.from_parameters">[docs]</a>
@@ -110,39 +125,52 @@
         <span class="n">s3_access_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">s3_secret_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">s3_bucket</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">s3_region</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;us-east-1&quot;</span><span class="p">,</span>
-        <span class="n">catalog_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;WarehouseConfig&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create configuration from direct parameters&quot;&quot;&quot;</span>
+        <span class="n">s3_region</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"us-east-1"</span><span class="p">,</span>
+        <span class="n">catalog_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"WarehouseConfig"</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Create configuration from direct parameters"""</span>
 
-        <span class="c1"># Determine if we should use S3 backend</span>
-        <span class="n">use_s3</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">s3_endpoint</span> <span class="ow">and</span> <span class="n">s3_access_key</span> <span class="ow">and</span> <span class="n">s3_secret_key</span> <span class="ow">and</span> <span class="n">s3_bucket</span><span class="p">)</span>
+        <span class="c1"># The backend is chosen by the endpoint and credentials. The bucket is not part</span>
+        <span class="c1"># of the test: an s3:// warehouse_path already names it, and requiring a</span>
+        <span class="c1"># separate S3_BUCKET meant a complete S3 config could silently fall back to a</span>
+        <span class="c1"># local warehouse when only that one variable was missing.</span>
+        <span class="n">use_s3</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">s3_endpoint</span> <span class="ow">and</span> <span class="n">s3_access_key</span> <span class="ow">and</span> <span class="n">s3_secret_key</span><span class="p">)</span>
+
+        <span class="c1"># Derive the bucket from the warehouse URI when not supplied explicitly.</span>
+        <span class="k">if</span> <span class="n">use_s3</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">s3_bucket</span> <span class="ow">and</span> <span class="n">warehouse_path</span><span class="p">:</span>
+            <span class="n">s3_bucket</span> <span class="o">=</span> <span class="n">bucket_from_uri</span><span class="p">(</span><span class="n">warehouse_path</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">use_s3</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">s3_bucket</span> <span class="ow">or</span> <span class="n">warehouse_path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"S3 backend selected but no bucket: pass an s3:// warehouse_path "</span>
+                <span class="s2">"(e.g. S3_WAREHOUSE_PATH) or an explicit s3_bucket."</span>
+            <span class="p">)</span>
 
         <span class="n">normalized_catalog_type</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
-            <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;sql&quot;</span><span class="p">,</span> <span class="s2">&quot;in-memory&quot;</span><span class="p">],</span> <span class="n">catalog_type</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="n">Literal</span><span class="p">[</span><span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"sql"</span><span class="p">,</span> <span class="s2">"in-memory"</span><span class="p">],</span> <span class="n">catalog_type</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="n">normalized_catalog_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;sql&quot;</span><span class="p">,</span> <span class="s2">&quot;in-memory&quot;</span><span class="p">}:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;catalog_type must be one of: &#39;auto&#39;, &#39;sql&#39;, &#39;in-memory&#39;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">normalized_catalog_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"sql"</span><span class="p">,</span> <span class="s2">"in-memory"</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"catalog_type must be one of: 'auto', 'sql', 'in-memory'"</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">use_s3</span><span class="p">:</span>
             <span class="c1"># S3 configuration — honour an explicit warehouse_path if provided,</span>
-            <span class="c1"># otherwise fall back to the default bucket-level path.</span>
+            <span class="c1"># otherwise fall back to the default prefix in the configured bucket.</span>
             <span class="k">if</span> <span class="n">warehouse_path</span><span class="p">:</span>
                 <span class="n">final_warehouse_path</span> <span class="o">=</span> <span class="n">warehouse_path</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">final_warehouse_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="n">s3_bucket</span><span class="si">}</span><span class="s2">/iceberg-warehouse&quot;</span>
+                <span class="n">final_warehouse_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"s3://</span><span class="si">{</span><span class="n">s3_bucket</span><span class="si">}</span><span class="s2">/iceberg-warehouse"</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Using S3 backend: </span><span class="si">{</span><span class="n">s3_endpoint</span><span class="si">}</span><span class="s2">, warehouse: </span><span class="si">{</span><span class="n">final_warehouse_path</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Using S3 backend: </span><span class="si">{</span><span class="n">s3_endpoint</span><span class="si">}</span><span class="s2">, warehouse: </span><span class="si">{</span><span class="n">final_warehouse_path</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Local filesystem configuration</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">warehouse_path</span><span class="p">:</span>
-                <span class="n">warehouse_path</span> <span class="o">=</span> <span class="s2">&quot;./local_iceberg_warehouse&quot;</span>
+                <span class="n">warehouse_path</span> <span class="o">=</span> <span class="s2">"./local_iceberg_warehouse"</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                    <span class="s2">&quot;No warehouse_path provided, using default: ./local_iceberg_warehouse&quot;</span>
+                    <span class="s2">"No warehouse_path provided, using default: ./local_iceberg_warehouse"</span>
                 <span class="p">)</span>
             <span class="n">final_warehouse_path</span> <span class="o">=</span> <span class="n">warehouse_path</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using local filesystem backend: </span><span class="si">{</span><span class="n">final_warehouse_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Using local filesystem backend: </span><span class="si">{</span><span class="n">final_warehouse_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">warehouse_path</span><span class="o">=</span><span class="n">final_warehouse_path</span><span class="p">,</span>
@@ -159,35 +187,53 @@
 <div class="viewcode-block" id="WarehouseConfig.from_environment">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.warehouse_config.WarehouseConfig.from_environment">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">from_environment</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;WarehouseConfig&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_environment</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"WarehouseConfig"</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Create configuration from environment variables.</span>
 
-<span class="sd">        Environment variables:</span>
-<span class="sd">        - LOCAL_ICEBERG_PATH or CONTAINER_ICEBERG_PATH: Path for local filesystem warehouse</span>
-<span class="sd">        - S3_ENDPOINT: S3/Ceph endpoint URL</span>
+<span class="sd">        Each backend has one path variable, so the two never have to be kept in sync:</span>
+
+<span class="sd">        - S3 backend (S3_ENDPOINT set):</span>
+<span class="sd">            - S3_WAREHOUSE_PATH: full s3://bucket/prefix URI of the warehouse. The</span>
+<span class="sd">              bucket is read from this URI; there is no separate bucket variable.</span>
+<span class="sd">        - Local backend:</span>
+<span class="sd">            - LOCAL_ICEBERG_PATH or CONTAINER_ICEBERG_PATH: filesystem path.</span>
+
+<span class="sd">        Other variables:</span>
+<span class="sd">        - S3_ENDPOINT: S3/Ceph endpoint URL (presence selects the S3 backend)</span>
 <span class="sd">        - S3_ACCESS_KEY: S3 access key</span>
 <span class="sd">        - S3_SECRET_KEY: S3 secret key</span>
-<span class="sd">        - S3_BUCKET: S3 bucket name</span>
 <span class="sd">        - S3_REGION: S3 region (optional, defaults to us-east-1)</span>
 <span class="sd">        - ICEBERG_CATALOG_TYPE: Catalog mode (auto, sql, in-memory)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+
+<span class="sd">        S3_BUCKET is still honoured if set, but is redundant with S3_WAREHOUSE_PATH.</span>
+<span class="sd">        """</span>
 
         <span class="c1"># Check for S3 configuration first</span>
-        <span class="n">s3_endpoint</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;S3_ENDPOINT&quot;</span><span class="p">)</span>
-        <span class="n">s3_access_key</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;S3_ACCESS_KEY&quot;</span><span class="p">)</span>
-        <span class="n">s3_secret_key</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;S3_SECRET_KEY&quot;</span><span class="p">)</span>
-        <span class="n">s3_bucket</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;S3_BUCKET&quot;</span><span class="p">)</span>
-        <span class="n">s3_region</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;S3_REGION&quot;</span><span class="p">,</span> <span class="s2">&quot;us-east-1&quot;</span><span class="p">)</span>
-        <span class="n">catalog_type</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;ICEBERG_CATALOG_TYPE&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+        <span class="n">s3_endpoint</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"S3_ENDPOINT"</span><span class="p">)</span>
+        <span class="n">s3_access_key</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"S3_ACCESS_KEY"</span><span class="p">)</span>
+        <span class="n">s3_secret_key</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"S3_SECRET_KEY"</span><span class="p">)</span>
+        <span class="n">s3_bucket</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"S3_BUCKET"</span><span class="p">)</span>
+        <span class="n">s3_region</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"S3_REGION"</span><span class="p">,</span> <span class="s2">"us-east-1"</span><span class="p">)</span>
+        <span class="n">catalog_type</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"ICEBERG_CATALOG_TYPE"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">)</span>
 
-        <span class="c1"># Check for local warehouse path (support both env var names for compatibility)</span>
-        <span class="n">warehouse_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;LOCAL_ICEBERG_PATH&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span>
-            <span class="s2">&quot;CONTAINER_ICEBERG_PATH&quot;</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">s3_endpoint</span><span class="p">:</span>
+            <span class="c1"># S3 backend: only S3_WAREHOUSE_PATH selects the prefix. A local</span>
+            <span class="c1"># filesystem path would be meaningless here, so it is ignored.</span>
+            <span class="n">warehouse_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"S3_WAREHOUSE_PATH"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">warehouse_path</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">warehouse_path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"s3://"</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"S3_WAREHOUSE_PATH must be an s3:// URI, got: "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">warehouse_path</span><span class="si">!r}</span><span class="s2">"</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Local backend (support both env var names for compatibility)</span>
+            <span class="n">warehouse_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"LOCAL_ICEBERG_PATH"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span>
+                <span class="s2">"CONTAINER_ICEBERG_PATH"</span>
+            <span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_parameters</span><span class="p">(</span>
-            <span class="n">warehouse_path</span><span class="o">=</span><span class="n">warehouse_path</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">s3_endpoint</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">warehouse_path</span><span class="o">=</span><span class="n">warehouse_path</span><span class="p">,</span>
             <span class="n">s3_endpoint</span><span class="o">=</span><span class="n">s3_endpoint</span><span class="p">,</span>
             <span class="n">s3_access_key</span><span class="o">=</span><span class="n">s3_access_key</span><span class="p">,</span>
             <span class="n">s3_secret_key</span><span class="o">=</span><span class="n">s3_secret_key</span><span class="p">,</span>

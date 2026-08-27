@@ -72,9 +72,9 @@
            <div itemprop="articleBody">
              
   <h1>Source code for DiveDB.services.connection.notion_integration</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""</span>
 <span class="sd">Notion integration for DiveDB - handles loading Notion databases and metadata mappings.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
@@ -90,7 +90,7 @@
 <div class="viewcode-block" id="NotionIntegration">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.notion_integration.NotionIntegration">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NotionIntegration</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Manages Notion database loading, caching, and metadata mappings&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Manages Notion database loading, caching, and metadata mappings"""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -115,71 +115,71 @@
 <div class="viewcode-block" id="NotionIntegration.load_standardized_channels_df">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.notion_integration.NotionIntegration.load_standardized_channels_df">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_standardized_channels_df</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load Standardized Channel DB into a DataFrame from DuckDB table or Notion API.</span>
-<span class="sd">        Returns None if Notion is not available.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Load Standardized Channel DB into a DataFrame from DuckDB table or Notion API.</span>
+<span class="sd">        Returns None if Notion is not available."""</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="c1"># Prefer preloaded DuckDB table created by load_notion_databases</span>
-            <span class="k">if</span> <span class="s2">&quot;Standardized Channels&quot;</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_notion_table_names</span> <span class="ow">or</span> <span class="p">[]):</span>
+            <span class="k">if</span> <span class="s2">"Standardized Channels"</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_notion_table_names</span> <span class="ow">or</span> <span class="p">[]):</span>
                 <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span>
-                    <span class="s1">&#39;SELECT * FROM &quot;Standardized Channels&quot;&#39;</span>
+                    <span class="s1">'SELECT * FROM "Standardized Channels"'</span>
                 <span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
                 <span class="k">return</span> <span class="n">df</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to read &#39;Standardized Channels&#39; from DuckDB: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to read 'Standardized Channels' from DuckDB: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="c1"># Fallback to direct Notion API via ORM</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">notion_manager</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">Model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">notion_manager</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="s2">&quot;Standardized Channel DB&quot;</span><span class="p">)</span>
+            <span class="n">Model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">notion_manager</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="s2">"Standardized Channel DB"</span><span class="p">)</span>
             <span class="n">records</span> <span class="o">=</span> <span class="n">Model</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">records</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
 
             <span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
-                <span class="n">props</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="s2">&quot;_meta&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                <span class="n">props</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="s2">"_meta"</span><span class="p">)</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
                 <span class="n">row</span> <span class="o">=</span> <span class="p">{}</span>
                 <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">props</span><span class="p">:</span>
                     <span class="k">try</span><span class="p">:</span>
-                        <span class="n">row</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+                        <span class="n">row</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="s2">"_"</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
                     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                        <span class="n">row</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="n">row</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="s2">"_"</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load Standardized Channel DB via Notion: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to load Standardized Channel DB via Notion: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_metadata_from_duckdb</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">channel_ids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build channel-&gt;metadata map from DuckDB tables instead of N+1 API calls.</span>
+<span class="w">        </span><span class="sd">"""Build channel-&gt;metadata map from DuckDB tables instead of N+1 API calls.</span>
 
-<span class="sd">        Returns None if the required DuckDB tables aren&#39;t loaded yet,</span>
+<span class="sd">        Returns None if the required DuckDB tables aren't loaded yet,</span>
 <span class="sd">        signalling the caller to fall back to the ORM traversal path.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="s2">&quot;Signals&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_notion_table_names</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">"Signals"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_notion_table_names</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="s2">&quot;Standardized Channels&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_notion_table_names</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">"Standardized Channels"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_notion_table_names</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="n">channels_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span>
-            <span class="s1">&#39;SELECT * FROM &quot;Standardized Channels&quot;&#39;</span>
+            <span class="s1">'SELECT * FROM "Standardized Channels"'</span>
         <span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
-        <span class="n">signals_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="s1">&#39;SELECT * FROM &quot;Signals&quot;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+        <span class="n">signals_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="s1">'SELECT * FROM "Signals"'</span><span class="p">)</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
 
-        <span class="n">signals_by_id</span> <span class="o">=</span> <span class="p">{</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]:</span> <span class="n">row</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">signals_df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()}</span>
+        <span class="n">signals_by_id</span> <span class="o">=</span> <span class="p">{</span><span class="n">row</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]:</span> <span class="n">row</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">signals_df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()}</span>
 
         <span class="n">normalized_filter</span> <span class="o">=</span> <span class="p">(</span>
             <span class="p">{</span><span class="n">cid</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">cid</span> <span class="ow">in</span> <span class="n">channel_ids</span><span class="p">}</span> <span class="k">if</span> <span class="n">channel_ids</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="p">)</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">_isna</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Check for any flavour of missing: None, float NaN, pd.NA, etc.&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""Check for any flavour of missing: None, float NaN, pd.NA, etc."""</span>
             <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">True</span>
             <span class="k">try</span><span class="p">:</span>
@@ -191,23 +191,23 @@
             <span class="k">if</span> <span class="n">_isna</span><span class="p">(</span><span class="n">raw</span><span class="p">):</span>
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="n">raw</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">raw</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">raw</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"["</span><span class="p">):</span>
                 <span class="n">parsed</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">literal_eval</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parsed</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parsed</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="n">parsed</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">parsed</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">parse_color</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">_isna</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
                 <span class="k">return</span> <span class="kc">None</span>
-            <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;#([0-9a-fA-F]</span><span class="si">{6}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">"#([0-9a-fA-F]</span><span class="si">{6}</span><span class="s2">)"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
             <span class="k">return</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">if</span> <span class="n">m</span> <span class="k">else</span> <span class="kc">None</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">parse_icon</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">_isna</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="n">s</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-            <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;nan&quot;</span><span class="p">,</span> <span class="s2">&quot;None&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;NA&gt;&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">s</span>
+            <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="s2">"nan"</span><span class="p">,</span> <span class="s2">"None"</span><span class="p">,</span> <span class="s2">"&lt;NA&gt;"</span><span class="p">)</span> <span class="k">else</span> <span class="n">s</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">col</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="o">*</span><span class="n">names</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
@@ -220,49 +220,49 @@
         <span class="n">mapping</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">channels_df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
-            <span class="n">channel_id</span> <span class="o">=</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;channel_id&quot;</span><span class="p">)</span>
+            <span class="n">channel_id</span> <span class="o">=</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"channel_id"</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">channel_id</span><span class="p">:</span>
                 <span class="k">continue</span>
             <span class="k">if</span> <span class="n">normalized_filter</span> <span class="ow">and</span> <span class="n">channel_id</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">normalized_filter</span><span class="p">:</span>
                 <span class="k">continue</span>
 
-            <span class="n">parent_id</span> <span class="o">=</span> <span class="n">parse_relation_id</span><span class="p">(</span><span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;parent_signal&quot;</span><span class="p">))</span>
+            <span class="n">parent_id</span> <span class="o">=</span> <span class="n">parse_relation_id</span><span class="p">(</span><span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"parent_signal"</span><span class="p">))</span>
             <span class="n">parent</span> <span class="o">=</span> <span class="n">signals_by_id</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">parent_id</span><span class="p">)</span> <span class="k">if</span> <span class="n">parent_id</span> <span class="k">else</span> <span class="kc">None</span>
 
             <span class="k">if</span> <span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">parent_desc</span> <span class="o">=</span> <span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
-                <span class="n">suffix</span> <span class="o">=</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;description_suffix&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
-                <span class="n">combined</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">parent_desc</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="kc">None</span>
+                <span class="n">parent_desc</span> <span class="o">=</span> <span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span>
+                <span class="n">suffix</span> <span class="o">=</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"description_suffix"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span>
+                <span class="n">combined</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">parent_desc</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">"</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="kc">None</span>
 
-                <span class="n">ch_icon</span> <span class="o">=</span> <span class="n">parse_icon</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;icon&quot;</span><span class="p">))</span>
-                <span class="n">p_icon</span> <span class="o">=</span> <span class="n">parse_icon</span><span class="p">(</span><span class="n">parent</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;icon&quot;</span><span class="p">))</span>
+                <span class="n">ch_icon</span> <span class="o">=</span> <span class="n">parse_icon</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"icon"</span><span class="p">))</span>
+                <span class="n">p_icon</span> <span class="o">=</span> <span class="n">parse_icon</span><span class="p">(</span><span class="n">parent</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"icon"</span><span class="p">))</span>
 
                 <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">combined</span><span class="p">,</span>
-                    <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;standardized_unit&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;unit_override&quot;</span><span class="p">)</span>
-                    <span class="ow">or</span> <span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;unit&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="n">parse_color</span><span class="p">(</span><span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;color_override&quot;</span><span class="p">))</span>
-                    <span class="ow">or</span> <span class="n">parse_color</span><span class="p">(</span><span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">)),</span>
-                    <span class="s2">&quot;icon&quot;</span><span class="p">:</span> <span class="n">ch_icon</span> <span class="ow">or</span> <span class="n">p_icon</span><span class="p">,</span>
+                    <span class="s2">"name"</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">),</span>
+                    <span class="s2">"description"</span><span class="p">:</span> <span class="n">combined</span><span class="p">,</span>
+                    <span class="s2">"label"</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">),</span>
+                    <span class="s2">"standardized_unit"</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"unit_override"</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"unit"</span><span class="p">),</span>
+                    <span class="s2">"type"</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"type"</span><span class="p">),</span>
+                    <span class="s2">"color"</span><span class="p">:</span> <span class="n">parse_color</span><span class="p">(</span><span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"color_override"</span><span class="p">))</span>
+                    <span class="ow">or</span> <span class="n">parse_color</span><span class="p">(</span><span class="n">col</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"color"</span><span class="p">)),</span>
+                    <span class="s2">"icon"</span><span class="p">:</span> <span class="n">ch_icon</span> <span class="ow">or</span> <span class="n">p_icon</span><span class="p">,</span>
                 <span class="p">}</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;description_suffix&quot;</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;standardized_unit&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;unit_override&quot;</span><span class="p">,</span> <span class="s2">&quot;unit&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="n">parse_color</span><span class="p">(</span><span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">&quot;color_override&quot;</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">)),</span>
-                    <span class="s2">&quot;icon&quot;</span><span class="p">:</span> <span class="n">parse_icon</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;icon&quot;</span><span class="p">)),</span>
+                    <span class="s2">"name"</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">),</span>
+                    <span class="s2">"description"</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"description_suffix"</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">),</span>
+                    <span class="s2">"label"</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">),</span>
+                    <span class="s2">"standardized_unit"</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"unit_override"</span><span class="p">,</span> <span class="s2">"unit"</span><span class="p">),</span>
+                    <span class="s2">"type"</span><span class="p">:</span> <span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"type"</span><span class="p">),</span>
+                    <span class="s2">"color"</span><span class="p">:</span> <span class="n">parse_color</span><span class="p">(</span><span class="n">col</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="s2">"color_override"</span><span class="p">,</span> <span class="s2">"color"</span><span class="p">)),</span>
+                    <span class="s2">"icon"</span><span class="p">:</span> <span class="n">parse_icon</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"icon"</span><span class="p">)),</span>
                 <span class="p">}</span>
 
             <span class="n">mapping</span><span class="p">[</span><span class="n">channel_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">metadata</span>
 
         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Built metadata for </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span><span class="si">}</span><span class="s2"> channels from DuckDB (0 API calls)&quot;</span>
+            <span class="sa">f</span><span class="s2">"Built metadata for </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span><span class="si">}</span><span class="s2"> channels from DuckDB (0 API calls)"</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">mapping</span>
 
@@ -271,7 +271,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_signal_metadata_map</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">channel_ids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a cached mapping of channel_id -&gt; metadata from Standardized Channels and Parent Signals.</span>
+<span class="w">        </span><span class="sd">"""Return a cached mapping of channel_id -&gt; metadata from Standardized Channels and Parent Signals.</span>
 
 <span class="sd">        Uses ORM to traverse from Standardized Channels to their Parent Signals,</span>
 <span class="sd">        combining channel-specific overrides with parent signal base properties.</span>
@@ -281,8 +281,8 @@
 
 <span class="sd">        Returns mapping where keys are Standardized Channel IDs and values are dicts</span>
 <span class="sd">        with all metadata fields (preferring channel overrides over parent defaults).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># If specific channel_ids requested, don&#39;t use cache - fetch fresh</span>
+<span class="sd">        """</span>
+        <span class="c1"># If specific channel_ids requested, don't use cache - fetch fresh</span>
         <span class="c1"># If no channel_ids specified and cache exists, return cache</span>
         <span class="k">if</span> <span class="n">channel_ids</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signal_metadata_cache</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signal_metadata_cache</span>
@@ -309,27 +309,27 @@
 
         <span class="c1"># Helper functions for parsing</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">parse_color</span><span class="p">(</span><span class="n">color_val</span><span class="p">):</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract hex color code from Notion color field&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""Extract hex color code from Notion color field"""</span>
             <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">color_val</span><span class="p">)</span> <span class="ow">or</span> <span class="n">color_val</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">color_val</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="n">color_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">color_val</span><span class="p">)</span>
-            <span class="c1"># Look for hex pattern in strings like &#39;\\color {#e4d596} ███████&#39;</span>
-            <span class="n">hex_match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;#([0-9a-fA-F]</span><span class="si">{6}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">color_str</span><span class="p">)</span>
+            <span class="c1"># Look for hex pattern in strings like '\\color {#e4d596} ███████'</span>
+            <span class="n">hex_match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">"#([0-9a-fA-F]</span><span class="si">{6}</span><span class="s2">)"</span><span class="p">,</span> <span class="n">color_str</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">hex_match</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">hex_match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">parse_icon</span><span class="p">(</span><span class="n">icon_val</span><span class="p">):</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Parse icon value, handling pandas &lt;NA&gt; and missing values&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""Parse icon value, handling pandas &lt;NA&gt; and missing values"""</span>
             <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">icon_val</span><span class="p">)</span> <span class="ow">or</span> <span class="n">icon_val</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">icon_val</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="n">icon_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">icon_val</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">icon_str</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;&lt;NA&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;nan&quot;</span><span class="p">,</span> <span class="s2">&quot;None&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">icon_str</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"&lt;NA&gt;"</span><span class="p">,</span> <span class="s2">"nan"</span><span class="p">,</span> <span class="s2">"None"</span><span class="p">,</span> <span class="s2">""</span><span class="p">):</span>
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="k">return</span> <span class="n">icon_str</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">safe_get_attr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="o">*</span><span class="n">attr_names</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Try multiple attribute names and return the first non-None value&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""Try multiple attribute names and return the first non-None value"""</span>
             <span class="k">for</span> <span class="n">attr_name</span> <span class="ow">in</span> <span class="n">attr_names</span><span class="p">:</span>
                 <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">):</span>
                     <span class="n">val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -339,24 +339,24 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="c1"># Load Standardized Channels using ORM</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading Standardized Channels via ORM for metadata mapping&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Loading Standardized Channels via ORM for metadata mapping"</span><span class="p">)</span>
             <span class="n">StandardizedChannelModel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">notion_manager</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span>
-                <span class="s2">&quot;Standardized Channel&quot;</span>
+                <span class="s2">"Standardized Channel"</span>
             <span class="p">)</span>
             <span class="n">channel_records</span> <span class="o">=</span> <span class="n">StandardizedChannelModel</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">channel_records</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No Standardized Channel records found&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"No Standardized Channel records found"</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_signal_metadata_cache</span> <span class="o">=</span> <span class="n">mapping</span>
                 <span class="k">return</span> <span class="n">mapping</span>
 
-            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">channel_records</span><span class="p">)</span><span class="si">}</span><span class="s2"> Standardized Channel records&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">channel_records</span><span class="p">)</span><span class="si">}</span><span class="s2"> Standardized Channel records"</span><span class="p">)</span>
 
             <span class="c1"># Process each channel and traverse to parent signal</span>
             <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">channel_records</span><span class="p">:</span>
-                <span class="n">channel_id</span> <span class="o">=</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;Channel ID&quot;</span><span class="p">,</span> <span class="s2">&quot;channel_id&quot;</span><span class="p">)</span>
+                <span class="n">channel_id</span> <span class="o">=</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">"Channel ID"</span><span class="p">,</span> <span class="s2">"channel_id"</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">channel_id</span><span class="p">:</span>
-                    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Skipping channel </span><span class="si">{</span><span class="n">channel</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> - no Channel ID&quot;</span><span class="p">)</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Skipping channel </span><span class="si">{</span><span class="n">channel</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> - no Channel ID"</span><span class="p">)</span>
                     <span class="k">continue</span>
 
                 <span class="c1"># If filtering by specific channel_ids, skip channels not in the list</span>
@@ -365,13 +365,13 @@
                 <span class="c1"># Get parent signal using the injected relationship method</span>
                 <span class="c1"># Method is named after target database: get_signal() for Signal DB</span>
                 <span class="n">parent_signals</span> <span class="o">=</span> <span class="kc">None</span>
-                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;get_signal&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">"get_signal"</span><span class="p">):</span>
                     <span class="n">parent_signals</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">get_signal</span><span class="p">()</span>
                     <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Channel </span><span class="si">{</span><span class="n">channel_id</span><span class="si">}</span><span class="s2">: Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">parent_signals</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">parent_signals</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="mi">0</span><span class="si">}</span><span class="s2"> parent signal(s)&quot;</span>
+                        <span class="sa">f</span><span class="s2">"Channel </span><span class="si">{</span><span class="n">channel_id</span><span class="si">}</span><span class="s2">: Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">parent_signals</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">parent_signals</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="mi">0</span><span class="si">}</span><span class="s2"> parent signal(s)"</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Channel </span><span class="si">{</span><span class="n">channel_id</span><span class="si">}</span><span class="s2">: No get_signal method found&quot;</span><span class="p">)</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Channel </span><span class="si">{</span><span class="n">channel_id</span><span class="si">}</span><span class="s2">: No get_signal method found"</span><span class="p">)</span>
                 <span class="c1"># Extract parent signal properties if available</span>
                 <span class="n">parent</span> <span class="o">=</span> <span class="p">(</span>
                     <span class="n">parent_signals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -383,82 +383,82 @@
                     <span class="c1"># Combine channel overrides with parent signal defaults</span>
                     <span class="c1"># Build description: parent description + channel description suffix</span>
                     <span class="n">parent_desc</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;Description&quot;</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+                        <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"Description"</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span>
                     <span class="p">)</span>
                     <span class="n">channel_suffix</span> <span class="o">=</span> <span class="p">(</span>
                         <span class="n">safe_get_attr</span><span class="p">(</span>
-                            <span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;Description Suffix&quot;</span><span class="p">,</span> <span class="s2">&quot;description_suffix&quot;</span>
+                            <span class="n">channel</span><span class="p">,</span> <span class="s2">"Description Suffix"</span><span class="p">,</span> <span class="s2">"description_suffix"</span>
                         <span class="p">)</span>
-                        <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+                        <span class="ow">or</span> <span class="s2">""</span>
                     <span class="p">)</span>
                     <span class="n">combined_description</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">parent_desc</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">channel_suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">parent_desc</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">channel_suffix</span><span class="si">}</span><span class="s2">"</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
                         <span class="k">if</span> <span class="n">parent_desc</span> <span class="ow">or</span> <span class="n">channel_suffix</span>
                         <span class="k">else</span> <span class="kc">None</span>
                     <span class="p">)</span>
 
                     <span class="c1"># Icon: prefer channel icon, fallback to parent icon</span>
-                    <span class="n">channel_icon</span> <span class="o">=</span> <span class="n">parse_icon</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;icon&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
-                    <span class="n">parent_icon</span> <span class="o">=</span> <span class="n">parse_icon</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;icon&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+                    <span class="n">channel_icon</span> <span class="o">=</span> <span class="n">parse_icon</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">"icon"</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+                    <span class="n">parent_icon</span> <span class="o">=</span> <span class="n">parse_icon</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"icon"</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
 
                     <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
-                        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;Label&quot;</span><span class="p">,</span> <span class="s2">&quot;Name&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">),</span>
-                        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">combined_description</span><span class="p">,</span>
-                        <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;Label&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">),</span>
-                        <span class="s2">&quot;standardized_unit&quot;</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span>
-                            <span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;Unit Override&quot;</span><span class="p">,</span> <span class="s2">&quot;unit_override&quot;</span>
+                        <span class="s2">"name"</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"Label"</span><span class="p">,</span> <span class="s2">"Name"</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">),</span>
+                        <span class="s2">"description"</span><span class="p">:</span> <span class="n">combined_description</span><span class="p">,</span>
+                        <span class="s2">"label"</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"Label"</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">),</span>
+                        <span class="s2">"standardized_unit"</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span>
+                            <span class="n">channel</span><span class="p">,</span> <span class="s2">"Unit Override"</span><span class="p">,</span> <span class="s2">"unit_override"</span>
                         <span class="p">)</span>
-                        <span class="ow">or</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;Unit&quot;</span><span class="p">,</span> <span class="s2">&quot;unit&quot;</span><span class="p">),</span>
-                        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;Type&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">),</span>
-                        <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="n">parse_color</span><span class="p">(</span>
-                            <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;Color Override&quot;</span><span class="p">,</span> <span class="s2">&quot;color_override&quot;</span><span class="p">)</span>
+                        <span class="ow">or</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"Unit"</span><span class="p">,</span> <span class="s2">"unit"</span><span class="p">),</span>
+                        <span class="s2">"type"</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"Type"</span><span class="p">,</span> <span class="s2">"type"</span><span class="p">),</span>
+                        <span class="s2">"color"</span><span class="p">:</span> <span class="n">parse_color</span><span class="p">(</span>
+                            <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">"Color Override"</span><span class="p">,</span> <span class="s2">"color_override"</span><span class="p">)</span>
                         <span class="p">)</span>
-                        <span class="ow">or</span> <span class="n">parse_color</span><span class="p">(</span><span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;Color&quot;</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">)),</span>
-                        <span class="s2">&quot;icon&quot;</span><span class="p">:</span> <span class="n">channel_icon</span> <span class="ow">or</span> <span class="n">parent_icon</span><span class="p">,</span>
+                        <span class="ow">or</span> <span class="n">parse_color</span><span class="p">(</span><span class="n">safe_get_attr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">"Color"</span><span class="p">,</span> <span class="s2">"color"</span><span class="p">)),</span>
+                        <span class="s2">"icon"</span><span class="p">:</span> <span class="n">channel_icon</span> <span class="ow">or</span> <span class="n">parent_icon</span><span class="p">,</span>
                     <span class="p">}</span>
 
                     <span class="n">mapping</span><span class="p">[</span><span class="n">channel_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">metadata</span>
                     <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Mapped channel </span><span class="si">{</span><span class="n">channel_id</span><span class="si">}</span><span class="s2"> with parent signal metadata&quot;</span>
+                        <span class="sa">f</span><span class="s2">"Mapped channel </span><span class="si">{</span><span class="n">channel_id</span><span class="si">}</span><span class="s2"> with parent signal metadata"</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="c1"># No parent signal - use channel properties only</span>
                     <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Channel </span><span class="si">{</span><span class="n">channel_id</span><span class="si">}</span><span class="s2"> has no parent signal, using channel properties only&quot;</span>
+                        <span class="sa">f</span><span class="s2">"Channel </span><span class="si">{</span><span class="n">channel_id</span><span class="si">}</span><span class="s2"> has no parent signal, using channel properties only"</span>
                     <span class="p">)</span>
                     <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
-                        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span>
-                            <span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;Label&quot;</span><span class="p">,</span> <span class="s2">&quot;Name&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span>
+                        <span class="s2">"name"</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span>
+                            <span class="n">channel</span><span class="p">,</span> <span class="s2">"Label"</span><span class="p">,</span> <span class="s2">"Name"</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">,</span> <span class="s2">"name"</span>
                         <span class="p">),</span>
-                        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span>
+                        <span class="s2">"description"</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span>
                             <span class="n">channel</span><span class="p">,</span>
-                            <span class="s2">&quot;Description Suffix&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;Description&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;description_suffix&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;description&quot;</span><span class="p">,</span>
+                            <span class="s2">"Description Suffix"</span><span class="p">,</span>
+                            <span class="s2">"Description"</span><span class="p">,</span>
+                            <span class="s2">"description_suffix"</span><span class="p">,</span>
+                            <span class="s2">"description"</span><span class="p">,</span>
                         <span class="p">),</span>
-                        <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;Label&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">),</span>
-                        <span class="s2">&quot;standardized_unit&quot;</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span>
-                            <span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;Unit Override&quot;</span><span class="p">,</span> <span class="s2">&quot;Unit&quot;</span><span class="p">,</span> <span class="s2">&quot;unit_override&quot;</span><span class="p">,</span> <span class="s2">&quot;unit&quot;</span>
+                        <span class="s2">"label"</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">"Label"</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">),</span>
+                        <span class="s2">"standardized_unit"</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span>
+                            <span class="n">channel</span><span class="p">,</span> <span class="s2">"Unit Override"</span><span class="p">,</span> <span class="s2">"Unit"</span><span class="p">,</span> <span class="s2">"unit_override"</span><span class="p">,</span> <span class="s2">"unit"</span>
                         <span class="p">),</span>
-                        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;Type&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">),</span>
-                        <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="n">parse_color</span><span class="p">(</span>
+                        <span class="s2">"type"</span><span class="p">:</span> <span class="n">safe_get_attr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">"Type"</span><span class="p">,</span> <span class="s2">"type"</span><span class="p">),</span>
+                        <span class="s2">"color"</span><span class="p">:</span> <span class="n">parse_color</span><span class="p">(</span>
                             <span class="n">safe_get_attr</span><span class="p">(</span>
                                 <span class="n">channel</span><span class="p">,</span>
-                                <span class="s2">&quot;Color Override&quot;</span><span class="p">,</span>
-                                <span class="s2">&quot;Color&quot;</span><span class="p">,</span>
-                                <span class="s2">&quot;color_override&quot;</span><span class="p">,</span>
-                                <span class="s2">&quot;color&quot;</span><span class="p">,</span>
+                                <span class="s2">"Color Override"</span><span class="p">,</span>
+                                <span class="s2">"Color"</span><span class="p">,</span>
+                                <span class="s2">"color_override"</span><span class="p">,</span>
+                                <span class="s2">"color"</span><span class="p">,</span>
                             <span class="p">)</span>
                         <span class="p">),</span>
-                        <span class="s2">&quot;icon&quot;</span><span class="p">:</span> <span class="n">parse_icon</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;icon&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
+                        <span class="s2">"icon"</span><span class="p">:</span> <span class="n">parse_icon</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">"icon"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
                     <span class="p">}</span>
                     <span class="n">mapping</span><span class="p">[</span><span class="n">channel_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">metadata</span>
 
-            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Successfully mapped </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span><span class="si">}</span><span class="s2"> channels to metadata&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Successfully mapped </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span><span class="si">}</span><span class="s2"> channels to metadata"</span><span class="p">)</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load Signal DB metadata via ORM: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to load Signal DB metadata via ORM: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="c1"># Only cache when loading all channels (no filter)</span>
         <span class="k">if</span> <span class="n">channel_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -471,10 +471,10 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">build_stdchan_mappings</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">std_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;From Standardized Channels DataFrame, build lookup mappings:</span>
+<span class="w">        </span><span class="sd">"""From Standardized Channels DataFrame, build lookup mappings:</span>
 <span class="sd">        - channel_id_to_signal_id: mapping of channel_id(lower) -&gt; Signal DB notion_id</span>
 <span class="sd">        - original_alias_to_channel_id: mapping of alias(lower) -&gt; channel_id</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">std_df</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">std_df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">{},</span> <span class="p">{}</span>
 
@@ -482,23 +482,23 @@
         <span class="n">cols</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="p">:</span> <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">std_df</span><span class="o">.</span><span class="n">columns</span><span class="p">}</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">col</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
-            <span class="n">key</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="s2">"_"</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">cols</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">std_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="n">key</span>
 
         <span class="c1"># Column resolution for required fields only</span>
         <span class="n">parent_col</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">col</span><span class="p">(</span><span class="s2">&quot;parent signal&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">col</span><span class="p">(</span><span class="s2">&quot;parent signal&quot;</span><span class="p">)</span> <span class="ow">in</span> <span class="n">std_df</span><span class="o">.</span><span class="n">columns</span>
-            <span class="k">else</span> <span class="n">col</span><span class="p">(</span><span class="s2">&quot;parent_signal&quot;</span><span class="p">)</span>
+            <span class="n">col</span><span class="p">(</span><span class="s2">"parent signal"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">col</span><span class="p">(</span><span class="s2">"parent signal"</span><span class="p">)</span> <span class="ow">in</span> <span class="n">std_df</span><span class="o">.</span><span class="n">columns</span>
+            <span class="k">else</span> <span class="n">col</span><span class="p">(</span><span class="s2">"parent_signal"</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">chan_col</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">col</span><span class="p">(</span><span class="s2">&quot;channel id&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">col</span><span class="p">(</span><span class="s2">&quot;channel id&quot;</span><span class="p">)</span> <span class="ow">in</span> <span class="n">std_df</span><span class="o">.</span><span class="n">columns</span>
-            <span class="k">else</span> <span class="n">col</span><span class="p">(</span><span class="s2">&quot;channel_id&quot;</span><span class="p">)</span>
+            <span class="n">col</span><span class="p">(</span><span class="s2">"channel id"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">col</span><span class="p">(</span><span class="s2">"channel id"</span><span class="p">)</span> <span class="ow">in</span> <span class="n">std_df</span><span class="o">.</span><span class="n">columns</span>
+            <span class="k">else</span> <span class="n">col</span><span class="p">(</span><span class="s2">"channel_id"</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">original_col</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">col</span><span class="p">(</span><span class="s2">&quot;original channels&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">col</span><span class="p">(</span><span class="s2">&quot;original channels&quot;</span><span class="p">)</span> <span class="ow">in</span> <span class="n">std_df</span><span class="o">.</span><span class="n">columns</span>
+            <span class="n">col</span><span class="p">(</span><span class="s2">"original channels"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">col</span><span class="p">(</span><span class="s2">"original channels"</span><span class="p">)</span> <span class="ow">in</span> <span class="n">std_df</span><span class="o">.</span><span class="n">columns</span>
             <span class="k">else</span> <span class="kc">None</span>
         <span class="p">)</span>
 
@@ -506,24 +506,24 @@
         <span class="n">original_alias_to_channel_id</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">parse_notion_relation</span><span class="p">(</span><span class="n">relation_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Parse Notion relation field to extract first ID&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""Parse Notion relation field to extract first ID"""</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">relation_str</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="c1"># Handle string representation of relation list: &quot;[{&#39;id&#39;: &#39;abc123&#39;}]&quot;</span>
-                <span class="k">if</span> <span class="n">relation_str</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">relation_str</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;]&quot;</span><span class="p">):</span>
+                <span class="c1"># Handle string representation of relation list: "[{'id': 'abc123'}]"</span>
+                <span class="k">if</span> <span class="n">relation_str</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"["</span><span class="p">)</span> <span class="ow">and</span> <span class="n">relation_str</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"]"</span><span class="p">):</span>
                     <span class="n">parsed</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">literal_eval</span><span class="p">(</span><span class="n">relation_str</span><span class="p">)</span>
                     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parsed</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">parsed</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="n">first_relation</span> <span class="o">=</span> <span class="n">parsed</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first_relation</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;id&quot;</span> <span class="ow">in</span> <span class="n">first_relation</span><span class="p">:</span>
-                            <span class="k">return</span> <span class="n">first_relation</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first_relation</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"id"</span> <span class="ow">in</span> <span class="n">first_relation</span><span class="p">:</span>
+                            <span class="k">return</span> <span class="n">first_relation</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span>
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">None</span>
 
         <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">std_df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
             <span class="n">parent_signal_raw</span> <span class="o">=</span> <span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">parent_col</span><span class="p">)</span>
-            <span class="n">channel_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chan_col</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">channel_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chan_col</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">channel_id</span><span class="p">:</span>
                 <span class="k">continue</span>
 
@@ -538,14 +538,14 @@
                 <span class="n">raw</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">original_col</span><span class="p">))</span>
                 <span class="c1"># Expect a string representation of list or comma-separated</span>
                 <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">if</span> <span class="n">raw</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">raw</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;]&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">raw</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"["</span><span class="p">)</span> <span class="ow">and</span> <span class="n">raw</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"]"</span><span class="p">):</span>
                     <span class="c1"># Try to split simple list string</span>
-                    <span class="n">raw2</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;[]&quot;</span><span class="p">)</span>
+                    <span class="n">raw2</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">"[]"</span><span class="p">)</span>
                     <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span>
-                        <span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">raw2</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                        <span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">"'</span><span class="se">\"</span><span class="s2">"</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">raw2</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
                     <span class="p">]</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">raw</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+                    <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">raw</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
                 <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
                     <span class="n">original_alias_to_channel_id</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">alias</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">channel_id</span><span class="p">)</span>
 
@@ -555,21 +555,21 @@
 <div class="viewcode-block" id="NotionIntegration.load_notion_databases">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.notion_integration.NotionIntegration.load_notion_databases">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_notion_databases</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load all available Notion databases into DuckDB tables&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Load all available Notion databases into DuckDB tables"""</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">notion_manager</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="p">:</span>
             <span class="k">return</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">resolve_model_name</span><span class="p">(</span><span class="n">db_map_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
             <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">db_map_key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; DB&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
-                <span class="n">db_map_key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; DB&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span>
+                <span class="n">db_map_key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">" DB"</span><span class="p">,</span> <span class="s2">""</span><span class="p">),</span>
+                <span class="n">db_map_key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">" DB"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"s"</span><span class="p">,</span>
                 <span class="n">db_map_key</span><span class="p">,</span>
             <span class="p">]</span>
             <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
                 <span class="n">test_db_name</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">candidate</span><span class="si">}</span><span class="s2"> DB&quot;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">candidate</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot; DB&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">candidate</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">candidate</span><span class="si">}</span><span class="s2"> DB"</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">candidate</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">" DB"</span><span class="p">)</span> <span class="k">else</span> <span class="n">candidate</span>
                 <span class="p">)</span>
-                <span class="n">test_db_name</span> <span class="o">=</span> <span class="n">test_db_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;s DB&quot;</span><span class="p">,</span> <span class="s2">&quot; DB&quot;</span><span class="p">)</span>
+                <span class="n">test_db_name</span> <span class="o">=</span> <span class="n">test_db_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"s DB"</span><span class="p">,</span> <span class="s2">" DB"</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">test_db_name</span> <span class="o">==</span> <span class="n">db_map_key</span><span class="p">:</span>
                     <span class="k">return</span> <span class="n">candidate</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -579,7 +579,7 @@
                 <span class="n">model_name</span> <span class="o">=</span> <span class="n">resolve_model_name</span><span class="p">(</span><span class="n">db_map_key</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">model_name</span><span class="p">:</span>
                     <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Could not determine model name for database &#39;</span><span class="si">{</span><span class="n">db_map_key</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+                        <span class="sa">f</span><span class="s2">"Could not determine model name for database '</span><span class="si">{</span><span class="n">db_map_key</span><span class="si">}</span><span class="s2">'"</span>
                     <span class="p">)</span>
                     <span class="k">return</span> <span class="kc">None</span>
 
@@ -592,15 +592,15 @@
 
                 <span class="n">data_rows</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="n">schema_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">_meta</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-                <span class="n">attr_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">schema_keys</span><span class="p">]</span>
+                <span class="n">attr_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="s2">"_"</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">schema_keys</span><span class="p">]</span>
 
                 <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
-                    <span class="n">row_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">record</span><span class="o">.</span><span class="n">id</span><span class="p">}</span>
+                    <span class="n">row_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="n">record</span><span class="o">.</span><span class="n">id</span><span class="p">}</span>
                     <span class="c1"># Include page icon if available</span>
-                    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">&quot;icon&quot;</span><span class="p">):</span>
-                        <span class="n">row_data</span><span class="p">[</span><span class="s2">&quot;icon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">icon</span>
+                    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"icon"</span><span class="p">):</span>
+                        <span class="n">row_data</span><span class="p">[</span><span class="s2">"icon"</span><span class="p">]</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">icon</span>
                     <span class="k">else</span><span class="p">:</span>
-                        <span class="n">row_data</span><span class="p">[</span><span class="s2">&quot;icon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="n">row_data</span><span class="p">[</span><span class="s2">"icon"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
                     <span class="k">for</span> <span class="n">prop_name</span><span class="p">,</span> <span class="n">attr_name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">schema_keys</span><span class="p">,</span> <span class="n">attr_names</span><span class="p">):</span>
                         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">prop_name</span><span class="p">):</span>
@@ -613,11 +613,11 @@
                             <span class="n">row_data</span><span class="p">[</span><span class="n">attr_name</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
                     <span class="n">data_rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row_data</span><span class="p">)</span>
 
-                <span class="n">table_name</span> <span class="o">=</span> <span class="n">model_name</span> <span class="o">+</span> <span class="s2">&quot;s&quot;</span>
+                <span class="n">table_name</span> <span class="o">=</span> <span class="n">model_name</span> <span class="o">+</span> <span class="s2">"s"</span>
                 <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data_rows</span><span class="p">)</span>
                 <span class="k">return</span> <span class="p">(</span><span class="n">table_name</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">db_map_key</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load Notion database &#39;</span><span class="si">{</span><span class="n">db_map_key</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to load Notion database '</span><span class="si">{</span><span class="n">db_map_key</span><span class="si">}</span><span class="s2">': </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                 <span class="k">return</span> <span class="kc">None</span>
 
         <span class="k">try</span><span class="p">:</span>
@@ -635,26 +635,26 @@
                     <span class="n">table_name</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">db_map_key</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">result</span>
                     <span class="k">try</span><span class="p">:</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s1">&#39;DROP TABLE IF EXISTS &quot;</span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s1">&quot;&#39;</span>
+                            <span class="sa">f</span><span class="s1">'DROP TABLE IF EXISTS "</span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s1">"'</span>
                         <span class="p">)</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">duckdb_connection</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">table_name</span><span class="p">,</span> <span class="n">df</span><span class="p">)</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_notion_table_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">table_name</span><span class="p">)</span>
                         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;Loaded Notion database &#39;</span><span class="si">{</span><span class="n">db_map_key</span><span class="si">}</span><span class="s2">&#39; into DuckDB table &#39;</span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">&#39; with </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> records&quot;</span>
+                            <span class="sa">f</span><span class="s2">"Loaded Notion database '</span><span class="si">{</span><span class="n">db_map_key</span><span class="si">}</span><span class="s2">' into DuckDB table '</span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">' with </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> records"</span>
                         <span class="p">)</span>
                     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                         <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;Failed to register Notion table &#39;</span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+                            <span class="sa">f</span><span class="s2">"Failed to register Notion table '</span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">': </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span>
                         <span class="p">)</span>
                         <span class="k">continue</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error loading Notion databases: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error loading Notion databases: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="NotionIntegration.list_notion_tables">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.notion_integration.NotionIntegration.list_notion_tables">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">list_notion_tables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;List all available Notion tables in DuckDB&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""List all available Notion tables in DuckDB"""</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">notion_manager</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[]</span>
 
@@ -667,14 +667,14 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">channel_ids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get all metadata mappings needed for channel discovery.</span>
+<span class="w">        </span><span class="sd">"""Get all metadata mappings needed for channel discovery.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            channel_ids: Optional list of channel IDs to load metadata for. If None, loads all channels.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Tuple of (channel_id_to_signal_id, original_alias_to_channel_id, signal_metadata_map)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">channel_id_to_signal_id</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">original_alias_to_channel_id</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">signal_metadata_map</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>

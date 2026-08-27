@@ -397,10 +397,10 @@ first, falls back to <code class="docutils literal notranslate"><span class="pre
 </ol>
 <p><strong>Metadata Structure</strong>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>     <span class="c1"># Required</span>
-    <span class="s2">&quot;animal&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>      <span class="c1"># Required</span>
-    <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>  <span class="c1"># Required</span>
-    <span class="s2">&quot;recording&quot;</span><span class="p">:</span> <span class="nb">str</span>    <span class="c1"># Optional</span>
+    <span class="s2">"dataset"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>     <span class="c1"># Required</span>
+    <span class="s2">"animal"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>      <span class="c1"># Required</span>
+    <span class="s2">"deployment"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>  <span class="c1"># Required</span>
+    <span class="s2">"recording"</span><span class="p">:</span> <span class="nb">str</span>    <span class="c1"># Optional</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -582,7 +582,7 @@ Default parallelism: 8.</p>
 <p><strong>Purpose</strong>: Timing utilities.</p>
 <p><strong>Key Classes</strong>: <code class="docutils literal notranslate"><span class="pre">TimingContext</span></code> — Context manager for timing operations.</p>
 <p><strong>Usage</strong>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">TimingContext</span><span class="p">(</span><span class="s2">&quot;operation_name&quot;</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">TimingContext</span><span class="p">(</span><span class="s2">"operation_name"</span><span class="p">):</span>
     <span class="c1"># code to time</span>
     <span class="k">pass</span>
 </pre></div>
@@ -595,9 +595,9 @@ Default parallelism: 8.</p>
 <h3>DuckPond Query Result<a class="headerlink" href="#duckpond-query-result" title="Link to this heading"></a></h3>
 <p><strong>DataFrame format</strong> (<code class="docutils literal notranslate"><span class="pre">pivoted=True</span></code>):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-    <span class="s2">&quot;datetime&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">,</span>
-    <span class="s2">&quot;label1&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-    <span class="s2">&quot;label2&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="s2">"datetime"</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">,</span>
+    <span class="s2">"label1"</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="s2">"label2"</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="c1"># ...</span>
 <span class="p">})</span>
 </pre></div>
@@ -614,20 +614,20 @@ Default parallelism: 8.</p>
 <section id="channel-metadata-structure">
 <h3>Channel Metadata Structure<a class="headerlink" href="#channel-metadata-structure" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="s2">&quot;variable&quot;</span> <span class="o">|</span> <span class="s2">&quot;group&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;class&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;channel_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;parent_signal&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;y_label&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;y_description&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;y_units&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;line_label&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;icon&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span>   <span class="c1"># For groups</span>
-    <span class="s2">&quot;coverage&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;available&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="s2">&quot;present&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">},</span>  <span class="c1"># For groups</span>
+    <span class="s2">"kind"</span><span class="p">:</span> <span class="s2">"variable"</span> <span class="o">|</span> <span class="s2">"group"</span><span class="p">,</span>
+    <span class="s2">"group"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"class"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"label"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"channel_id"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"parent_signal"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"y_label"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"y_description"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"y_units"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"line_label"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"color"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"icon"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"channels"</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span>   <span class="c1"># For groups</span>
+    <span class="s2">"coverage"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"available"</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="s2">"present"</span><span class="p">:</span> <span class="nb">int</span><span class="p">},</span>  <span class="c1"># For groups</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -635,13 +635,13 @@ Default parallelism: 8.</p>
 <section id="deployment-metadata-structure">
 <h3>Deployment Metadata Structure<a class="headerlink" href="#deployment-metadata-structure" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;organism_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>   <span class="c1"># canonical Python key; &quot;animal&quot; preserved in Iceberg column</span>
-    <span class="s2">&quot;deployment_date&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;min_date&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;max_date&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;sample_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="s2">&quot;icon_url&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"deployment"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"organism_id"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>   <span class="c1"># canonical Python key; "animal" preserved in Iceberg column</span>
+    <span class="s2">"deployment_date"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"min_date"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"max_date"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"sample_count"</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="s2">"icon_url"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -649,16 +649,16 @@ Default parallelism: 8.</p>
 <section id="video-options-structure">
 <h3>Video Options Structure<a class="headerlink" href="#video-options-structure" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;filename&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;fileCreatedAt&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;shareUrl&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;originalUrl&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;thumbnailUrl&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="s2">&quot;originalFilename&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"id"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"filename"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"fileCreatedAt"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"shareUrl"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"originalUrl"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"thumbnailUrl"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">"metadata"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"duration"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="s2">"originalFilename"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="s2">"type"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="p">},</span>
 <span class="p">}</span>
 </pre></div>
@@ -735,7 +735,7 @@ Default parallelism: 8.</p>
 
 <span class="c1"># With explicit config</span>
 <span class="n">duck_pond</span> <span class="o">=</span> <span class="n">DuckPond</span><span class="p">(</span>
-    <span class="n">warehouse_path</span><span class="o">=</span><span class="s2">&quot;./warehouse&quot;</span><span class="p">,</span>
+    <span class="n">warehouse_path</span><span class="o">=</span><span class="s2">"./warehouse"</span><span class="p">,</span>
     <span class="n">notion_manager</span><span class="o">=</span><span class="n">notion_manager</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -745,19 +745,19 @@ Default parallelism: 8.</p>
 <h3>Querying Data<a class="headerlink" href="#querying-data" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get data with filters</span>
 <span class="n">df</span> <span class="o">=</span> <span class="n">duck_pond</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
-    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
-    <span class="n">deployment_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">],</span>
-    <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;temperature&quot;</span><span class="p">],</span>
-    <span class="n">date_range</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;2019-11-08&quot;</span><span class="p">,</span> <span class="s2">&quot;2019-11-09&quot;</span><span class="p">),</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">"my-dataset"</span><span class="p">,</span>
+    <span class="n">deployment_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">"2019-11-08_apfo-001"</span><span class="p">],</span>
+    <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"depth"</span><span class="p">,</span> <span class="s2">"temperature"</span><span class="p">],</span>
+    <span class="n">date_range</span><span class="o">=</span><span class="p">(</span><span class="s2">"2019-11-08"</span><span class="p">,</span> <span class="s2">"2019-11-09"</span><span class="p">),</span>
     <span class="n">frequency</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>    <span class="c1"># Resample to 1 Hz</span>
     <span class="n">pivoted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># Get events</span>
 <span class="n">events_df</span> <span class="o">=</span> <span class="n">duck_pond</span><span class="o">.</span><span class="n">get_events</span><span class="p">(</span>
-    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
-    <span class="n">deployment_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">],</span>
-    <span class="n">date_range</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;2019-11-08&quot;</span><span class="p">,</span> <span class="s2">&quot;2019-11-09&quot;</span><span class="p">),</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">"my-dataset"</span><span class="p">,</span>
+    <span class="n">deployment_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">"2019-11-08_apfo-001"</span><span class="p">],</span>
+    <span class="n">date_range</span><span class="o">=</span><span class="p">(</span><span class="s2">"2019-11-08"</span><span class="p">,</span> <span class="s2">"2019-11-09"</span><span class="p">),</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -766,7 +766,7 @@ Default parallelism: 8.</p>
 <h3>Discovering Channels<a class="headerlink" href="#discovering-channels" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get all available channels with metadata</span>
 <span class="n">channels</span> <span class="o">=</span> <span class="n">duck_pond</span><span class="o">.</span><span class="n">get_available_channels</span><span class="p">(</span>
-    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">"my-dataset"</span><span class="p">,</span>
     <span class="n">include_metadata</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">pack_groups</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">load_metadata</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -774,8 +774,8 @@ Default parallelism: 8.</p>
 
 <span class="c1"># Lazy-load metadata for specific channels</span>
 <span class="n">metadata</span> <span class="o">=</span> <span class="n">duck_pond</span><span class="o">.</span><span class="n">get_channels_metadata</span><span class="p">(</span>
-    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
-    <span class="n">channel_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;temperature&quot;</span><span class="p">],</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">"my-dataset"</span><span class="p">,</span>
+    <span class="n">channel_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">"depth"</span><span class="p">,</span> <span class="s2">"temperature"</span><span class="p">],</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -788,15 +788,15 @@ Default parallelism: 8.</p>
 <span class="n">uploader</span> <span class="o">=</span> <span class="n">DataUploader</span><span class="p">(</span><span class="n">duck_pond</span><span class="o">=</span><span class="n">duck_pond</span><span class="p">)</span>
 
 <span class="n">uploader</span><span class="o">.</span><span class="n">upload_netcdf</span><span class="p">(</span>
-    <span class="n">netcdf_file_path</span><span class="o">=</span><span class="s2">&quot;data.nc&quot;</span><span class="p">,</span>
+    <span class="n">netcdf_file_path</span><span class="o">=</span><span class="s2">"data.nc"</span><span class="p">,</span>
     <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;animal&quot;</span><span class="p">:</span> <span class="s2">&quot;apfo-001a&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;recording&quot;</span><span class="p">:</span> <span class="s2">&quot;recording-001&quot;</span><span class="p">,</span>  <span class="c1"># Optional</span>
+        <span class="s2">"dataset"</span><span class="p">:</span> <span class="s2">"my-dataset"</span><span class="p">,</span>
+        <span class="s2">"animal"</span><span class="p">:</span> <span class="s2">"apfo-001a"</span><span class="p">,</span>
+        <span class="s2">"deployment"</span><span class="p">:</span> <span class="s2">"2019-11-08_apfo-001"</span><span class="p">,</span>
+        <span class="s2">"recording"</span><span class="p">:</span> <span class="s2">"recording-001"</span><span class="p">,</span>  <span class="c1"># Optional</span>
     <span class="p">},</span>
     <span class="n">batch_size</span><span class="o">=</span><span class="mi">5_000_000</span><span class="p">,</span>
-    <span class="n">rename_map</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;old_name&quot;</span><span class="p">:</span> <span class="s2">&quot;new_name&quot;</span><span class="p">},</span>  <span class="c1"># Optional</span>
+    <span class="n">rename_map</span><span class="o">=</span><span class="p">{</span><span class="s2">"old_name"</span><span class="p">:</span> <span class="s2">"new_name"</span><span class="p">},</span>  <span class="c1"># Optional</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -805,16 +805,16 @@ Default parallelism: 8.</p>
 <h3>Writing Signal Data<a class="headerlink" href="#writing-signal-data" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pa</span>
 
-<span class="n">times</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">...</span><span class="p">],</span> <span class="nb">type</span><span class="o">=</span><span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;us&quot;</span><span class="p">))</span>
+<span class="n">times</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">...</span><span class="p">],</span> <span class="nb">type</span><span class="o">=</span><span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">"us"</span><span class="p">))</span>
 <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">]</span>
 
 <span class="n">duck_pond</span><span class="o">.</span><span class="n">write_signal_data</span><span class="p">(</span>
-    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
-    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;animal&quot;</span><span class="p">:</span> <span class="s2">&quot;apfo-001a&quot;</span><span class="p">,</span> <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">},</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">"my-dataset"</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"animal"</span><span class="p">:</span> <span class="s2">"apfo-001a"</span><span class="p">,</span> <span class="s2">"deployment"</span><span class="p">:</span> <span class="s2">"2019-11-08_apfo-001"</span><span class="p">},</span>
     <span class="n">times</span><span class="o">=</span><span class="n">times</span><span class="p">,</span>
-    <span class="n">group</span><span class="o">=</span><span class="s2">&quot;signal_data&quot;</span><span class="p">,</span>
-    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;depth_sensor&quot;</span><span class="p">,</span>
-    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span>
+    <span class="n">group</span><span class="o">=</span><span class="s2">"signal_data"</span><span class="p">,</span>
+    <span class="n">class_name</span><span class="o">=</span><span class="s2">"depth_sensor"</span><span class="p">,</span>
+    <span class="n">label</span><span class="o">=</span><span class="s2">"depth"</span><span class="p">,</span>
     <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -827,10 +827,10 @@ Default parallelism: 8.</p>
 <span class="n">manager</span> <span class="o">=</span> <span class="n">NotionORMManager</span><span class="p">(</span><span class="n">db_map</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>
 
 <span class="c1"># Get model</span>
-<span class="n">Deployment</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="s2">&quot;Deployment&quot;</span><span class="p">)</span>
+<span class="n">Deployment</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="s2">"Deployment"</span><span class="p">)</span>
 
 <span class="c1"># Query</span>
-<span class="n">deployment</span> <span class="o">=</span> <span class="n">Deployment</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">deployment_id</span><span class="o">=</span><span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+<span class="n">deployment</span> <span class="o">=</span> <span class="n">Deployment</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">deployment_id</span><span class="o">=</span><span class="s2">"2019-11-08_apfo-001"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
 
 <span class="c1"># Access properties</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">deployment</span><span class="o">.</span><span class="n">time_zone</span><span class="p">)</span>
@@ -849,8 +849,8 @@ Default parallelism: 8.</p>
 
 <span class="c1"># Find media</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">immich</span><span class="o">.</span><span class="n">find_media_by_deployment_id</span><span class="p">(</span>
-    <span class="n">deployment_id</span><span class="o">=</span><span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">,</span>
-    <span class="n">media_type</span><span class="o">=</span><span class="s2">&quot;VIDEO&quot;</span><span class="p">,</span>
+    <span class="n">deployment_id</span><span class="o">=</span><span class="s2">"2019-11-08_apfo-001"</span><span class="p">,</span>
+    <span class="n">media_type</span><span class="o">=</span><span class="s2">"VIDEO"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># Prepare for React</span>

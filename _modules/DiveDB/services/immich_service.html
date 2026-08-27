@@ -72,14 +72,14 @@
            <div itemprop="articleBody">
              
   <h1>Source code for DiveDB.services.immich_service</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""</span>
 <span class="sd">Immich Service - Integration with Immich photo management system</span>
 
 <span class="sd">Provides functionality to:</span>
 <span class="sd">- Search for media assets by dataset ID (album name)</span>
 <span class="sd">- Retrieve detailed metadata for specific media assets</span>
 <span class="sd">- Generate playback URLs for Dash dashboard integration</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
@@ -103,87 +103,87 @@
 <div class="viewcode-block" id="ImmichService">
 <a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.immich_service.ImmichService">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ImmichService</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Immich integration service for media asset management&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Immich integration service for media asset management"""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">base_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Initialize Immich service client</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            api_key: Immich API key (defaults to IMMICH_API_KEY env var)</span>
 <span class="sd">            base_url: Immich API base URL (defaults to IMMICH_BASE_URL env var)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">api_key</span> <span class="o">=</span> <span class="n">api_key</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;IMMICH_API_KEY&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="p">(</span><span class="n">base_url</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;IMMICH_BASE_URL&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api_key</span> <span class="o">=</span> <span class="n">api_key</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"IMMICH_API_KEY"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="p">(</span><span class="n">base_url</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"IMMICH_BASE_URL"</span><span class="p">,</span> <span class="s2">""</span><span class="p">))</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">"/"</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_key</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;IMMICH_API_KEY must be provided via parameter or environment variable&quot;</span>
+                <span class="s2">"IMMICH_API_KEY must be provided via parameter or environment variable"</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;IMMICH_BASE_URL must be provided via parameter or environment variable&quot;</span>
+                <span class="s2">"IMMICH_BASE_URL must be provided via parameter or environment variable"</span>
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
             <span class="p">{</span>
-                <span class="s2">&quot;Accept&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;x-api-key&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_key</span><span class="p">,</span>
+                <span class="s2">"Accept"</span><span class="p">:</span> <span class="s2">"application/json"</span><span class="p">,</span>
+                <span class="s2">"Content-Type"</span><span class="p">:</span> <span class="s2">"application/json"</span><span class="p">,</span>
+                <span class="s2">"x-api-key"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_key</span><span class="p">,</span>
             <span class="p">}</span>
         <span class="p">)</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initialized ImmichService with base URL: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Initialized ImmichService with base URL: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ImmichService.find_media_by_deployment_id">
 <a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.immich_service.ImmichService.find_media_by_deployment_id">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">find_media_by_deployment_id</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">deployment_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">media_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;IMAGE&quot;</span><span class="p">,</span> <span class="s2">&quot;VIDEO&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">media_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"IMAGE"</span><span class="p">,</span> <span class="s2">"VIDEO"</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">shared</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Find media assets associated with a deployment ID (album name)</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            deployment_id: Deployment ID to search for (matches album name)</span>
-<span class="sd">            media_type: Filter by media type (&quot;IMAGE&quot; or &quot;VIDEO&quot;), None for all</span>
+<span class="sd">            media_type: Filter by media type ("IMAGE" or "VIDEO"), None for all</span>
 <span class="sd">            shared: Search in shared albums (default: True)</span>
 <span class="sd">            use_cache: If True, cache results with 1-hour TTL</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            Dict with &#39;success&#39; status, &#39;data&#39; list of assets, or &#39;error&#39; message</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">            Dict with 'success' status, 'data' list of assets, or 'error' message</span>
+<span class="sd">        """</span>
         <span class="c1"># Check cache if enabled</span>
         <span class="n">cache_key</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">use_cache</span><span class="p">:</span>
             <span class="n">cache_params</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="s2">&quot;find_media_by_deployment_id&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;deployment_id&quot;</span><span class="p">:</span> <span class="n">deployment_id</span><span class="p">,</span>
-                <span class="s2">&quot;media_type&quot;</span><span class="p">:</span> <span class="n">media_type</span><span class="p">,</span>
-                <span class="s2">&quot;shared&quot;</span><span class="p">:</span> <span class="n">shared</span><span class="p">,</span>
+                <span class="s2">"method"</span><span class="p">:</span> <span class="s2">"find_media_by_deployment_id"</span><span class="p">,</span>
+                <span class="s2">"deployment_id"</span><span class="p">:</span> <span class="n">deployment_id</span><span class="p">,</span>
+                <span class="s2">"media_type"</span><span class="p">:</span> <span class="n">media_type</span><span class="p">,</span>
+                <span class="s2">"shared"</span><span class="p">:</span> <span class="n">shared</span><span class="p">,</span>
             <span class="p">}</span>
             <span class="n">cache_key</span> <span class="o">=</span> <span class="n">generate_cache_key</span><span class="p">(</span><span class="n">cache_params</span><span class="p">)</span>
             <span class="n">cached_result</span> <span class="o">=</span> <span class="n">load_from_cache</span><span class="p">(</span>
-                <span class="n">cache_key</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">IMMICH_CACHE_TTL</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">&quot;immich&quot;</span><span class="p">]</span>
+                <span class="n">cache_key</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">IMMICH_CACHE_TTL</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">"immich"</span><span class="p">]</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">cached_result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Immich cache hit for deployment_id=</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Immich cache hit for deployment_id=</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">cached_result</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="c1"># Get all albums (shared or owned)</span>
             <span class="n">albums_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/albums&quot;</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;shared&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">shared</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()}</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/albums"</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">"shared"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">shared</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()}</span>
             <span class="p">)</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">albums_response</span><span class="o">.</span><span class="n">ok</span><span class="p">:</span>
                 <span class="k">return</span> <span class="p">{</span>
-                    <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-                    <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Failed to fetch albums: </span><span class="si">{</span><span class="n">albums_response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">albums_response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Failed to fetch albums: </span><span class="si">{</span><span class="n">albums_response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">albums_response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
                 <span class="p">}</span>
 
             <span class="n">albums</span> <span class="o">=</span> <span class="n">albums_response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
@@ -191,66 +191,66 @@
             <span class="c1"># Find album matching deployment_id</span>
             <span class="n">target_album</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">for</span> <span class="n">album</span> <span class="ow">in</span> <span class="n">albums</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">album</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;albumName&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="n">deployment_id</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">album</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"albumName"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="n">deployment_id</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
                     <span class="n">target_album</span> <span class="o">=</span> <span class="n">album</span>
                     <span class="k">break</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">target_album</span><span class="p">:</span>
                 <span class="k">return</span> <span class="p">{</span>
-                    <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                    <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="p">[],</span>
-                    <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;No album found with name &#39;</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">,</span>
+                    <span class="s2">"success"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                    <span class="s2">"data"</span><span class="p">:</span> <span class="p">[],</span>
+                    <span class="s2">"message"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"No album found with name '</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">'"</span><span class="p">,</span>
                 <span class="p">}</span>
 
-            <span class="n">album_id</span> <span class="o">=</span> <span class="n">target_album</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found album &#39;</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">&#39; with ID: </span><span class="si">{</span><span class="n">album_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">album_id</span> <span class="o">=</span> <span class="n">target_album</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Found album '</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">' with ID: </span><span class="si">{</span><span class="n">album_id</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
             <span class="c1"># Get assets from the album</span>
             <span class="n">album_details_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/albums/</span><span class="si">{</span><span class="n">album_id</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/albums/</span><span class="si">{</span><span class="n">album_id</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">album_details_response</span><span class="o">.</span><span class="n">ok</span><span class="p">:</span>
                 <span class="k">return</span> <span class="p">{</span>
-                    <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-                    <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Failed to fetch album details: </span><span class="si">{</span><span class="n">album_details_response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">album_details_response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Failed to fetch album details: </span><span class="si">{</span><span class="n">album_details_response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">album_details_response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
                 <span class="p">}</span>
 
             <span class="n">album_details</span> <span class="o">=</span> <span class="n">album_details_response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-            <span class="n">assets</span> <span class="o">=</span> <span class="n">album_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;assets&quot;</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="n">assets</span> <span class="o">=</span> <span class="n">album_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"assets"</span><span class="p">,</span> <span class="p">[])</span>
 
             <span class="c1"># Filter by media type if specified</span>
             <span class="k">if</span> <span class="n">media_type</span><span class="p">:</span>
-                <span class="n">assets</span> <span class="o">=</span> <span class="p">[</span><span class="n">asset</span> <span class="k">for</span> <span class="n">asset</span> <span class="ow">in</span> <span class="n">assets</span> <span class="k">if</span> <span class="n">asset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">media_type</span><span class="p">]</span>
+                <span class="n">assets</span> <span class="o">=</span> <span class="p">[</span><span class="n">asset</span> <span class="k">for</span> <span class="n">asset</span> <span class="ow">in</span> <span class="n">assets</span> <span class="k">if</span> <span class="n">asset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span> <span class="o">==</span> <span class="n">media_type</span><span class="p">]</span>
 
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">assets</span><span class="p">)</span><span class="si">}</span><span class="s2"> assets in album &#39;</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">assets</span><span class="p">)</span><span class="si">}</span><span class="s2"> assets in album '</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
 
             <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">assets</span><span class="p">,</span>
-                <span class="s2">&quot;album_info&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">album_id</span><span class="p">,</span>
-                    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">target_album</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;albumName&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;asset_count&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">assets</span><span class="p">),</span>
+                <span class="s2">"success"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">"data"</span><span class="p">:</span> <span class="n">assets</span><span class="p">,</span>
+                <span class="s2">"album_info"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">"id"</span><span class="p">:</span> <span class="n">album_id</span><span class="p">,</span>
+                    <span class="s2">"name"</span><span class="p">:</span> <span class="n">target_album</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"albumName"</span><span class="p">),</span>
+                    <span class="s2">"asset_count"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">assets</span><span class="p">),</span>
                 <span class="p">},</span>
             <span class="p">}</span>
 
             <span class="c1"># Save to cache if enabled</span>
             <span class="k">if</span> <span class="n">cache_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">save_to_cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">&quot;immich&quot;</span><span class="p">])</span>
+                <span class="n">save_to_cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">"immich"</span><span class="p">])</span>
 
             <span class="k">return</span> <span class="n">result</span>
 
         <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Network error searching for deployment &#39;</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Network error searching for deployment '</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">': </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
-            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Network error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Network error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">}</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Unexpected error searching for deployment &#39;</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Unexpected error searching for deployment '</span><span class="si">{</span><span class="n">deployment_id</span><span class="si">}</span><span class="s2">': </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
-            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Unexpected error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span></div>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Unexpected error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">}</span></div>
 
 
 <div class="viewcode-block" id="ImmichService.get_media_details">
@@ -258,7 +258,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">get_media_details</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">asset_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Get detailed metadata and playback URLs for a specific media asset</span>
 
 <span class="sd">        Args:</span>
@@ -266,94 +266,94 @@
 <span class="sd">            use_cache: If True, cache results with 1-hour TTL</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            Dict with &#39;success&#39; status, &#39;data&#39; dict with metadata and URLs, or &#39;error&#39; message</span>
+<span class="sd">            Dict with 'success' status, 'data' dict with metadata and URLs, or 'error' message</span>
 
-<span class="sd">            On success, &#39;data&#39; contains:</span>
+<span class="sd">            On success, 'data' contains:</span>
 <span class="sd">            - metadata: Asset details (dates, tags, EXIF, etc.)</span>
 <span class="sd">            - urls: Playback URLs (original, thumbnail, preview)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># Check cache if enabled</span>
         <span class="n">cache_key</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">use_cache</span><span class="p">:</span>
             <span class="n">cache_params</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="s2">&quot;get_media_details&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;asset_id&quot;</span><span class="p">:</span> <span class="n">asset_id</span><span class="p">,</span>
+                <span class="s2">"method"</span><span class="p">:</span> <span class="s2">"get_media_details"</span><span class="p">,</span>
+                <span class="s2">"asset_id"</span><span class="p">:</span> <span class="n">asset_id</span><span class="p">,</span>
             <span class="p">}</span>
             <span class="n">cache_key</span> <span class="o">=</span> <span class="n">generate_cache_key</span><span class="p">(</span><span class="n">cache_params</span><span class="p">)</span>
             <span class="n">cached_result</span> <span class="o">=</span> <span class="n">load_from_cache</span><span class="p">(</span>
-                <span class="n">cache_key</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">IMMICH_CACHE_TTL</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">&quot;immich&quot;</span><span class="p">]</span>
+                <span class="n">cache_key</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">IMMICH_CACHE_TTL</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">"immich"</span><span class="p">]</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">cached_result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Immich cache hit for asset_id=</span><span class="si">{</span><span class="n">asset_id</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Immich cache hit for asset_id=</span><span class="si">{</span><span class="n">asset_id</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">cached_result</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="c1"># Get asset details</span>
-            <span class="n">asset_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">asset_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">asset_response</span><span class="o">.</span><span class="n">ok</span><span class="p">:</span>
                 <span class="k">return</span> <span class="p">{</span>
-                    <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-                    <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Failed to fetch asset details: </span><span class="si">{</span><span class="n">asset_response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">asset_response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Failed to fetch asset details: </span><span class="si">{</span><span class="n">asset_response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">asset_response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
                 <span class="p">}</span>
 
             <span class="n">asset_data</span> <span class="o">=</span> <span class="n">asset_response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
 
             <span class="c1"># Extract metadata</span>
             <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">),</span>  <span class="c1"># IMAGE or VIDEO</span>
-                <span class="s2">&quot;original_filename&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;originalFileName&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;file_created_at&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;localDateTime&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;file_created_at_iso&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fileCreatedAt&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;file_modified_at&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fileModifiedAt&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;created_at&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;createdAt&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;updated_at&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;updatedAt&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;duration&quot;</span><span class="p">),</span>  <span class="c1"># For videos</span>
-                <span class="s2">&quot;is_favorite&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;isFavorite&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;is_archived&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;isArchived&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;tags&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tags&quot;</span><span class="p">,</span> <span class="p">[]),</span>
-                <span class="s2">&quot;exif_info&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exifInfo&quot;</span><span class="p">,</span> <span class="p">{}),</span>
-                <span class="s2">&quot;device_info&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s2">&quot;make&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exifInfo&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;make&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exifInfo&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">),</span>
+                <span class="s2">"id"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">),</span>
+                <span class="s2">"type"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">),</span>  <span class="c1"># IMAGE or VIDEO</span>
+                <span class="s2">"original_filename"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"originalFileName"</span><span class="p">),</span>
+                <span class="s2">"file_created_at"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"localDateTime"</span><span class="p">),</span>
+                <span class="s2">"file_created_at_iso"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"fileCreatedAt"</span><span class="p">),</span>
+                <span class="s2">"file_modified_at"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"fileModifiedAt"</span><span class="p">),</span>
+                <span class="s2">"created_at"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"createdAt"</span><span class="p">),</span>
+                <span class="s2">"updated_at"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"updatedAt"</span><span class="p">),</span>
+                <span class="s2">"duration"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"duration"</span><span class="p">),</span>  <span class="c1"># For videos</span>
+                <span class="s2">"is_favorite"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"isFavorite"</span><span class="p">),</span>
+                <span class="s2">"is_archived"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"isArchived"</span><span class="p">),</span>
+                <span class="s2">"tags"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tags"</span><span class="p">,</span> <span class="p">[]),</span>
+                <span class="s2">"exif_info"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"exifInfo"</span><span class="p">,</span> <span class="p">{}),</span>
+                <span class="s2">"device_info"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">"make"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"exifInfo"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"make"</span><span class="p">),</span>
+                    <span class="s2">"model"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"exifInfo"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"model"</span><span class="p">),</span>
                 <span class="p">},</span>
-                <span class="s2">&quot;location&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s2">&quot;latitude&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exifInfo&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;latitude&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;longitude&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exifInfo&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;longitude&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;city&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exifInfo&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;city&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exifInfo&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">),</span>
-                    <span class="s2">&quot;country&quot;</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exifInfo&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;country&quot;</span><span class="p">),</span>
+                <span class="s2">"location"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">"latitude"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"exifInfo"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"latitude"</span><span class="p">),</span>
+                    <span class="s2">"longitude"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"exifInfo"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"longitude"</span><span class="p">),</span>
+                    <span class="s2">"city"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"exifInfo"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"city"</span><span class="p">),</span>
+                    <span class="s2">"state"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"exifInfo"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"state"</span><span class="p">),</span>
+                    <span class="s2">"country"</span><span class="p">:</span> <span class="n">asset_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"exifInfo"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"country"</span><span class="p">),</span>
                 <span class="p">},</span>
             <span class="p">}</span>
 
             <span class="c1"># Generate playback URLs using proper Immich endpoints</span>
-            <span class="n">base_asset_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">base_asset_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/assets/</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">"</span>
             <span class="n">urls</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;original&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_asset_url</span><span class="si">}</span><span class="s2">/original&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;thumbnail&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_asset_url</span><span class="si">}</span><span class="s2">/thumbnail&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;preview&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_asset_url</span><span class="si">}</span><span class="s2">/preview&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;download&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_asset_url</span><span class="si">}</span><span class="s2">/download&quot;</span><span class="p">,</span>
+                <span class="s2">"original"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">base_asset_url</span><span class="si">}</span><span class="s2">/original"</span><span class="p">,</span>
+                <span class="s2">"thumbnail"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">base_asset_url</span><span class="si">}</span><span class="s2">/thumbnail"</span><span class="p">,</span>
+                <span class="s2">"preview"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">base_asset_url</span><span class="si">}</span><span class="s2">/preview"</span><span class="p">,</span>
+                <span class="s2">"download"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">base_asset_url</span><span class="si">}</span><span class="s2">/download"</span><span class="p">,</span>
                 <span class="c1"># Use the correct playAssetVideo endpoint for video streaming</span>
-                <span class="s2">&quot;video_playback&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_asset_url</span><span class="si">}</span><span class="s2">/video/playback&quot;</span><span class="p">,</span>
+                <span class="s2">"video_playback"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">base_asset_url</span><span class="si">}</span><span class="s2">/video/playback"</span><span class="p">,</span>
             <span class="p">}</span>
 
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Retrieved details for asset: </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Retrieved details for asset: </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
-            <span class="n">result</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">,</span> <span class="s2">&quot;urls&quot;</span><span class="p">:</span> <span class="n">urls</span><span class="p">}}</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"success"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"data"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"metadata"</span><span class="p">:</span> <span class="n">metadata</span><span class="p">,</span> <span class="s2">"urls"</span><span class="p">:</span> <span class="n">urls</span><span class="p">}}</span>
 
             <span class="c1"># Save to cache if enabled</span>
             <span class="k">if</span> <span class="n">cache_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">save_to_cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">&quot;immich&quot;</span><span class="p">])</span>
+                <span class="n">save_to_cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">"immich"</span><span class="p">])</span>
 
             <span class="k">return</span> <span class="n">result</span>
 
         <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Network error fetching asset &#39;</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Network error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Network error fetching asset '</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">': </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Network error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">}</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected error fetching asset &#39;</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Unexpected error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span></div>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unexpected error fetching asset '</span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">': </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Unexpected error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">}</span></div>
 
 
 <div class="viewcode-block" id="ImmichService.create_asset_share_link">
@@ -361,7 +361,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">create_asset_share_link</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">asset_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">expires_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Create a temporary shared link for a specific asset</span>
 
 <span class="sd">        Args:</span>
@@ -370,7 +370,7 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Dictionary with success status and share data or error message</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="c1"># Calculate expiration time</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
@@ -378,42 +378,42 @@
             <span class="n">expiration</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="n">expires_hours</span><span class="p">)</span>
 
             <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;INDIVIDUAL&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;assetIds&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">asset_id</span><span class="p">],</span>  <span class="c1"># Array of asset IDs for individual sharing</span>
-                <span class="s2">&quot;expiresAt&quot;</span><span class="p">:</span> <span class="n">expiration</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="o">+</span> <span class="s2">&quot;Z&quot;</span><span class="p">,</span>  <span class="c1"># ISO format with Z for UTC</span>
-                <span class="s2">&quot;allowUpload&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-                <span class="s2">&quot;allowDownload&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                <span class="s2">&quot;showMetadata&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Temporary share for DiveDB asset - expires in </span><span class="si">{</span><span class="n">expires_hours</span><span class="si">}</span><span class="s2"> hours&quot;</span><span class="p">,</span>
+                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"INDIVIDUAL"</span><span class="p">,</span>
+                <span class="s2">"assetIds"</span><span class="p">:</span> <span class="p">[</span><span class="n">asset_id</span><span class="p">],</span>  <span class="c1"># Array of asset IDs for individual sharing</span>
+                <span class="s2">"expiresAt"</span><span class="p">:</span> <span class="n">expiration</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="o">+</span> <span class="s2">"Z"</span><span class="p">,</span>  <span class="c1"># ISO format with Z for UTC</span>
+                <span class="s2">"allowUpload"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">"allowDownload"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">"showMetadata"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">"description"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Temporary share for DiveDB asset - expires in </span><span class="si">{</span><span class="n">expires_hours</span><span class="si">}</span><span class="s2"> hours"</span><span class="p">,</span>
             <span class="p">}</span>
 
-            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/shared-links&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/shared-links"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">201</span><span class="p">:</span>
                 <span class="n">share_data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Created share link for asset </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">, expires in </span><span class="si">{</span><span class="n">expires_hours</span><span class="si">}</span><span class="s2"> hours&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Created share link for asset </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">, expires in </span><span class="si">{</span><span class="n">expires_hours</span><span class="si">}</span><span class="s2"> hours"</span>
                 <span class="p">)</span>
                 <span class="k">return</span> <span class="p">{</span>
-                    <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                    <span class="s2">&quot;share_data&quot;</span><span class="p">:</span> <span class="p">{</span>
-                        <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">share_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">),</span>
-                        <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">share_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">),</span>
-                        <span class="s2">&quot;expires&quot;</span><span class="p">:</span> <span class="n">expiration</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+                    <span class="s2">"success"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                    <span class="s2">"share_data"</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="s2">"key"</span><span class="p">:</span> <span class="n">share_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"key"</span><span class="p">),</span>
+                        <span class="s2">"id"</span><span class="p">:</span> <span class="n">share_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">),</span>
+                        <span class="s2">"expires"</span><span class="p">:</span> <span class="n">expiration</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
                     <span class="p">},</span>
                 <span class="p">}</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Failed to create share link for asset </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Failed to create share link for asset </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span>
                 <span class="k">return</span> <span class="p">{</span>
-                    <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-                    <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Failed to create share link: API returned </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Failed to create share link: API returned </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
                 <span class="p">}</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error creating share link for asset </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Error creating share link: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span></div>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error creating share link for asset </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Error creating share link: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">}</span></div>
 
 
 <div class="viewcode-block" id="ImmichService.prepare_video_options_for_react">
@@ -421,7 +421,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">prepare_video_options_for_react</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">media_result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="nb">str</span><span class="p">]],</span> <span class="n">expires_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Process media result and prepare video options for React component</span>
 
 <span class="sd">        Takes a media result from find_media_by_deployment_id() and creates a list</span>
@@ -432,34 +432,34 @@
 <span class="sd">            expires_hours: Hours until share links expire (default: 4)</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            Dict with &#39;success&#39; status and &#39;video_options&#39; list or &#39;error&#39; message</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">media_result</span><span class="p">[</span><span class="s2">&quot;success&quot;</span><span class="p">]:</span>
+<span class="sd">            Dict with 'success' status and 'video_options' list or 'error' message</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">media_result</span><span class="p">[</span><span class="s2">"success"</span><span class="p">]:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Failed to fetch media: </span><span class="si">{</span><span class="n">media_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;Unknown error&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Failed to fetch media: </span><span class="si">{</span><span class="n">media_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'error'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Unknown error'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="p">{</span>
-                <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-                <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="n">media_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="s2">&quot;Unknown error&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;video_options&quot;</span><span class="p">:</span> <span class="p">[],</span>
+                <span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">"error"</span><span class="p">:</span> <span class="n">media_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"error"</span><span class="p">,</span> <span class="s2">"Unknown error"</span><span class="p">),</span>
+                <span class="s2">"video_options"</span><span class="p">:</span> <span class="p">[],</span>
             <span class="p">}</span>
 
-        <span class="n">video_assets</span> <span class="o">=</span> <span class="n">media_result</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span>
-        <span class="n">album_info</span> <span class="o">=</span> <span class="n">media_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;album_info&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">video_assets</span> <span class="o">=</span> <span class="n">media_result</span><span class="p">[</span><span class="s2">"data"</span><span class="p">]</span>
+        <span class="n">album_info</span> <span class="o">=</span> <span class="n">media_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"album_info"</span><span class="p">,</span> <span class="p">{})</span>
         <span class="n">video_options</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">video_assets</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No video assets found in deployment album&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"No video assets found in deployment album"</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">{</span>
-                <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                <span class="s2">&quot;video_options&quot;</span><span class="p">:</span> <span class="p">[],</span>
-                <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;No video assets found in deployment album&quot;</span><span class="p">,</span>
+                <span class="s2">"success"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">"video_options"</span><span class="p">:</span> <span class="p">[],</span>
+                <span class="s2">"message"</span><span class="p">:</span> <span class="s2">"No video assets found in deployment album"</span><span class="p">,</span>
             <span class="p">}</span>
 
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">asset</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">video_assets</span><span class="p">):</span>
-            <span class="n">asset_id</span> <span class="o">=</span> <span class="n">asset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
-            <span class="n">filename</span> <span class="o">=</span> <span class="n">asset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;originalFileName&quot;</span><span class="p">,</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">)</span>
-            <span class="n">file_created</span> <span class="o">=</span> <span class="n">asset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;localDateTime&quot;</span><span class="p">,</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">)</span>
+            <span class="n">asset_id</span> <span class="o">=</span> <span class="n">asset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">)</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">asset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"originalFileName"</span><span class="p">,</span> <span class="s2">"Unknown"</span><span class="p">)</span>
+            <span class="n">file_created</span> <span class="o">=</span> <span class="n">asset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"localDateTime"</span><span class="p">,</span> <span class="s2">"Unknown"</span><span class="p">)</span>
 
             <span class="c1"># Create individual share link for this asset</span>
             <span class="n">share_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_asset_share_link</span><span class="p">(</span>
@@ -467,87 +467,87 @@
             <span class="p">)</span>
             <span class="n">asset_share_key</span> <span class="o">=</span> <span class="kc">None</span>
 
-            <span class="k">if</span> <span class="n">share_result</span><span class="p">[</span><span class="s2">&quot;success&quot;</span><span class="p">]:</span>
-                <span class="n">asset_share_key</span> <span class="o">=</span> <span class="n">share_result</span><span class="p">[</span><span class="s2">&quot;share_data&quot;</span><span class="p">][</span><span class="s2">&quot;key&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">share_result</span><span class="p">[</span><span class="s2">"success"</span><span class="p">]:</span>
+                <span class="n">asset_share_key</span> <span class="o">=</span> <span class="n">share_result</span><span class="p">[</span><span class="s2">"share_data"</span><span class="p">][</span><span class="s2">"key"</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Failed to create share key for asset </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">share_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;Unknown&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Failed to create share key for asset </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">share_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'error'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Unknown'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span>
 
             <span class="n">details_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_media_details</span><span class="p">(</span><span class="n">asset_id</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">details_result</span><span class="p">[</span><span class="s2">&quot;success&quot;</span><span class="p">]:</span>
-                <span class="n">metadata</span> <span class="o">=</span> <span class="n">details_result</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">][</span><span class="s2">&quot;metadata&quot;</span><span class="p">]</span>
-                <span class="n">urls</span> <span class="o">=</span> <span class="n">details_result</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">][</span><span class="s2">&quot;urls&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">details_result</span><span class="p">[</span><span class="s2">"success"</span><span class="p">]:</span>
+                <span class="n">metadata</span> <span class="o">=</span> <span class="n">details_result</span><span class="p">[</span><span class="s2">"data"</span><span class="p">][</span><span class="s2">"metadata"</span><span class="p">]</span>
+                <span class="n">urls</span> <span class="o">=</span> <span class="n">details_result</span><span class="p">[</span><span class="s2">"data"</span><span class="p">][</span><span class="s2">"urls"</span><span class="p">]</span>
 
                 <span class="n">share_video_url</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">urls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;video_playback&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">?key=</span><span class="si">{</span><span class="n">asset_share_key</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">urls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'video_playback'</span><span class="p">)</span><span class="si">}</span><span class="s2">?key=</span><span class="si">{</span><span class="n">asset_share_key</span><span class="si">}</span><span class="s2">"</span>
                     <span class="k">if</span> <span class="n">asset_share_key</span>
                     <span class="k">else</span> <span class="kc">None</span>
                 <span class="p">)</span>
                 <span class="n">share_thumbnail_url</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">urls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;thumbnail&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">?key=</span><span class="si">{</span><span class="n">asset_share_key</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">urls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'thumbnail'</span><span class="p">)</span><span class="si">}</span><span class="s2">?key=</span><span class="si">{</span><span class="n">asset_share_key</span><span class="si">}</span><span class="s2">"</span>
                     <span class="k">if</span> <span class="n">asset_share_key</span>
-                    <span class="k">else</span> <span class="n">urls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;thumbnail&quot;</span><span class="p">)</span>
+                    <span class="k">else</span> <span class="n">urls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"thumbnail"</span><span class="p">)</span>
                 <span class="p">)</span>
 
                 <span class="n">video_option</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">asset_id</span><span class="p">,</span>
-                    <span class="s2">&quot;filename&quot;</span><span class="p">:</span> <span class="n">filename</span><span class="p">,</span>
-                    <span class="s2">&quot;fileCreatedAt&quot;</span><span class="p">:</span> <span class="n">file_created</span><span class="p">,</span>
-                    <span class="s2">&quot;shareUrl&quot;</span><span class="p">:</span> <span class="n">share_video_url</span><span class="p">,</span>
-                    <span class="s2">&quot;originalUrl&quot;</span><span class="p">:</span> <span class="n">urls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;original&quot;</span><span class="p">),</span>  <span class="c1"># Fallback if share fails</span>
-                    <span class="s2">&quot;thumbnailUrl&quot;</span><span class="p">:</span> <span class="n">share_thumbnail_url</span><span class="p">,</span>
-                    <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
-                        <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;duration&quot;</span><span class="p">),</span>
-                        <span class="s2">&quot;originalFilename&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;original_filename&quot;</span><span class="p">),</span>
-                        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">),</span>
+                    <span class="s2">"id"</span><span class="p">:</span> <span class="n">asset_id</span><span class="p">,</span>
+                    <span class="s2">"filename"</span><span class="p">:</span> <span class="n">filename</span><span class="p">,</span>
+                    <span class="s2">"fileCreatedAt"</span><span class="p">:</span> <span class="n">file_created</span><span class="p">,</span>
+                    <span class="s2">"shareUrl"</span><span class="p">:</span> <span class="n">share_video_url</span><span class="p">,</span>
+                    <span class="s2">"originalUrl"</span><span class="p">:</span> <span class="n">urls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"original"</span><span class="p">),</span>  <span class="c1"># Fallback if share fails</span>
+                    <span class="s2">"thumbnailUrl"</span><span class="p">:</span> <span class="n">share_thumbnail_url</span><span class="p">,</span>
+                    <span class="s2">"metadata"</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="s2">"duration"</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"duration"</span><span class="p">),</span>
+                        <span class="s2">"originalFilename"</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"original_filename"</span><span class="p">),</span>
+                        <span class="s2">"type"</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">),</span>
                     <span class="p">},</span>
                 <span class="p">}</span>
 
                 <span class="n">video_options</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">video_option</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Failed to load metadata for asset </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">details_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;Unknown&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Failed to load metadata for asset </span><span class="si">{</span><span class="n">asset_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">details_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'error'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Unknown'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Prepared </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">video_options</span><span class="p">)</span><span class="si">}</span><span class="s2"> video options for React component&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Prepared </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">video_options</span><span class="p">)</span><span class="si">}</span><span class="s2"> video options for React component"</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-            <span class="s2">&quot;video_options&quot;</span><span class="p">:</span> <span class="n">video_options</span><span class="p">,</span>
-            <span class="s2">&quot;album_info&quot;</span><span class="p">:</span> <span class="n">album_info</span><span class="p">,</span>
+            <span class="s2">"success"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">"video_options"</span><span class="p">:</span> <span class="n">video_options</span><span class="p">,</span>
+            <span class="s2">"album_info"</span><span class="p">:</span> <span class="n">album_info</span><span class="p">,</span>
         <span class="p">}</span></div>
 
 
 <div class="viewcode-block" id="ImmichService.test_connection">
 <a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.immich_service.ImmichService.test_connection">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">test_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Test the connection to Immich API</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            Dict with &#39;success&#39; status and optional &#39;error&#39; message</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">            Dict with 'success' status and optional 'error' message</span>
+<span class="sd">        """</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/albums&quot;</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;shared&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">}</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/albums"</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">"shared"</span><span class="p">:</span> <span class="s2">"true"</span><span class="p">}</span>
             <span class="p">)</span>
 
             <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">ok</span><span class="p">:</span>
                 <span class="n">albums</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
                 <span class="k">return</span> <span class="p">{</span>
-                    <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                    <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Connection successful. Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">albums</span><span class="p">)</span><span class="si">}</span><span class="s2"> shared albums.&quot;</span><span class="p">,</span>
+                    <span class="s2">"success"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                    <span class="s2">"message"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Connection successful. Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">albums</span><span class="p">)</span><span class="si">}</span><span class="s2"> shared albums."</span><span class="p">,</span>
                 <span class="p">}</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">return</span> <span class="p">{</span>
-                    <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-                    <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;API returned </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"API returned </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
                 <span class="p">}</span>
 
         <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Network error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Network error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">}</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Unexpected error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span></div>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Unexpected error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">}</span></div>
 </div>
 
 </pre></div>

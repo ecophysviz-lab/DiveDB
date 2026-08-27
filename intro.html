@@ -169,7 +169,7 @@ DuckPond.write_signal_data / write_to_iceberg
 Iceberg Tables  ({dataset}.data, {dataset}.events)
      |
      v
-DuckDB Views  (&quot;{dataset}_Data&quot;, &quot;{dataset}_Events&quot;)
+DuckDB Views  ("{dataset}_Data", "{dataset}_Events")
      |
      v
 DuckPond.get_data / get_events
@@ -256,20 +256,20 @@ make<span class="w"> </span>up<span class="w">                </span><span class
 
 <span class="n">uploader</span> <span class="o">=</span> <span class="n">DataUploader</span><span class="p">(</span><span class="n">duck_pond</span><span class="o">=</span><span class="n">duck_pond</span><span class="p">)</span>
 <span class="n">uploader</span><span class="o">.</span><span class="n">upload_netcdf</span><span class="p">(</span>
-    <span class="n">netcdf_file_path</span><span class="o">=</span><span class="s2">&quot;data.nc&quot;</span><span class="p">,</span>
+    <span class="n">netcdf_file_path</span><span class="o">=</span><span class="s2">"data.nc"</span><span class="p">,</span>
     <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;animal&quot;</span><span class="p">:</span> <span class="s2">&quot;apfo-001a&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;deployment&quot;</span><span class="p">:</span> <span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">,</span>
+        <span class="s2">"dataset"</span><span class="p">:</span> <span class="s2">"my-dataset"</span><span class="p">,</span>
+        <span class="s2">"animal"</span><span class="p">:</span> <span class="s2">"apfo-001a"</span><span class="p">,</span>
+        <span class="s2">"deployment"</span><span class="p">:</span> <span class="s2">"2019-11-08_apfo-001"</span><span class="p">,</span>
     <span class="p">},</span>
 <span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>5. Query data</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">duck_pond</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
-    <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;my-dataset&quot;</span><span class="p">,</span>
-    <span class="n">deployment_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2019-11-08_apfo-001&quot;</span><span class="p">],</span>
-    <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;temperature&quot;</span><span class="p">],</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="s2">"my-dataset"</span><span class="p">,</span>
+    <span class="n">deployment_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">"2019-11-08_apfo-001"</span><span class="p">],</span>
+    <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"depth"</span><span class="p">,</span> <span class="s2">"temperature"</span><span class="p">],</span>
     <span class="n">frequency</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>   <span class="c1"># resample to 1 Hz</span>
     <span class="n">pivoted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>

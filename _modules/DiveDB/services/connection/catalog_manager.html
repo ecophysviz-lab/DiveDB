@@ -72,9 +72,9 @@
            <div itemprop="articleBody">
              
   <h1>Source code for DiveDB.services.connection.catalog_manager</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""</span>
 <span class="sd">Iceberg catalog management for both S3 and local filesystem backends.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">atexit</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
@@ -91,16 +91,16 @@
 <div class="viewcode-block" id="CatalogManager">
 <a class="viewcode-back" href="../../../../DiveDB.html#DiveDB.services.connection.catalog_manager.CatalogManager">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CatalogManager</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Manages Iceberg catalog creation and configuration&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Manages Iceberg catalog creation and configuration"""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">WarehouseConfig</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_catalog</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_s3</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_catalog_type</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;in-memory&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_s3</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_catalog_type</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"in-memory"</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_populate_catalog_from_s3</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_create_catalog</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SqlCatalog</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create and configure the Iceberg catalog based on warehouse config&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Create and configure the Iceberg catalog based on warehouse config"""</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_s3</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_s3_catalog</span><span class="p">()</span>
@@ -108,49 +108,49 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_local_catalog</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_catalog_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve catalog backend type from config.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Resolve catalog backend type from config."""</span>
         <span class="n">catalog_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">catalog_type</span>
-        <span class="k">if</span> <span class="n">catalog_type</span> <span class="o">==</span> <span class="s2">&quot;auto&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">catalog_type</span> <span class="o">==</span> <span class="s2">"auto"</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_s3</span><span class="p">:</span>
-                <span class="k">return</span> <span class="s2">&quot;in-memory&quot;</span>
-            <span class="k">return</span> <span class="s2">&quot;sql&quot;</span>
+                <span class="k">return</span> <span class="s2">"in-memory"</span>
+            <span class="k">return</span> <span class="s2">"sql"</span>
         <span class="k">return</span> <span class="n">catalog_type</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_create_s3_catalog</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SqlCatalog</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create S3-based catalog configuration for PyIceberg&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_catalog_type</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;in-memory&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Create S3-based catalog configuration for PyIceberg"""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_catalog_type</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"in-memory"</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_s3_inmemory_catalog</span><span class="p">()</span>
 
         <span class="c1"># Use local persistent SQLite for catalog metadata, S3 for data storage</span>
         <span class="n">catalog_db_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~&quot;</span><span class="p">),</span> <span class="s2">&quot;.iceberg&quot;</span><span class="p">,</span> <span class="s2">&quot;s3_catalog.db&quot;</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">"~"</span><span class="p">),</span> <span class="s2">".iceberg"</span><span class="p">,</span> <span class="s2">"s3_catalog.db"</span>
         <span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">catalog_db_path</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="n">catalog</span> <span class="o">=</span> <span class="n">SqlCatalog</span><span class="p">(</span>
-            <span class="s2">&quot;s3_catalog&quot;</span><span class="p">,</span>
+            <span class="s2">"s3_catalog"</span><span class="p">,</span>
             <span class="o">**</span><span class="p">{</span>
-                <span class="s2">&quot;uri&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;sqlite:///</span><span class="si">{</span><span class="n">catalog_db_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;warehouse&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">,</span>  <span class="c1"># s3://bucket/iceberg-warehouse</span>
-                <span class="s2">&quot;s3.endpoint&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_endpoint</span><span class="p">,</span>
-                <span class="s2">&quot;s3.access-key-id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_access_key</span><span class="p">,</span>
-                <span class="s2">&quot;s3.secret-access-key&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_secret_key</span><span class="p">,</span>
-                <span class="s2">&quot;s3.region&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_region</span><span class="p">,</span>
+                <span class="s2">"uri"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"sqlite:///</span><span class="si">{</span><span class="n">catalog_db_path</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="s2">"warehouse"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">,</span>  <span class="c1"># s3://bucket/iceberg-warehouse</span>
+                <span class="s2">"s3.endpoint"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_endpoint</span><span class="p">,</span>
+                <span class="s2">"s3.access-key-id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_access_key</span><span class="p">,</span>
+                <span class="s2">"s3.secret-access-key"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_secret_key</span><span class="p">,</span>
+                <span class="s2">"s3.region"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_region</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
 
-        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created S3 catalog with endpoint: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_endpoint</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Created S3 catalog with endpoint: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_endpoint</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">catalog</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_create_s3_inmemory_catalog</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SqlCatalog</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create S3 catalog backed by an ephemeral temp-file SQLite database.</span>
+<span class="w">        </span><span class="sd">"""Create S3 catalog backed by an ephemeral temp-file SQLite database.</span>
 
 <span class="sd">        Using a real file (instead of sqlite:///:memory:) avoids the</span>
 <span class="sd">        SQLite-in-memory per-connection isolation issue that breaks</span>
 <span class="sd">        multi-threaded access.  The temp file is removed on interpreter exit.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_temp_catalog_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;iceberg_catalog_&quot;</span><span class="p">)</span>
-        <span class="n">catalog_db_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_temp_catalog_dir</span><span class="p">,</span> <span class="s2">&quot;catalog.db&quot;</span><span class="p">)</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_temp_catalog_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">"iceberg_catalog_"</span><span class="p">)</span>
+        <span class="n">catalog_db_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_temp_catalog_dir</span><span class="p">,</span> <span class="s2">"catalog.db"</span><span class="p">)</span>
 
         <span class="c1"># Best-effort cleanup when the process exits.</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_cleanup</span><span class="p">():</span>
@@ -165,18 +165,18 @@
         <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">_cleanup</span><span class="p">)</span>
 
         <span class="n">catalog</span> <span class="o">=</span> <span class="n">SqlCatalog</span><span class="p">(</span>
-            <span class="s2">&quot;s3_catalog_ephemeral&quot;</span><span class="p">,</span>
+            <span class="s2">"s3_catalog_ephemeral"</span><span class="p">,</span>
             <span class="o">**</span><span class="p">{</span>
-                <span class="s2">&quot;uri&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;sqlite:///</span><span class="si">{</span><span class="n">catalog_db_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;warehouse&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">,</span>
-                <span class="s2">&quot;s3.endpoint&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_endpoint</span><span class="p">,</span>
-                <span class="s2">&quot;s3.access-key-id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_access_key</span><span class="p">,</span>
-                <span class="s2">&quot;s3.secret-access-key&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_secret_key</span><span class="p">,</span>
-                <span class="s2">&quot;s3.region&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_region</span><span class="p">,</span>
+                <span class="s2">"uri"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"sqlite:///</span><span class="si">{</span><span class="n">catalog_db_path</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="s2">"warehouse"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">,</span>
+                <span class="s2">"s3.endpoint"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_endpoint</span><span class="p">,</span>
+                <span class="s2">"s3.access-key-id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_access_key</span><span class="p">,</span>
+                <span class="s2">"s3.secret-access-key"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_secret_key</span><span class="p">,</span>
+                <span class="s2">"s3.region"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_region</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="s2">&quot;Created ephemeral S3 catalog (temp db: </span><span class="si">%s</span><span class="s2">) with warehouse: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">"Created ephemeral S3 catalog (temp db: </span><span class="si">%s</span><span class="s2">) with warehouse: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
             <span class="n">catalog_db_path</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">,</span>
         <span class="p">)</span>
@@ -185,7 +185,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_s3_filesystem</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">:</span>
         <span class="n">client_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_endpoint</span><span class="p">:</span>
-            <span class="n">client_kwargs</span><span class="p">[</span><span class="s2">&quot;endpoint_url&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_endpoint</span>
+            <span class="n">client_kwargs</span><span class="p">[</span><span class="s2">"endpoint_url"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_endpoint</span>
 
         <span class="k">return</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
             <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">s3_access_key</span><span class="p">,</span>
@@ -197,10 +197,10 @@
         <span class="bp">self</span><span class="p">,</span> <span class="n">fs</span><span class="p">:</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">,</span> <span class="n">hint_path</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">with</span> <span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">hint_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">hint_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Failed reading version hint </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">hint_path</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Failed reading version hint </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">hint_path</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_metadata_file</span><span class="p">(</span>
@@ -208,50 +208,50 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">preferred</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">metadata_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">version</span><span class="si">:</span><span class="s2">05d</span><span class="si">}</span><span class="s2">-*.metadata.json&quot;</span><span class="p">)</span>
+                <span class="n">preferred</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">metadata_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">version</span><span class="si">:</span><span class="s2">05d</span><span class="si">}</span><span class="s2">-*.metadata.json"</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">preferred</span><span class="p">:</span>
                     <span class="k">return</span> <span class="n">preferred</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
             <span class="c1"># Fallback if version-hint is missing or stale.</span>
-            <span class="n">all_meta</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">fs</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">metadata_dir</span><span class="si">}</span><span class="s2">/*.metadata.json&quot;</span><span class="p">))</span>
+            <span class="n">all_meta</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">fs</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">metadata_dir</span><span class="si">}</span><span class="s2">/*.metadata.json"</span><span class="p">))</span>
             <span class="k">if</span> <span class="n">all_meta</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">all_meta</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Failed listing metadata files in </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">metadata_dir</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Failed listing metadata files in </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">metadata_dir</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_parse_table_from_path</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract (dataset_name, lake_name) from an S3 path under the warehouse prefix.</span>
+<span class="w">        </span><span class="sd">"""Extract (dataset_name, lake_name) from an S3 path under the warehouse prefix.</span>
 
 <span class="sd">        Works for any file under ``{prefix}/{dataset}.db/{lake}/metadata/…``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">relative</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">removeprefix</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
-        <span class="n">parts</span> <span class="o">=</span> <span class="n">relative</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<span class="sd">        """</span>
+        <span class="n">relative</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">removeprefix</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">"/"</span><span class="p">)</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">relative</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"/"</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="n">dataset_db</span><span class="p">,</span> <span class="n">lake_name</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">dataset_db</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.db&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dataset_db</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">".db"</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">dataset_db</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">],</span> <span class="n">lake_name</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_populate_catalog_from_s3</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discover Iceberg tables in S3 and register them into the in-memory catalog.</span>
+<span class="w">        </span><span class="sd">"""Discover Iceberg tables in S3 and register them into the in-memory catalog.</span>
 
 <span class="sd">        Scans for ``*.metadata.json`` files directly rather than requiring</span>
-<span class="sd">        ``version-hint.text`` — PyIceberg&#39;s SqlCatalog never writes the latter.</span>
+<span class="sd">        ``version-hint.text`` — PyIceberg's SqlCatalog never writes the latter.</span>
 <span class="sd">        When a version-hint IS present it is used to select the preferred</span>
 <span class="sd">        metadata version; otherwise the highest-numbered metadata file wins.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">fs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_s3_filesystem</span><span class="p">()</span>
-        <span class="n">warehouse_prefix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="o">.</span><span class="n">removeprefix</span><span class="p">(</span><span class="s2">&quot;s3://&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+        <span class="n">warehouse_prefix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="o">.</span><span class="n">removeprefix</span><span class="p">(</span><span class="s2">"s3://"</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">"/"</span><span class="p">)</span>
 
         <span class="c1"># Read any version-hint.text files that happen to exist (e.g. Java Iceberg).</span>
         <span class="n">version_hints</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">hint_path</span> <span class="ow">in</span> <span class="n">fs</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">warehouse_prefix</span><span class="si">}</span><span class="s2">/*.db/*/metadata/version-hint.text&quot;</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">warehouse_prefix</span><span class="si">}</span><span class="s2">/*.db/*/metadata/version-hint.text"</span>
             <span class="p">):</span>
                 <span class="n">parsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_table_from_path</span><span class="p">(</span><span class="n">warehouse_prefix</span><span class="p">,</span> <span class="n">hint_path</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">parsed</span><span class="p">:</span>
@@ -262,12 +262,12 @@
             <span class="k">pass</span>
 
         <span class="c1"># Primary discovery: scan for metadata.json files.</span>
-        <span class="n">metadata_glob</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">warehouse_prefix</span><span class="si">}</span><span class="s2">/*.db/*/metadata/*.metadata.json&quot;</span>
+        <span class="n">metadata_glob</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">warehouse_prefix</span><span class="si">}</span><span class="s2">/*.db/*/metadata/*.metadata.json"</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">all_metadata_files</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">fs</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">metadata_glob</span><span class="p">))</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Could not list metadata in warehouse &#39;</span><span class="si">%s</span><span class="s2">&#39;: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">warehouse_prefix</span><span class="p">,</span> <span class="n">e</span>
+                <span class="s2">"Could not list metadata in warehouse '</span><span class="si">%s</span><span class="s2">': </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">warehouse_prefix</span><span class="p">,</span> <span class="n">e</span>
             <span class="p">)</span>
             <span class="k">return</span>
 
@@ -280,61 +280,61 @@
         <span class="n">registered</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="p">(</span><span class="n">dataset_name</span><span class="p">,</span> <span class="n">lake_name</span><span class="p">),</span> <span class="n">meta_files</span> <span class="ow">in</span> <span class="n">tables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">dataset_name</span><span class="p">,</span> <span class="n">lake_name</span><span class="p">)</span>
-            <span class="n">metadata_dir</span> <span class="o">=</span> <span class="n">meta_files</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">metadata_dir</span> <span class="o">=</span> <span class="n">meta_files</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"/"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">version</span> <span class="o">=</span> <span class="n">version_hints</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
             <span class="n">metadata_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_metadata_file</span><span class="p">(</span><span class="n">fs</span><span class="p">,</span> <span class="n">metadata_dir</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata_path</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No usable metadata file in </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">metadata_dir</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"No usable metadata file in </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">metadata_dir</span><span class="p">)</span>
                 <span class="k">continue</span>
 
-            <span class="n">metadata_location</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="n">metadata_path</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="n">identifier</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">metadata_location</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"s3://</span><span class="si">{</span><span class="n">metadata_path</span><span class="si">}</span><span class="s2">"</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">lake_name</span><span class="si">}</span><span class="s2">"</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span><span class="o">.</span><span class="n">create_namespace_if_not_exists</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span><span class="o">.</span><span class="n">register_table</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">metadata_location</span><span class="p">)</span>
                 <span class="n">registered</span> <span class="o">+=</span> <span class="mi">1</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                    <span class="s2">&quot;Registered table </span><span class="si">%s</span><span class="s2"> from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">metadata_location</span>
+                    <span class="s2">"Registered table </span><span class="si">%s</span><span class="s2"> from </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">metadata_location</span>
                 <span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                    <span class="s2">&quot;Could not register table </span><span class="si">%s</span><span class="s2"> from </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="s2">"Could not register table </span><span class="si">%s</span><span class="s2"> from </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
                     <span class="n">identifier</span><span class="p">,</span>
                     <span class="n">metadata_location</span><span class="p">,</span>
                     <span class="n">e</span><span class="p">,</span>
                 <span class="p">)</span>
 
-        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;S3 discovery complete: registered </span><span class="si">%d</span><span class="s2"> tables&quot;</span><span class="p">,</span> <span class="n">registered</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"S3 discovery complete: registered </span><span class="si">%d</span><span class="s2"> tables"</span><span class="p">,</span> <span class="n">registered</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_create_local_catalog</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SqlCatalog</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create local filesystem catalog configuration&quot;&quot;&quot;</span>
-        <span class="n">catalog_db_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">,</span> <span class="s2">&quot;catalog.db&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="sd">"""Create local filesystem catalog configuration"""</span>
+        <span class="n">catalog_db_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">,</span> <span class="s2">"catalog.db"</span><span class="p">)</span>
         <span class="n">catalog_uri</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">catalog_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;sqlite:///</span><span class="si">{</span><span class="n">catalog_db_path</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">catalog_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"sqlite:///</span><span class="si">{</span><span class="n">catalog_db_path</span><span class="si">}</span><span class="s2">"</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># In some environments (e.g., tests setting unwritable absolute paths),</span>
             <span class="c1"># directory creation may fail. Fall back to an in-memory SQLite catalog</span>
             <span class="c1"># so that configuration-oriented code paths (like from_environment)</span>
             <span class="c1"># can still succeed without touching the filesystem.</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Could not create warehouse directory &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. &quot;</span>
-                <span class="s2">&quot;Falling back to in-memory catalog.&quot;</span>
+                <span class="sa">f</span><span class="s2">"Could not create warehouse directory '</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="si">}</span><span class="s2">': </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. "</span>
+                <span class="s2">"Falling back to in-memory catalog."</span>
             <span class="p">)</span>
-            <span class="n">catalog_uri</span> <span class="o">=</span> <span class="s2">&quot;sqlite:///:memory:&quot;</span>
+            <span class="n">catalog_uri</span> <span class="o">=</span> <span class="s2">"sqlite:///:memory:"</span>
 
         <span class="n">catalog</span> <span class="o">=</span> <span class="n">SqlCatalog</span><span class="p">(</span>
-            <span class="s2">&quot;local&quot;</span><span class="p">,</span>
+            <span class="s2">"local"</span><span class="p">,</span>
             <span class="o">**</span><span class="p">{</span>
-                <span class="s2">&quot;uri&quot;</span><span class="p">:</span> <span class="n">catalog_uri</span><span class="p">,</span>
-                <span class="s2">&quot;warehouse&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;file://</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="s2">"uri"</span><span class="p">:</span> <span class="n">catalog_uri</span><span class="p">,</span>
+                <span class="s2">"warehouse"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"file://</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
 
         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Created local catalog with warehouse: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"Created local catalog with warehouse: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">warehouse_path</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">catalog</span></div>
 

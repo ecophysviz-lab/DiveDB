@@ -72,12 +72,12 @@
            <div itemprop="articleBody">
              
   <h1>Source code for DiveDB.services.notion_orm</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""</span>
 <span class="sd">Notion ORM - A lightweight ORM-like interface for querying Notion databases.</span>
 
 <span class="sd">This module provides an easy way to define models that map to Notion databases</span>
 <span class="sd">and query them using a familiar ORM-like syntax.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
@@ -102,9 +102,9 @@
 <div class="viewcode-block" id="ModelObjects">
 <a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.notion_orm.ModelObjects">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelObjects</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Query manager for NotionModel.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_cls</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_cls</span> <span class="o">=</span> <span class="n">model_cls</span>
@@ -114,31 +114,31 @@
 <div class="viewcode-block" id="ModelObjects.all">
 <a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.notion_orm.ModelObjects.all">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Get all records from the database.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            use_cache: If True, cache results with 4-hour TTL</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_use_cache</span> <span class="o">=</span> <span class="n">use_cache</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_query</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="ModelObjects.filter">
 <a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.notion_orm.ModelObjects.filter">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ModelObjects&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"ModelObjects"</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Filter records based on provided criteria.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            use_cache: If True, cache results with 4-hour TTL</span>
 <span class="sd">            **kwargs: Filter criteria</span>
 <span class="sd">            For properties with spaces, use underscores in the keyword argument:</span>
-<span class="sd">            e.g., Project_ID=&quot;123&quot; for &quot;Project ID&quot; property</span>
+<span class="sd">            e.g., Project_ID="123" for "Project ID" property</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Self for method chaining</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_use_cache</span> <span class="o">=</span> <span class="n">use_cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_filters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_filters</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
@@ -146,31 +146,31 @@
 
 <div class="viewcode-block" id="ModelObjects.first">
 <a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.notion_orm.ModelObjects.first">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">first</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;NotionModel&quot;</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">first</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">"NotionModel"</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Get the first result.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            use_cache: If True, cache results with 4-hour TTL</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_use_cache</span> <span class="o">=</span> <span class="n">use_cache</span>
         <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_query</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">results</span> <span class="k">else</span> <span class="kc">None</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_filters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Build Notion API filter objects from kwargs.</span>
 
 <span class="sd">        Handles property names with spaces by converting underscores to spaces</span>
 <span class="sd">        when looking up in the schema.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">filters</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_cls</span><span class="o">.</span><span class="n">_meta</span><span class="o">.</span><span class="n">schema</span>
 
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="c1"># Convert underscores to spaces for schema lookup</span>
-            <span class="n">schema_key</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span>
+            <span class="n">schema_key</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"_"</span><span class="p">,</span> <span class="s2">" "</span><span class="p">)</span>
 
             <span class="c1"># Try exact match first, then try with converted spaces</span>
             <span class="n">prop_info</span> <span class="o">=</span> <span class="n">schema</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">schema_key</span><span class="p">)</span>
@@ -179,99 +179,99 @@
                 <span class="n">prop_info</span> <span class="o">=</span> <span class="n">schema</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">prop_info</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Property &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39; (or &#39;</span><span class="si">{</span><span class="n">schema_key</span><span class="si">}</span><span class="s2">&#39;) not found in schema&quot;</span>
+                        <span class="sa">f</span><span class="s2">"Property '</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">' (or '</span><span class="si">{</span><span class="n">schema_key</span><span class="si">}</span><span class="s2">') not found in schema"</span>
                     <span class="p">)</span>
-                <span class="n">schema_key</span> <span class="o">=</span> <span class="n">key</span>  <span class="c1"># Use original key if that&#39;s what matched</span>
+                <span class="n">schema_key</span> <span class="o">=</span> <span class="n">key</span>  <span class="c1"># Use original key if that's what matched</span>
 
-            <span class="n">prop_type</span> <span class="o">=</span> <span class="n">prop_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
+            <span class="n">prop_type</span> <span class="o">=</span> <span class="n">prop_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;title&quot;</span><span class="p">:</span>
-                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;rich_text&quot;</span><span class="p">:</span>
-                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">&quot;rich_text&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;number&quot;</span><span class="p">:</span>
-                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">&quot;number&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;select&quot;</span><span class="p">:</span>
-                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">&quot;select&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;multi_select&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"title"</span><span class="p">:</span>
+                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">"title"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"equals"</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"rich_text"</span><span class="p">:</span>
+                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">"rich_text"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"equals"</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"number"</span><span class="p">:</span>
+                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">"number"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"equals"</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"select"</span><span class="p">:</span>
+                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">"select"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"equals"</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"multi_select"</span><span class="p">:</span>
                 <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="p">{</span><span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">&quot;multi_select&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;contains&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}}</span>
+                    <span class="p">{</span><span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">"multi_select"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"contains"</span><span class="p">:</span> <span class="n">value</span><span class="p">}}</span>
                 <span class="p">)</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;date&quot;</span><span class="p">:</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"date"</span><span class="p">:</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">)):</span>
                     <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
-                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">&quot;date&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;relation&quot;</span><span class="p">:</span>
+                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">"date"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"equals"</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"relation"</span><span class="p">:</span>
                 <span class="c1"># Handle relation filtering by ID</span>
                 <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="p">{</span><span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">&quot;relation&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;contains&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}}</span>
+                    <span class="p">{</span><span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">"relation"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"contains"</span><span class="p">:</span> <span class="n">value</span><span class="p">}}</span>
                 <span class="p">)</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;checkbox&quot;</span><span class="p">:</span>
-                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">&quot;checkbox&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;formula&quot;</span><span class="p">:</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"checkbox"</span><span class="p">:</span>
+                <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">"checkbox"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"equals"</span><span class="p">:</span> <span class="n">value</span><span class="p">}})</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"formula"</span><span class="p">:</span>
                 <span class="c1"># Formula filtering depends on the formula result type</span>
-                <span class="n">formula_type</span> <span class="o">=</span> <span class="n">prop_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;formula&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">formula_type</span> <span class="o">==</span> <span class="s2">&quot;string&quot;</span><span class="p">:</span>
+                <span class="n">formula_type</span> <span class="o">=</span> <span class="n">prop_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"formula"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">formula_type</span> <span class="o">==</span> <span class="s2">"string"</span><span class="p">:</span>
                     <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                         <span class="p">{</span>
-                            <span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span>
-                            <span class="s2">&quot;formula&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;string&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}},</span>
+                            <span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span>
+                            <span class="s2">"formula"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"string"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"equals"</span><span class="p">:</span> <span class="n">value</span><span class="p">}},</span>
                         <span class="p">}</span>
                     <span class="p">)</span>
-                <span class="k">elif</span> <span class="n">formula_type</span> <span class="o">==</span> <span class="s2">&quot;number&quot;</span><span class="p">:</span>
+                <span class="k">elif</span> <span class="n">formula_type</span> <span class="o">==</span> <span class="s2">"number"</span><span class="p">:</span>
                     <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                         <span class="p">{</span>
-                            <span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span>
-                            <span class="s2">&quot;formula&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;number&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}},</span>
+                            <span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span>
+                            <span class="s2">"formula"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"number"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"equals"</span><span class="p">:</span> <span class="n">value</span><span class="p">}},</span>
                         <span class="p">}</span>
                     <span class="p">)</span>
-                <span class="k">elif</span> <span class="n">formula_type</span> <span class="o">==</span> <span class="s2">&quot;boolean&quot;</span><span class="p">:</span>
+                <span class="k">elif</span> <span class="n">formula_type</span> <span class="o">==</span> <span class="s2">"boolean"</span><span class="p">:</span>
                     <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                         <span class="p">{</span>
-                            <span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span>
-                            <span class="s2">&quot;formula&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;boolean&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}},</span>
+                            <span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span>
+                            <span class="s2">"formula"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"boolean"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"equals"</span><span class="p">:</span> <span class="n">value</span><span class="p">}},</span>
                         <span class="p">}</span>
                     <span class="p">)</span>
-                <span class="k">elif</span> <span class="n">formula_type</span> <span class="o">==</span> <span class="s2">&quot;date&quot;</span><span class="p">:</span>
+                <span class="k">elif</span> <span class="n">formula_type</span> <span class="o">==</span> <span class="s2">"date"</span><span class="p">:</span>
                     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">)):</span>
                         <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
                     <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                        <span class="p">{</span><span class="s2">&quot;property&quot;</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">&quot;formula&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;date&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;equals&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}}}</span>
+                        <span class="p">{</span><span class="s2">"property"</span><span class="p">:</span> <span class="n">schema_key</span><span class="p">,</span> <span class="s2">"formula"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"date"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"equals"</span><span class="p">:</span> <span class="n">value</span><span class="p">}}}</span>
                     <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">filters</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;NotionModel&quot;</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">"NotionModel"</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Execute the query against Notion API.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            List of model instances</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_cls</span><span class="o">.</span><span class="n">_meta</span><span class="o">.</span><span class="n">notion_client</span>
         <span class="n">db_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_cls</span><span class="o">.</span><span class="n">_meta</span><span class="o">.</span><span class="n">database_id</span>
 
         <span class="n">query_args</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filters</span><span class="p">:</span>
-            <span class="n">query_args</span><span class="p">[</span><span class="s2">&quot;filter&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;and&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filters</span><span class="p">}</span>
+            <span class="n">query_args</span><span class="p">[</span><span class="s2">"filter"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"and"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filters</span><span class="p">}</span>
 
         <span class="k">if</span> <span class="n">limit</span><span class="p">:</span>
-            <span class="n">query_args</span><span class="p">[</span><span class="s2">&quot;page_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">limit</span>
+            <span class="n">query_args</span><span class="p">[</span><span class="s2">"page_size"</span><span class="p">]</span> <span class="o">=</span> <span class="n">limit</span>
 
         <span class="c1"># Check cache if enabled</span>
         <span class="n">cache_key</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_cache</span><span class="p">:</span>
             <span class="n">cache_params</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;db_id&quot;</span><span class="p">:</span> <span class="n">db_id</span><span class="p">,</span>
-                <span class="s2">&quot;filters&quot;</span><span class="p">:</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filters</span><span class="p">),</span>
-                <span class="s2">&quot;limit&quot;</span><span class="p">:</span> <span class="n">limit</span><span class="p">,</span>
+                <span class="s2">"db_id"</span><span class="p">:</span> <span class="n">db_id</span><span class="p">,</span>
+                <span class="s2">"filters"</span><span class="p">:</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filters</span><span class="p">),</span>
+                <span class="s2">"limit"</span><span class="p">:</span> <span class="n">limit</span><span class="p">,</span>
             <span class="p">}</span>
             <span class="n">cache_key</span> <span class="o">=</span> <span class="n">generate_cache_key</span><span class="p">(</span><span class="n">cache_params</span><span class="p">)</span>
             <span class="n">cached_pages</span> <span class="o">=</span> <span class="n">load_from_cache</span><span class="p">(</span>
-                <span class="n">cache_key</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">NOTION_QUERY_TTL</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">&quot;notion&quot;</span><span class="p">]</span>
+                <span class="n">cache_key</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">NOTION_QUERY_TTL</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">"notion"</span><span class="p">]</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">cached_pages</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Notion cache hit for db_id=</span><span class="si">{</span><span class="n">db_id</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Notion cache hit for db_id=</span><span class="si">{</span><span class="n">db_id</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
                 <span class="c1"># Convert cached page data back to model instances</span>
                 <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">model_cls</span><span class="o">.</span><span class="n">_from_notion_page</span><span class="p">(</span><span class="n">page</span><span class="p">)</span> <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">cached_pages</span><span class="p">]</span>
 
@@ -282,23 +282,23 @@
 
         <span class="k">while</span> <span class="n">has_more</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">start_cursor</span><span class="p">:</span>
-                <span class="n">query_args</span><span class="p">[</span><span class="s2">&quot;start_cursor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">start_cursor</span>
+                <span class="n">query_args</span><span class="p">[</span><span class="s2">"start_cursor"</span><span class="p">]</span> <span class="o">=</span> <span class="n">start_cursor</span>
 
             <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">databases</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">database_id</span><span class="o">=</span><span class="n">db_id</span><span class="p">,</span> <span class="o">**</span><span class="n">query_args</span><span class="p">)</span>
 
-            <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;results&quot;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"results"</span><span class="p">,</span> <span class="p">[]):</span>
                 <span class="n">raw_pages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">page</span><span class="p">)</span>
                 <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_cls</span><span class="o">.</span><span class="n">_from_notion_page</span><span class="p">(</span><span class="n">page</span><span class="p">))</span>
 
-            <span class="n">has_more</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;has_more&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-            <span class="n">start_cursor</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;next_cursor&quot;</span><span class="p">)</span>
+            <span class="n">has_more</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"has_more"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+            <span class="n">start_cursor</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"next_cursor"</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">limit</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">limit</span><span class="p">:</span>
                 <span class="k">break</span>
 
         <span class="c1"># Save to cache if enabled</span>
         <span class="k">if</span> <span class="n">cache_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">save_to_cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">raw_pages</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">&quot;notion&quot;</span><span class="p">])</span>
+            <span class="n">save_to_cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">raw_pages</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">"notion"</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="n">results</span></div>
 
@@ -307,34 +307,34 @@
 <div class="viewcode-block" id="NotionModel">
 <a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.notion_orm.NotionModel">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NotionModel</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Base class for Notion database models.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">objects</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">ModelObjects</span><span class="p">]</span>
     <span class="n">_meta</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Initialize a model instance.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            **kwargs: Model field values</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_raw_data</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Set up class when a subclass is created.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">cls</span><span class="o">.</span><span class="n">objects</span> <span class="o">=</span> <span class="n">ModelObjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_from_notion_page</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">page_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NotionModel&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_from_notion_page</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">page_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"NotionModel"</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Create a model instance from Notion page data.</span>
 
 <span class="sd">        Args:</span>
@@ -342,65 +342,65 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Model instance</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">instance</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
         <span class="n">instance</span><span class="o">.</span><span class="n">_raw_data</span> <span class="o">=</span> <span class="n">page_data</span>
-        <span class="n">instance</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
-        <span class="n">instance</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">)</span>
-        <span class="n">instance</span><span class="o">.</span><span class="n">created_time</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;created_time&quot;</span><span class="p">)</span>
-        <span class="n">instance</span><span class="o">.</span><span class="n">last_edited_time</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;last_edited_time&quot;</span><span class="p">)</span>
+        <span class="n">instance</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">)</span>
+        <span class="n">instance</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"url"</span><span class="p">)</span>
+        <span class="n">instance</span><span class="o">.</span><span class="n">created_time</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"created_time"</span><span class="p">)</span>
+        <span class="n">instance</span><span class="o">.</span><span class="n">last_edited_time</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"last_edited_time"</span><span class="p">)</span>
 
         <span class="c1"># Extract page icon (root-level property)</span>
-        <span class="n">icon_data</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;icon&quot;</span><span class="p">)</span>
+        <span class="n">icon_data</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"icon"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">icon_data</span><span class="p">:</span>
-            <span class="n">icon_type</span> <span class="o">=</span> <span class="n">icon_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">icon_type</span> <span class="o">==</span> <span class="s2">&quot;emoji&quot;</span><span class="p">:</span>
-                <span class="n">instance</span><span class="o">.</span><span class="n">icon</span> <span class="o">=</span> <span class="n">icon_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;emoji&quot;</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">icon_type</span> <span class="o">==</span> <span class="s2">&quot;file&quot;</span><span class="p">:</span>
-                <span class="n">instance</span><span class="o">.</span><span class="n">icon</span> <span class="o">=</span> <span class="n">icon_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;file&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">icon_type</span> <span class="o">==</span> <span class="s2">&quot;external&quot;</span><span class="p">:</span>
-                <span class="n">instance</span><span class="o">.</span><span class="n">icon</span> <span class="o">=</span> <span class="n">icon_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;external&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">)</span>
+            <span class="n">icon_type</span> <span class="o">=</span> <span class="n">icon_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">icon_type</span> <span class="o">==</span> <span class="s2">"emoji"</span><span class="p">:</span>
+                <span class="n">instance</span><span class="o">.</span><span class="n">icon</span> <span class="o">=</span> <span class="n">icon_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"emoji"</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">icon_type</span> <span class="o">==</span> <span class="s2">"file"</span><span class="p">:</span>
+                <span class="n">instance</span><span class="o">.</span><span class="n">icon</span> <span class="o">=</span> <span class="n">icon_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"file"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"url"</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">icon_type</span> <span class="o">==</span> <span class="s2">"external"</span><span class="p">:</span>
+                <span class="n">instance</span><span class="o">.</span><span class="n">icon</span> <span class="o">=</span> <span class="n">icon_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"external"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"url"</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">instance</span><span class="o">.</span><span class="n">icon</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">instance</span><span class="o">.</span><span class="n">icon</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Parse properties</span>
-        <span class="n">properties</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;properties&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="n">page_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"properties"</span><span class="p">,</span> <span class="p">{})</span>
         <span class="k">for</span> <span class="n">prop_name</span><span class="p">,</span> <span class="n">prop_data</span> <span class="ow">in</span> <span class="n">properties</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">prop_type</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
+            <span class="n">prop_type</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;title&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_title</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="p">[]))</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;rich_text&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_rich_text</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rich_text&quot;</span><span class="p">,</span> <span class="p">[]))</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;number&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;number&quot;</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;select&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_select</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;select&quot;</span><span class="p">))</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;multi_select&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_multi_select</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;multi_select&quot;</span><span class="p">,</span> <span class="p">[]))</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;date&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_date</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">))</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;relation&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"title"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_title</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"title"</span><span class="p">,</span> <span class="p">[]))</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"rich_text"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_rich_text</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rich_text"</span><span class="p">,</span> <span class="p">[]))</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"number"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"number"</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"select"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_select</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"select"</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"multi_select"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_multi_select</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"multi_select"</span><span class="p">,</span> <span class="p">[]))</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"date"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_date</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"date"</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"relation"</span><span class="p">:</span>
                 <span class="c1"># Store relation IDs for lazy loading</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;relation&quot;</span><span class="p">,</span> <span class="p">[])</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;checkbox&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;checkbox&quot;</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;url&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;email&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;email&quot;</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;phone_number&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;phone_number&quot;</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;formula&quot;</span><span class="p">:</span>
-                <span class="n">formula_type</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;formula&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"relation"</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"checkbox"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"checkbox"</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"url"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"url"</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"email"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"email"</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"phone_number"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"phone_number"</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"formula"</span><span class="p">:</span>
+                <span class="n">formula_type</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"formula"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">formula_type</span><span class="p">:</span>
-                    <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;formula&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">formula_type</span><span class="p">)</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"formula"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">formula_type</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">value</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;files&quot;</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_files</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;files&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+            <span class="k">elif</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"files"</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse_files</span><span class="p">(</span><span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"files"</span><span class="p">,</span> <span class="p">[]))</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">value</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -410,75 +410,75 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_parse_title</span><span class="p">(</span><span class="n">title_blocks</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse title property to string.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Parse title property to string."""</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">title_blocks</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">&quot;&quot;</span>
-        <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;plain_text&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">title_blocks</span><span class="p">)</span>
+            <span class="k">return</span> <span class="s2">""</span>
+        <span class="k">return</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"plain_text"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">title_blocks</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_parse_rich_text</span><span class="p">(</span><span class="n">text_blocks</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse rich text property to string.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Parse rich text property to string."""</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">text_blocks</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">&quot;&quot;</span>
-        <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;plain_text&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">text_blocks</span><span class="p">)</span>
+            <span class="k">return</span> <span class="s2">""</span>
+        <span class="k">return</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"plain_text"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">text_blocks</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_parse_select</span><span class="p">(</span><span class="n">select_data</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse select property.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Parse select property."""</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">select_data</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="n">select_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">select_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_parse_multi_select</span><span class="p">(</span><span class="n">multi_select_data</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse multi-select property to list of strings.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Parse multi-select property to list of strings."""</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">multi_select_data</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[]</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">multi_select_data</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">multi_select_data</span><span class="p">]</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_parse_date</span><span class="p">(</span><span class="n">date_data</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse date property to datetime.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Parse date property to datetime."""</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">date_data</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="n">start_date</span> <span class="o">=</span> <span class="n">date_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">)</span>
+        <span class="n">start_date</span> <span class="o">=</span> <span class="n">date_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"start"</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">start_date</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="c1"># Handle both date-only and datetime formats</span>
-        <span class="k">if</span> <span class="s2">&quot;T&quot;</span> <span class="ow">in</span> <span class="n">start_date</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="n">start_date</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;Z&quot;</span><span class="p">,</span> <span class="s2">&quot;+00:00&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="s2">"T"</span> <span class="ow">in</span> <span class="n">start_date</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="n">start_date</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"Z"</span><span class="p">,</span> <span class="s2">"+00:00"</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="n">start_date</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_parse_files</span><span class="p">(</span><span class="n">files_data</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Parse files property to list of file info dicts.</span>
 <span class="sd">        Each dict contains: url, name, type.</span>
 <span class="sd">        Returns list of dicts with file information.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">files_data</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[]</span>
 
         <span class="n">parsed_files</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">file_item</span> <span class="ow">in</span> <span class="n">files_data</span><span class="p">:</span>
-            <span class="n">file_type</span> <span class="o">=</span> <span class="n">file_item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
+            <span class="n">file_type</span> <span class="o">=</span> <span class="n">file_item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span>
             <span class="n">file_info</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">file_item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">file_type</span><span class="p">,</span>
+                <span class="s2">"name"</span><span class="p">:</span> <span class="n">file_item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">),</span>
+                <span class="s2">"type"</span><span class="p">:</span> <span class="n">file_type</span><span class="p">,</span>
             <span class="p">}</span>
 
             <span class="c1"># Handle internal Notion files</span>
-            <span class="k">if</span> <span class="n">file_type</span> <span class="o">==</span> <span class="s2">&quot;file&quot;</span><span class="p">:</span>
-                <span class="n">file_data</span> <span class="o">=</span> <span class="n">file_item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;file&quot;</span><span class="p">,</span> <span class="p">{})</span>
-                <span class="n">file_info</span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">file_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">)</span>
-                <span class="n">file_info</span><span class="p">[</span><span class="s2">&quot;expiry_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">file_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;expiry_time&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">file_type</span> <span class="o">==</span> <span class="s2">"file"</span><span class="p">:</span>
+                <span class="n">file_data</span> <span class="o">=</span> <span class="n">file_item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"file"</span><span class="p">,</span> <span class="p">{})</span>
+                <span class="n">file_info</span><span class="p">[</span><span class="s2">"url"</span><span class="p">]</span> <span class="o">=</span> <span class="n">file_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"url"</span><span class="p">)</span>
+                <span class="n">file_info</span><span class="p">[</span><span class="s2">"expiry_time"</span><span class="p">]</span> <span class="o">=</span> <span class="n">file_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"expiry_time"</span><span class="p">)</span>
             <span class="c1"># Handle external files</span>
-            <span class="k">elif</span> <span class="n">file_type</span> <span class="o">==</span> <span class="s2">&quot;external&quot;</span><span class="p">:</span>
-                <span class="n">external_data</span> <span class="o">=</span> <span class="n">file_item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;external&quot;</span><span class="p">,</span> <span class="p">{})</span>
-                <span class="n">file_info</span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">external_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">file_type</span> <span class="o">==</span> <span class="s2">"external"</span><span class="p">:</span>
+                <span class="n">external_data</span> <span class="o">=</span> <span class="n">file_item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"external"</span><span class="p">,</span> <span class="p">{})</span>
+                <span class="n">file_info</span><span class="p">[</span><span class="s2">"url"</span><span class="p">]</span> <span class="o">=</span> <span class="n">external_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"url"</span><span class="p">)</span>
 
             <span class="n">parsed_files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">file_info</span><span class="p">)</span>
 
@@ -489,64 +489,64 @@
 <div class="viewcode-block" id="NotionORMManager">
 <a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.notion_orm.NotionORMManager">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NotionORMManager</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Manager class for handling Notion database models and queries.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="c1"># TODO: IDENTIFY ORPHAN DATALAKES</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db_map</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Initialize the NotionORMManager.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            db_map: Dictionary mapping database names to their Notion database IDs</span>
 <span class="sd">            token: Notion API token</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">db_map</span> <span class="o">=</span> <span class="n">db_map</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">auth</span><span class="o">=</span><span class="n">token</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_models</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_schemas</span> <span class="o">=</span> <span class="p">{}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Fetch and cache the schema for a database.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            db_name: Name of the database</span>
 <span class="sd">            use_cache: If True, cache schema with 24-hour TTL (default: True)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">db_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">db_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">db_id</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database &#39;</span><span class="si">{</span><span class="n">db_name</span><span class="si">}</span><span class="s2">&#39; not found in database map&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Database '</span><span class="si">{</span><span class="n">db_name</span><span class="si">}</span><span class="s2">' not found in database map"</span><span class="p">)</span>
 
         <span class="c1"># Check file cache if enabled</span>
         <span class="n">cache_key</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">use_cache</span><span class="p">:</span>
-            <span class="n">cache_params</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="s2">&quot;db_id&quot;</span><span class="p">:</span> <span class="n">db_id</span><span class="p">}</span>
+            <span class="n">cache_params</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"schema"</span><span class="p">,</span> <span class="s2">"db_id"</span><span class="p">:</span> <span class="n">db_id</span><span class="p">}</span>
             <span class="n">cache_key</span> <span class="o">=</span> <span class="n">generate_cache_key</span><span class="p">(</span><span class="n">cache_params</span><span class="p">)</span>
             <span class="n">cached_schema</span> <span class="o">=</span> <span class="n">load_from_cache</span><span class="p">(</span>
-                <span class="n">cache_key</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">NOTION_SCHEMA_TTL</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">&quot;notion&quot;</span><span class="p">]</span>
+                <span class="n">cache_key</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">NOTION_SCHEMA_TTL</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">"notion"</span><span class="p">]</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">cached_schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Notion schema cache hit for </span><span class="si">{</span><span class="n">db_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Notion schema cache hit for </span><span class="si">{</span><span class="n">db_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_schemas</span><span class="p">[</span><span class="n">db_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">cached_schema</span>
                 <span class="k">return</span> <span class="n">cached_schema</span>
 
         <span class="n">db_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">databases</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="n">database_id</span><span class="o">=</span><span class="n">db_id</span><span class="p">)</span>
-        <span class="n">schema</span> <span class="o">=</span> <span class="n">db_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;properties&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="n">db_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"properties"</span><span class="p">,</span> <span class="p">{})</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_schemas</span><span class="p">[</span><span class="n">db_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">schema</span>
 
         <span class="c1"># Save to file cache</span>
         <span class="k">if</span> <span class="n">cache_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">save_to_cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">schema</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">&quot;notion&quot;</span><span class="p">])</span>
+            <span class="n">save_to_cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">schema</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="n">CACHE_DIRS</span><span class="p">[</span><span class="s2">"notion"</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="n">schema</span>
 
 <div class="viewcode-block" id="NotionORMManager.get_model">
 <a class="viewcode-back" href="../../../DiveDB.html#DiveDB.services.notion_orm.NotionORMManager.get_model">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">NotionModel</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Get or create a model class for a Notion database.</span>
 
 <span class="sd">        Args:</span>
@@ -554,17 +554,17 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Model class for the specified database</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">model_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_models</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_models</span><span class="p">[</span><span class="n">model_name</span><span class="p">]</span>
 
         <span class="c1"># Create new model</span>
-        <span class="n">db_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> DB&quot;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">model_name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot; DB&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">model_name</span>
-        <span class="n">db_name</span> <span class="o">=</span> <span class="n">db_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;s DB&quot;</span><span class="p">,</span> <span class="s2">&quot; DB&quot;</span><span class="p">)</span>
+        <span class="n">db_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> DB"</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">model_name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">" DB"</span><span class="p">)</span> <span class="k">else</span> <span class="n">model_name</span>
+        <span class="n">db_name</span> <span class="o">=</span> <span class="n">db_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"s DB"</span><span class="p">,</span> <span class="s2">" DB"</span><span class="p">)</span>
         <span class="n">db_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">db_name</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">db_id</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database &#39;</span><span class="si">{</span><span class="n">db_name</span><span class="si">}</span><span class="s2">&#39; not found in database map&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Database '</span><span class="si">{</span><span class="n">db_name</span><span class="si">}</span><span class="s2">' not found in database map"</span><span class="p">)</span>
 
         <span class="c1"># Get database schema</span>
         <span class="n">schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_schema</span><span class="p">(</span><span class="n">db_name</span><span class="p">)</span>
@@ -574,14 +574,14 @@
 
         <span class="c1"># Set meta attributes directly on the class</span>
         <span class="n">model</span><span class="o">.</span><span class="n">_meta</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span>
-            <span class="s2">&quot;Meta&quot;</span><span class="p">,</span>
+            <span class="s2">"Meta"</span><span class="p">,</span>
             <span class="p">(),</span>
             <span class="p">{</span>
-                <span class="s2">&quot;database_id&quot;</span><span class="p">:</span> <span class="n">db_id</span><span class="p">,</span>
-                <span class="s2">&quot;database_name&quot;</span><span class="p">:</span> <span class="n">db_name</span><span class="p">,</span>
-                <span class="s2">&quot;notion_client&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">,</span>
-                <span class="s2">&quot;schema&quot;</span><span class="p">:</span> <span class="n">schema</span><span class="p">,</span>
-                <span class="s2">&quot;manager&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="p">,</span>
+                <span class="s2">"database_id"</span><span class="p">:</span> <span class="n">db_id</span><span class="p">,</span>
+                <span class="s2">"database_name"</span><span class="p">:</span> <span class="n">db_name</span><span class="p">,</span>
+                <span class="s2">"notion_client"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">,</span>
+                <span class="s2">"schema"</span><span class="p">:</span> <span class="n">schema</span><span class="p">,</span>
+                <span class="s2">"manager"</span><span class="p">:</span> <span class="bp">self</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)()</span>
 
@@ -597,9 +597,9 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_inject_query_methods</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">NotionModel</span><span class="p">]):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Inject query methods based on the schema.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">get_by_query</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">query</span><span class="p">):</span>
             <span class="n">query_dict</span> <span class="o">=</span> <span class="p">{}</span>
@@ -608,55 +608,55 @@
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="o">**</span><span class="n">query_dict</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
 
         <span class="c1"># Add a get_{model_name} method to the model class</span>
-        <span class="nb">setattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;get_</span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="vm">__name__</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">classmethod</span><span class="p">(</span><span class="n">get_by_query</span><span class="p">))</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"get_</span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="vm">__name__</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="nb">classmethod</span><span class="p">(</span><span class="n">get_by_query</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_inject_relationship_methods</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">NotionModel</span><span class="p">],</span> <span class="n">schema</span><span class="p">:</span> <span class="n">Dict</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Inject relationship methods based on the schema.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">prop_name</span><span class="p">,</span> <span class="n">prop_data</span> <span class="ow">in</span> <span class="n">schema</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">prop_type</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
+            <span class="n">prop_type</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">&quot;relation&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">prop_type</span> <span class="o">==</span> <span class="s2">"relation"</span><span class="p">:</span>
                 <span class="c1"># Get the related database ID</span>
-                <span class="n">relation_db_id</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;relation&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;database_id&quot;</span><span class="p">)</span>
+                <span class="n">relation_db_id</span> <span class="o">=</span> <span class="n">prop_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"relation"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"database_id"</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">relation_db_id</span><span class="p">:</span>
                     <span class="k">continue</span>
 
                 <span class="c1"># Normalize the relation ID by removing dashes for comparison</span>
-                <span class="n">normalized_relation_id</span> <span class="o">=</span> <span class="n">relation_db_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                <span class="n">normalized_relation_id</span> <span class="o">=</span> <span class="n">relation_db_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"-"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
 
                 <span class="c1"># Reverse-lookup the actual database name from the relation ID</span>
                 <span class="n">target_db_name</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">for</span> <span class="n">db_name</span><span class="p">,</span> <span class="n">db_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_map</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                     <span class="c1"># Normalize the database ID by removing dashes for comparison</span>
-                    <span class="n">normalized_db_id</span> <span class="o">=</span> <span class="n">db_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                    <span class="n">normalized_db_id</span> <span class="o">=</span> <span class="n">db_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"-"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">normalized_db_id</span> <span class="o">==</span> <span class="n">normalized_relation_id</span><span class="p">:</span>
                         <span class="n">target_db_name</span> <span class="o">=</span> <span class="n">db_name</span>
                         <span class="k">break</span>
 
                 <span class="c1"># Determine the related model name from the actual target database</span>
                 <span class="k">if</span> <span class="n">target_db_name</span><span class="p">:</span>
-                    <span class="c1"># Use the actual target database name (e.g., &quot;Signal DB&quot;)</span>
+                    <span class="c1"># Use the actual target database name (e.g., "Signal DB")</span>
                     <span class="n">related_model_name</span> <span class="o">=</span> <span class="n">target_db_name</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="c1"># Fallback to the property name for backward compatibility</span>
-                    <span class="n">related_model_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prop_name</span><span class="si">}</span><span class="s2"> DB&quot;</span>
+                    <span class="n">related_model_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prop_name</span><span class="si">}</span><span class="s2"> DB"</span>
 
                 <span class="k">if</span> <span class="n">related_model_name</span><span class="p">:</span>
                     <span class="c1"># Create method name based on the target database, not the property name</span>
-                    <span class="c1"># (e.g., &quot;Signal DB&quot; -&gt; &quot;get_signal&quot;)</span>
-                    <span class="n">method_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;get_</span><span class="si">{</span><span class="n">related_model_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; DB&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="c1"># (e.g., "Signal DB" -&gt; "get_signal")</span>
+                    <span class="n">method_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"get_</span><span class="si">{</span><span class="n">related_model_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">' DB'</span><span class="p">,</span><span class="w"> </span><span class="s1">''</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">' '</span><span class="p">,</span><span class="w"> </span><span class="s1">'_'</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span>
 
                     <span class="c1"># Define method</span>
                     <span class="k">def</span><span class="w"> </span><span class="nf">get_related</span><span class="p">(</span>
                         <span class="bp">self</span><span class="p">,</span> <span class="n">prop_name</span><span class="o">=</span><span class="n">prop_name</span><span class="p">,</span> <span class="n">related_model_name</span><span class="o">=</span><span class="n">related_model_name</span>
                     <span class="p">):</span>
                         <span class="n">related_ids</span> <span class="o">=</span> <span class="p">(</span>
-                            <span class="bp">self</span><span class="o">.</span><span class="n">_raw_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;properties&quot;</span><span class="p">,</span> <span class="p">{})</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_raw_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"properties"</span><span class="p">,</span> <span class="p">{})</span>
                             <span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">prop_name</span><span class="p">,</span> <span class="p">{})</span>
-                            <span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;relation&quot;</span><span class="p">,</span> <span class="p">[])</span>
+                            <span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"relation"</span><span class="p">,</span> <span class="p">[])</span>
                         <span class="p">)</span>
                         <span class="k">if</span> <span class="ow">not</span> <span class="n">related_ids</span><span class="p">:</span>
                             <span class="k">return</span> <span class="p">[]</span>
@@ -665,7 +665,7 @@
                         <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
 
                         <span class="k">for</span> <span class="n">rel_id</span> <span class="ow">in</span> <span class="n">related_ids</span><span class="p">:</span>
-                            <span class="n">page_id</span> <span class="o">=</span> <span class="n">rel_id</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
+                            <span class="n">page_id</span> <span class="o">=</span> <span class="n">rel_id</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">)</span>
                             <span class="k">if</span> <span class="n">page_id</span><span class="p">:</span>
                                 <span class="n">page_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_meta</span><span class="o">.</span><span class="n">notion_client</span><span class="o">.</span><span class="n">pages</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span>
                                     <span class="n">page_id</span><span class="o">=</span><span class="n">page_id</span>
