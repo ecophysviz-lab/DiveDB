@@ -32,7 +32,7 @@ def test_schema():
     return pa.schema(
         [
             pa.field("dataset", pa.string(), nullable=False),  # Required
-            pa.field("animal", pa.string(), nullable=False),  # Required
+            pa.field("organism", pa.string(), nullable=False),  # Required
             pa.field("deployment", pa.string(), nullable=False),  # Required
             pa.field("recording", pa.string(), nullable=True),  # Optional
             pa.field("group", pa.string(), nullable=False),  # Required
@@ -139,9 +139,9 @@ class TestDuckPondInfrastructure:
         assert dataset_field.required is True
 
         # Check that animal is field 2
-        animal_field = schema.find_field(2)
-        assert animal_field.name == "animal"
-        assert animal_field.required is True
+        organism_field = schema.find_field(2)
+        assert organism_field.name == "organism"
+        assert organism_field.required is True
 
     def test_write_data_with_dataset(self, duck_pond, sample_data):
         """Test writing data with the new dataset field"""
@@ -159,7 +159,7 @@ class TestDuckPondInfrastructure:
         duck_pond.write_to_iceberg(sample_data, "data", dataset="test_dataset")
 
         result = duck_pond.conn.execute(
-            'SELECT dataset, animal, value FROM "test_dataset_Data" LIMIT 1'
+            'SELECT dataset, organism, value FROM "test_dataset_Data" LIMIT 1'
         ).fetchone()
         assert result[0] == "test_dataset"
         assert result[1] == "seal_001"
@@ -187,7 +187,7 @@ class TestDuckPondInfrastructure:
         assert (
             "dataset" not in partition_names
         )  # Dataset is no longer a partition field
-        assert "animal" in partition_names
+        assert "organism" in partition_names
         assert "deployment" in partition_names
         assert "class" in partition_names
         assert "label" in partition_names
@@ -350,7 +350,7 @@ class TestDuckPondDataTransformation:
         # Create test data
         dataset = "test_dataset_2024"
         metadata = {
-            "animal": "seal_003",
+            "organism": "seal_003",
             "deployment": "deploy_003",
             "recording": "rec_003",
         }
@@ -406,7 +406,7 @@ class TestDuckPondDataTransformation:
 
         # Write data to different datasets
         for dataset_name in ["dataset_A", "dataset_B"]:
-            metadata = {"animal": "seal_001", "deployment": "deploy_001"}
+            metadata = {"organism": "seal_001", "deployment": "deploy_001"}
             times = pa.array([pd.Timestamp("2024-01-01T00:00:00")])
             # Use list instead of numpy array to preserve original types
             values = [1.0]
@@ -570,7 +570,7 @@ class TestDuckPondEvents:
         return pa.schema(
             [
                 pa.field("dataset", pa.string(), nullable=False),
-                pa.field("animal", pa.string(), nullable=False),
+                pa.field("organism", pa.string(), nullable=False),
                 pa.field("deployment", pa.string(), nullable=False),
                 pa.field("recording", pa.string(), nullable=True),
                 pa.field("group", pa.string(), nullable=True),
@@ -639,7 +639,7 @@ class TestDuckPondEvents:
         # Verify columns are present
         expected_columns = [
             "dataset",
-            "animal",
+            "organism",
             "deployment",
             "recording",
             "group",
@@ -660,15 +660,17 @@ class TestDuckPondEvents:
             "surface_rest",
         ]
 
-    def test_get_events_with_animal_filter(self, duck_pond, sample_events):
-        """Test event filtering by animal ID"""
+    def test_get_events_with_organism_filter(self, duck_pond, sample_events):
+        """Test event filtering by organism ID"""
         duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
 
         # Get events for seal_001 only
-        events_df = duck_pond.get_events(dataset="test_dataset", animal_ids="seal_001")
+        events_df = duck_pond.get_events(
+            dataset="test_dataset", organism_ids="seal_001"
+        )
 
         assert len(events_df) == 2
-        assert all(events_df["animal"] == "seal_001")
+        assert all(events_df["organism"] == "seal_001")
 
     def test_get_events_with_multiple_filters(self, duck_pond, sample_events):
         """Test event filtering by multiple criteria"""
@@ -676,11 +678,11 @@ class TestDuckPondEvents:
 
         # Get events for seal_001 and deployment_001
         events_df = duck_pond.get_events(
-            dataset="test_dataset", animal_ids="seal_001", deployment_ids="deploy_001"
+            dataset="test_dataset", organism_ids="seal_001", deployment_ids="deploy_001"
         )
 
         assert len(events_df) == 2
-        assert all(events_df["animal"] == "seal_001")
+        assert all(events_df["organism"] == "seal_001")
         assert all(events_df["deployment"] == "deploy_001")
 
     def test_get_events_with_event_key_filter(self, duck_pond, sample_events):
@@ -744,7 +746,9 @@ class TestDuckPondEvents:
         duck_pond.write_to_iceberg(sample_events, "events", dataset="test_dataset")
 
         # Query for non-existent animal
-        events_df = duck_pond.get_events(dataset="test_dataset", animal_ids="seal_999")
+        events_df = duck_pond.get_events(
+            dataset="test_dataset", organism_ids="seal_999"
+        )
 
         assert len(events_df) == 0
         assert isinstance(events_df, pd.DataFrame)
@@ -755,11 +759,11 @@ class TestDuckPondEvents:
 
         # Query with list of animal IDs
         events_df = duck_pond.get_events(
-            dataset="test_dataset", animal_ids=["seal_001", "seal_002"]
+            dataset="test_dataset", organism_ids=["seal_001", "seal_002"]
         )
 
         assert len(events_df) == 3
-        assert set(events_df["animal"].unique()) == {"seal_001", "seal_002"}
+        assert set(events_df["organism"].unique()) == {"seal_001", "seal_002"}
 
     def test_get_events_ordered_by_start_time(self, duck_pond, sample_events):
         """Test that events are returned ordered by start time"""
@@ -795,7 +799,7 @@ class TestDuckPondWriteEvent:
 
         event = events_df.iloc[0]
         assert event["event_key"] == "breath"
-        assert event["animal"] == "seal_001"
+        assert event["organism"] == "seal_001"
         assert event["deployment"] == "deploy_001"
         # For point events, start and end should be equal
         assert event["datetime_start"] == event["datetime_end"]
@@ -968,7 +972,9 @@ class TestDuckPondWriteEvent:
         )
 
         # Test retrieval by animal
-        events_df = duck_pond.get_events(dataset="test_dataset", animal_ids="seal_001")
+        events_df = duck_pond.get_events(
+            dataset="test_dataset", organism_ids="seal_001"
+        )
         assert len(events_df) == 1
 
         # Test retrieval by deployment
@@ -1005,3 +1011,64 @@ class TestDuckPondWriteEvent:
         # Verify event was written
         events_df = duck_pond.get_events(dataset="new_dataset")
         assert len(events_df) == 1
+
+
+class TestDuckPondDeleteDeploymentData:
+    """Re-uploading a deployment must not duplicate rows in the DuckDB views.
+
+    Iceberg's delete only rewrites metadata; reads go through
+    read_parquet(..., hive_partitioning = true) against the warehouse directory, so
+    data files left on disk stay visible even after being unlinked from the manifest.
+    """
+
+    def _row_counts(self, duck_pond, dataset="test_dataset"):
+        view = duck_pond.get_view_name(dataset, "data")
+        duckdb_rows = duck_pond.conn.execute(f"SELECT COUNT(*) FROM {view}").fetchone()[
+            0
+        ]
+        iceberg_rows = len(
+            duck_pond.catalog.load_table(f"{dataset}.data").scan().to_arrow()
+        )
+        return duckdb_rows, iceberg_rows
+
+    def test_reupload_does_not_duplicate_rows(self, duck_pond, sample_data):
+        """A second write of the same deployment replaces rather than accumulates."""
+        duck_pond.write_to_iceberg(sample_data, "data", dataset="test_dataset")
+        first_duckdb, first_iceberg = self._row_counts(duck_pond)
+        assert first_duckdb == first_iceberg == 1
+
+        duck_pond.delete_deployment_data(
+            dataset="test_dataset", organism="seal_001", deployment="deploy_001"
+        )
+        duck_pond.write_to_iceberg(sample_data, "data", dataset="test_dataset")
+
+        duckdb_rows, iceberg_rows = self._row_counts(duck_pond)
+        assert (
+            duckdb_rows == iceberg_rows == 1
+        ), f"re-upload duplicated rows: duckdb={duckdb_rows}, iceberg={iceberg_rows}"
+
+    def test_delete_leaves_other_deployments_intact(
+        self, duck_pond, sample_data, sample_int_data
+    ):
+        """Deleting one deployment must not touch a sibling's data files."""
+        duck_pond.write_to_iceberg(sample_data, "data", dataset="test_dataset")
+        duck_pond.write_to_iceberg(sample_int_data, "data", dataset="test_dataset")
+        assert self._row_counts(duck_pond) == (2, 2)
+
+        duck_pond.delete_deployment_data(
+            dataset="test_dataset", organism="seal_001", deployment="deploy_001"
+        )
+
+        duckdb_rows, iceberg_rows = self._row_counts(duck_pond)
+        assert duckdb_rows == iceberg_rows == 1
+        remaining = duck_pond.conn.execute(
+            f"SELECT DISTINCT deployment FROM "
+            f"{duck_pond.get_view_name('test_dataset', 'data')}"
+        ).fetchall()
+        assert [r[0] for r in remaining] == ["deploy_002"]
+
+    def test_delete_on_empty_table_is_a_noop(self, duck_pond):
+        """First upload path: nothing written yet, nothing to clean up."""
+        duck_pond.delete_deployment_data(
+            dataset="test_dataset", organism="seal_001", deployment="deploy_001"
+        )

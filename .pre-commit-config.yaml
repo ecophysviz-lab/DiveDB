@@ -8,3 +8,15 @@ repos:
       hooks:
         - id: black
           exclude: jupyter/.*\.py,pyologger/.*\.py
+    # Notebook hygiene:
+    #   - BLOCKS on hardcoded credentials in cell source (never intentional).
+    #   - WARNS on cell outputs (a rendered example notebook is sometimes deliberate).
+    # To strip outputs: jupyter nbconvert --clear-output --inplace <notebook>
+    - repo: local
+      hooks:
+        - id: check-notebooks
+          name: check notebooks for secrets and outputs
+          entry: scripts/check_notebooks.py
+          language: python
+          files: \.ipynb$
+          verbose: true

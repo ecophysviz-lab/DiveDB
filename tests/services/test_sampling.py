@@ -41,7 +41,7 @@ def duck_pond_with_data(temp_warehouse):
 
     duck_pond.write_signal_data(
         dataset=dataset,
-        metadata={"animal": "test-animal", "deployment": "test-deployment"},
+        metadata={"organism": "test-animal", "deployment": "test-deployment"},
         times=acc_times_arrow,
         group="sensors",
         class_name="accelerometer",
@@ -57,7 +57,7 @@ def duck_pond_with_data(temp_warehouse):
 
     duck_pond.write_signal_data(
         dataset=dataset,
-        metadata={"animal": "test-animal", "deployment": "test-deployment"},
+        metadata={"organism": "test-animal", "deployment": "test-deployment"},
         times=depth_times_arrow,
         group="sensors",
         class_name="depth_sensor",
@@ -73,7 +73,7 @@ def duck_pond_with_data(temp_warehouse):
 
     duck_pond.write_signal_data(
         dataset=dataset,
-        metadata={"animal": "test-animal", "deployment": "test-deployment"},
+        metadata={"organism": "test-animal", "deployment": "test-deployment"},
         times=temp_times_arrow,
         group="sensors",
         class_name="temperature_sensor",

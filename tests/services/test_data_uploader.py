@@ -170,7 +170,7 @@ class TestDataUploaderEvents:
 
         # Set up test metadata
         metadata = {
-            "animal": "seal_001",
+            "organism": "seal_001",
             "deployment": "deploy_001",
             "recording": "rec_001",
         }
@@ -252,7 +252,7 @@ class TestDataUploaderEvents:
         # Test writing point event with nullable descriptions
         uploader._write_events_to_duck_pond(
             dataset=dataset,
-            metadata={"animal": "seal_test", "deployment": "deploy_test"},
+            metadata={"organism": "seal_test", "deployment": "deploy_test"},
             start_times=point_start,
             end_times=point_end,
             group="behavioral",
@@ -265,7 +265,7 @@ class TestDataUploaderEvents:
         # Test writing state event with descriptions
         uploader._write_events_to_duck_pond(
             dataset=dataset,
-            metadata={"animal": "seal_test", "deployment": "deploy_test"},
+            metadata={"organism": "seal_test", "deployment": "deploy_test"},
             start_times=state_start,
             end_times=state_end,
             group="behavioral",

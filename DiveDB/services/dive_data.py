@@ -42,12 +42,46 @@ class DiveData:
             return getattr(self.duckdb_relation, item)
 
     def get_metadata(self):
-        """Fetch logger id, animal id, and deployment id for each recording in `self.duckdb_relation`"""
+        """Fetch logger id, organism id, and deployment id for each recording in `self.duckdb_relation`"""
         return get_metadata(self)
 
     def export_to_edf(self, output_dir: str):
         """Export data to a set of EDF files"""
         return export_to_edf(self, output_dir)
+
+
+def get_organism_model(notion_manager: NotionORMManager):
+    """
+    Get the Notion model for organisms.
+
+    Tries the canonical "Organism DB" first, falling back to the legacy
+    "Animal DB" for Notion workspaces that have not been renamed yet.
+    """
+    for model_name in ("Organism DB", "Animal DB"):
+        try:
+            return notion_manager.get_model(model_name)
+        except ValueError:
+            continue
+    raise ValueError(
+        "Neither 'Organism DB' nor 'Animal DB' found in the Notion database map"
+    )
+
+
+def get_recording_organism_id(recording) -> str:
+    """
+    Get the organism id from a Recording record.
+
+    Accepts the legacy `animal_id` property for Notion workspaces that have not
+    been renamed yet.
+    """
+    for attr in ("organism_id", "animal_id"):
+        organism_id = getattr(recording, attr, None)
+        if organism_id:
+            return organism_id
+    raise Exception(
+        f"Recording '{recording.id}' has neither an 'Organism ID' nor an "
+        "'Animal ID' property in Notion!"
+    )
 
 
 def get_metadata(divedata):
@@ -65,7 +99,7 @@ def get_metadata(divedata):
 
     # Get models for the Notion databases
     Recording = divedata.notion_manager.get_model("Recordings DB")
-    Animal = divedata.notion_manager.get_model("Animals DB")
+    Organism = get_organism_model(divedata.notion_manager)
     Deployment = divedata.notion_manager.get_model("Deployments DB")
 
     for recording_id in recording_ids:
@@ -86,12 +120,11 @@ def get_metadata(divedata):
             recording.start_time.isoformat() if recording.start_time else None
         )
 
-        # Query Animals database in Notion
-        animal = Animal.objects.filter(id=recording.animal_id).first()
-        if not animal:
-            raise Exception(
-                f"Animal with id '{recording.animal_id}' not found in Notion!"
-            )
+        # Query Organism database in Notion
+        organism_id = get_recording_organism_id(recording)
+        organism = Organism.objects.filter(id=organism_id).first()
+        if not organism:
+            raise Exception(f"Organism with id '{organism_id}' not found in Notion!")
 
         # Query Deployments database in Notion
         deployment = Deployment.objects.filter(id=recording.deployment_id).first()
@@ -100,7 +133,7 @@ def get_metadata(divedata):
                 f"Deployment with id '{recording.deployment_id}' not found in Notion!"
             )
 
-        recording_metadata["animal_id"] = animal.id
+        recording_metadata["organism_id"] = organism.id
         recording_metadata["deployment_id"] = deployment.id
         recording_metadata["recording_id"] = recording_id
 
@@ -309,6 +342,6 @@ def construct_recording_edf(multisignal_data_df, metadata):
             EdfAnnotation(0, None, metadata_str),
         ]
     )
-    subject_code = metadata["animal_id"]
+    subject_code = metadata.get("organism_id") or metadata.get("animal_id")
     edf.patient = Patient(code=subject_code.replace(" ", "_"))
     return edf

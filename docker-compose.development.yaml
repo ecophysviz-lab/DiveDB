@@ -8,6 +8,9 @@ services:
     env_file:
       - .env
     volumes:
-      - ${LOCAL_ICEBERG_PATH}:${CONTAINER_ICEBERG_PATH}
-      - ${LOCAL_DATA_PATH}:${CONTAINER_DATA_PATH}
+      # Host paths come from .env; the container-side mount points are fixed, so they
+      # no longer need CONTAINER_* variables. Code inside the container reads
+      # CONTAINER_ICEBERG_PATH, which .env sets to /app/iceberg_warehouse.
+      - ${LOCAL_ICEBERG_PATH}:/app/iceberg_warehouse
+      - ${LOCAL_DATA_PATH}:/app/data
       - .:/app
