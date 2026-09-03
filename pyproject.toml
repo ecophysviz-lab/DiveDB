@@ -30,7 +30,7 @@ dependencies = [
   "tqdm==4.67.1",
   "xarray==2025.7.1",
   # Special cases that might be needed
-  "importlib-metadata==4.8.3",  # Often needed for older Python
+  "importlib-metadata>=4.13.0",  # transitive (dask, pyiceberg); floor set by dask
   "load-dotenv==0.1.0",  # If needed for runtime config
 ]
 
